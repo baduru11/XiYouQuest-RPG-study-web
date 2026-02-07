@@ -39,7 +39,7 @@ export async function assessPronunciation(
         "Content-Type": "audio/wav",
         Accept: "application/json",
       },
-      body: audioBuffer,
+      body: new Uint8Array(audioBuffer),
     }
   );
 
