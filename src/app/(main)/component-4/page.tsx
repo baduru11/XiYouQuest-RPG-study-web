@@ -86,7 +86,7 @@ export default async function Component4Page() {
         </p>
       </div>
 
-      <ReadingSession passages={passages} character={character} />
+      <ReadingSession passages={passages} character={character} characterId={characterData?.id} component={4} />
     </div>
   );
 }

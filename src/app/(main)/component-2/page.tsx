@@ -85,7 +85,7 @@ export default async function Component2Page() {
         </p>
       </div>
 
-      <PracticeSession questions={questions} character={character} />
+      <PracticeSession questions={questions} character={character} characterId={characterData?.id} component={2} />
     </div>
   );
 }

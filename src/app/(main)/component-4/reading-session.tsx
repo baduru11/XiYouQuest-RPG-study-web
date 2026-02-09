@@ -25,6 +25,8 @@ interface ReadingSessionProps {
     voiceId: string;
     expressions: Record<string, string>;
   };
+  characterId?: string;
+  component: 1 | 2 | 3 | 4 | 5;
 }
 
 type SessionPhase =
@@ -47,7 +49,7 @@ function splitIntoSentences(content: string): string[] {
   return sentences;
 }
 
-export function ReadingSession({ passages, character }: ReadingSessionProps) {
+export function ReadingSession({ passages, character, characterId, component }: ReadingSessionProps) {
   const [selectedPassage, setSelectedPassage] = useState<Passage | null>(null);
   const [phase, setPhase] = useState<SessionPhase>("select");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
@@ -141,6 +143,36 @@ export function ReadingSession({ passages, character }: ReadingSessionProps) {
       return () => clearTimeout(id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save progress when reading assessment completes
+  const hasSavedProgress = useRef(false);
+  useEffect(() => {
+    if (phase !== "feedback" || overallScore === null || !characterId || hasSavedProgress.current) return;
+    hasSavedProgress.current = true;
+
+    const saveProgress = async () => {
+      try {
+        await fetch("/api/progress/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId,
+            component,
+            score: overallScore,
+            xpEarned: totalXPEarned,
+            durationSeconds: 0,
+            questionsAttempted: 1,
+            questionsCorrect: overallScore >= 60 ? 1 : 0,
+            bestStreak: overallScore >= 60 ? 1 : 0,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save progress:", err);
+      }
+    };
+
+    saveProgress();
+  }, [phase, overallScore]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Play the entire passage as a model reading
   const playModelReading = useCallback(async () => {

@@ -33,6 +33,8 @@ interface SpeakingSessionProps {
     voiceId: string;
     expressions: Record<string, string>;
   };
+  characterId?: string;
+  component: 1 | 2 | 3 | 4 | 5;
 }
 
 type SessionPhase =
@@ -53,7 +55,7 @@ interface SpeakingAnalysis {
   overallFeedback: string;
 }
 
-export function SpeakingSession({ topics, character }: SpeakingSessionProps) {
+export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
   const [phase, setPhase] = useState<SessionPhase>("select");
@@ -125,6 +127,38 @@ export function SpeakingSession({ topics, character }: SpeakingSessionProps) {
       return () => clearTimeout(id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save progress when speaking assessment completes
+  const hasSavedProgress = useRef(false);
+  useEffect(() => {
+    if (phase !== "feedback" || !analysis || !characterId || hasSavedProgress.current) return;
+    hasSavedProgress.current = true;
+
+    const saveProgress = async () => {
+      const spokenTime = TOTAL_TIME - timeRemaining;
+
+      try {
+        await fetch("/api/progress/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId,
+            component,
+            score: analysis.pronunciationScore,
+            xpEarned: totalXPEarned,
+            durationSeconds: spokenTime,
+            questionsAttempted: 1,
+            questionsCorrect: analysis.pronunciationScore >= 60 ? 1 : 0,
+            bestStreak: analysis.pronunciationScore >= 60 ? 1 : 0,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save progress:", err);
+      }
+    };
+
+    saveProgress();
+  }, [phase, analysis]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timer logic
   useEffect(() => {

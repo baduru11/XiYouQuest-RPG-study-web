@@ -21,6 +21,8 @@ interface PracticeSessionProps {
     voiceId: string;
     expressions: Record<string, string>;
   };
+  characterId?: string;
+  component: 1 | 2 | 3 | 4 | 5;
 }
 
 type SessionPhase = "ready" | "listening" | "recording" | "assessing" | "feedback" | "complete";
@@ -36,7 +38,7 @@ interface GroupResult {
   groupXP: number;
 }
 
-export function PracticeSession({ questions, character }: PracticeSessionProps) {
+export function PracticeSession({ questions, character, characterId, component }: PracticeSessionProps) {
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [phase, setPhase] = useState<SessionPhase>("ready");
@@ -124,6 +126,41 @@ export function PracticeSession({ questions, character }: PracticeSessionProps) 
       return () => clearTimeout(id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save progress when session completes
+  useEffect(() => {
+    if (phase !== "complete" || !characterId) return;
+
+    const saveProgress = async () => {
+      const allScores = groupResults.flatMap(g =>
+        g.wordScores.filter(ws => ws.score !== null).map(ws => ws.score!)
+      );
+      const avgScore = allScores.length > 0
+        ? Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length)
+        : 0;
+
+      try {
+        await fetch("/api/progress/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId,
+            component,
+            score: avgScore,
+            xpEarned: totalXPEarned,
+            durationSeconds: 0,
+            questionsAttempted: 1,
+            questionsCorrect: avgScore >= 60 ? 1 : 0,
+            bestStreak: streak,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save progress:", err);
+      }
+    };
+
+    saveProgress();
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const playCharacterVoice = useCallback(async () => {
     if (isPlayingAudio || currentWords.length === 0) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,13 @@ interface QuizSessionProps {
     personalityPrompt: string;
     expressions: Record<string, string>;
   };
+  characterId?: string;
+  component: 1 | 2 | 3 | 4 | 5;
 }
 
 type SessionPhase = "answering" | "result" | "complete";
 
-export function QuizSession({ questions, character }: QuizSessionProps) {
+export function QuizSession({ questions, character, characterId, component }: QuizSessionProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState<SessionPhase>("answering");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
@@ -35,6 +37,38 @@ export function QuizSession({ questions, character }: QuizSessionProps) {
 
   const currentQuestion = questions[currentIndex];
   const progressPercent = questions.length > 0 ? Math.round((currentIndex / questions.length) * 100) : 0;
+
+  // Save progress when quiz completes
+  useEffect(() => {
+    if (phase !== "complete" || !characterId) return;
+
+    const saveProgress = async () => {
+      const totalQuestions = results.length;
+      const correctCount = results.filter(r => r.isCorrect).length;
+      const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+      try {
+        await fetch("/api/progress/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId,
+            component,
+            score: accuracy,
+            xpEarned: totalXPEarned,
+            durationSeconds: 0,
+            questionsAttempted: totalQuestions,
+            questionsCorrect: correctCount,
+            bestStreak: streak,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to save progress:", err);
+      }
+    };
+
+    saveProgress();
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAnswer = useCallback(async (answerIndex: number) => {
     if (phase !== "answering") return;

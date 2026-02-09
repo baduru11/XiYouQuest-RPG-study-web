@@ -93,7 +93,7 @@ export default async function Component3Page() {
         </p>
       </div>
 
-      <QuizSession questions={questions} character={character} />
+      <QuizSession questions={questions} character={character} characterId={characterData?.id} component={3} />
     </div>
   );
 }

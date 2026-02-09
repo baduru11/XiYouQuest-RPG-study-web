@@ -226,136 +226,16 @@ export async function synthesizeCompanion(params: {
 }
 
 /**
- * Parse a WAV buffer to extract raw PCM data and audio format info.
- */
-function parseWavPcm(wav: Buffer): {
-  pcm: Buffer;
-  sampleRate: number;
-  numChannels: number;
-  bitsPerSample: number;
-} {
-  // Read fmt sub-chunk fields
-  const numChannels = wav.readUInt16LE(22);
-  const sampleRate = wav.readUInt32LE(24);
-  const bitsPerSample = wav.readUInt16LE(34);
-
-  // Find "data" sub-chunk — scan for the ASCII "data" marker
-  let dataOffset = 36;
-  while (dataOffset < wav.length - 8) {
-    if (wav.toString("ascii", dataOffset, dataOffset + 4) === "data") {
-      break;
-    }
-    dataOffset += 2;
-  }
-
-  const dataSize = wav.readUInt32LE(dataOffset + 4);
-  const pcm = wav.subarray(dataOffset + 8, dataOffset + 8 + dataSize);
-
-  return { pcm, sampleRate, numChannels, bitsPerSample };
-}
-
-/**
- * Generate a silence PCM buffer of exact duration.
- */
-function generateSilence(
-  durationMs: number,
-  sampleRate: number,
-  numChannels: number,
-  bitsPerSample: number
-): Buffer {
-  const numSamples = Math.round((durationMs / 1000) * sampleRate);
-  const bytesPerSample = (numChannels * bitsPerSample) / 8;
-  return Buffer.alloc(numSamples * bytesPerSample); // zeros = silence
-}
-
-/**
- * Trim trailing silence from PCM, preserving a small fade-out margin.
- */
-function trimTrailingSilence(
-  pcm: Buffer,
-  sampleRate: number,
-  opts: { amplitudeThreshold?: number; marginMs?: number } = {}
-): Buffer {
-  const threshold = opts.amplitudeThreshold ?? 500;
-  const marginSamples = Math.round(((opts.marginMs ?? 50) / 1000) * sampleRate);
-  const totalSamples = Math.floor(pcm.length / 2);
-
-  // Scan backwards to find last audible sample
-  let lastAudible = totalSamples - 1;
-  while (lastAudible > 0) {
-    const amp = Math.abs(pcm.readInt16LE(lastAudible * 2));
-    if (amp > threshold) break;
-    lastAudible--;
-  }
-
-  const endSample = Math.min(lastAudible + marginSamples, totalSamples);
-  return pcm.subarray(0, endSample * 2);
-}
-
-/**
- * Synthesize a single word via TTS.
- * Sends the actual Chinese characters directly — Qwen3-TTS handles
- * polyphonic characters and tone from context natively.
- */
-async function synthesizeWord(params: {
-  voiceId: string;
-  word: string;
-}): Promise<{ pcm: Buffer; sampleRate: number; numChannels: number; bitsPerSample: number }> {
-  const wav = await synthesizeAcademic({ voiceId: params.voiceId, text: params.word });
-  const { pcm, sampleRate, numChannels, bitsPerSample } = parseWavPcm(wav);
-  return { pcm: trimTrailingSilence(pcm, sampleRate), sampleRate, numChannels, bitsPerSample };
-}
-
-// Per-word audio cache — reuses audio for the same (voiceId, word) across groups
-const wordAudioCache = new Map<string, Buffer>();
-const WORD_CACHE_MAX = 500;
-
-/**
- * Synthesize a group of words with precise, consistent silence between them.
- * Each word gets its own TTS call (sequential to avoid rate limits), then PCM
- * buffers are concatenated with exact-duration silence gaps.
+ * Synthesize a group of words as a single cohesive audio.
+ * Joins words with Chinese commas so the TTS engine produces natural pauses.
  */
 export async function synthesizeWordGroup(params: {
   voiceId: string;
   words: string[];
-  pauseMs?: number;
+  pauseMs?: number; // kept for API compat, ignored — pauses controlled by punctuation
 }): Promise<Buffer> {
-  const pauseMs = params.pauseMs ?? 750;
-
-  // Generate TTS for each word sequentially to avoid API rate limits.
-  // Per-word cache means repeated characters (e.g. 八) are only generated once.
-  const wordBuffers: Buffer[] = [];
-  for (const word of params.words) {
-    const cacheKey = `${params.voiceId}:${word}`;
-    let buf = wordAudioCache.get(cacheKey);
-    if (!buf) {
-      const result = await synthesizeWord({ voiceId: params.voiceId, word });
-      buf = addWavHeader(result.pcm, result.sampleRate, result.numChannels, result.bitsPerSample);
-      wordAudioCache.set(cacheKey, buf);
-      if (wordAudioCache.size > WORD_CACHE_MAX) {
-        const firstKey = wordAudioCache.keys().next().value;
-        if (firstKey !== undefined) wordAudioCache.delete(firstKey);
-      }
-    }
-    wordBuffers.push(buf);
-  }
-
-  // Parse each WAV to get raw PCM + audio format
-  const parsed = wordBuffers.map(parseWavPcm);
-  const { sampleRate, numChannels, bitsPerSample } = parsed[0];
-
-  // Generate silence buffer
-  const silence = generateSilence(pauseMs, sampleRate, numChannels, bitsPerSample);
-
-  // Concatenate: word1 + silence + word2 + silence + ... + wordN
-  const parts: Buffer[] = [];
-  parsed.forEach((p, i) => {
-    parts.push(p.pcm);
-    if (i < parsed.length - 1) parts.push(silence);
-  });
-
-  // Wrap in WAV header
-  return addWavHeader(Buffer.concat(parts), sampleRate, numChannels, bitsPerSample);
+  const text = params.words.join("，");
+  return synthesizeAcademic({ voiceId: params.voiceId, text });
 }
 
 /**

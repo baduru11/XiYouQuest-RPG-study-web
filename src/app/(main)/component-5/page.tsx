@@ -77,7 +77,7 @@ export default async function Component5Page() {
         </p>
       </div>
 
-      <SpeakingSession topics={topics} character={character} />
+      <SpeakingSession topics={topics} character={character} characterId={characterData?.id} component={5} />
     </div>
   );
 }
