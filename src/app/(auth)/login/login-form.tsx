@@ -51,7 +51,7 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-md pixel-border bg-card p-6 space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="font-pixel text-sm text-primary pixel-glow">
+        <h2 className="font-pixel text-base text-primary pixel-glow">
           {isSignUp ? "New Game" : "Continue"}
         </h2>
         <p className="text-muted-foreground">
@@ -61,11 +61,11 @@ export function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email" className="font-pixel text-[9px]">Email</Label>
+          <Label htmlFor="email" className="font-pixel text-xs">Email</Label>
           <Input id="email" name="email" type="email" required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password" className="font-pixel text-[9px]">Password</Label>
+          <Label htmlFor="password" className="font-pixel text-xs">Password</Label>
           <div className="relative">
             <Input
               id="password"
@@ -108,7 +108,7 @@ export function LoginForm() {
           <span className="w-full border-t-2 border-border" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-card px-2 font-pixel text-[8px] text-muted-foreground">Or</span>
+          <span className="bg-card px-2 font-pixel text-xs text-muted-foreground">Or</span>
         </div>
       </div>
 
@@ -157,7 +157,7 @@ export function LoginForm() {
         <button
           type="button"
           onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
-          className="font-pixel text-[8px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          className="font-pixel text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
         >
           {isSignUp ? "Already have a save? Log In" : "New adventurer? Sign Up"}
         </button>

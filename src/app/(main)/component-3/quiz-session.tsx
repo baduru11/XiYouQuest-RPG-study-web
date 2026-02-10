@@ -220,20 +220,20 @@ export function QuizSession({ questions, character, characterId, component }: Qu
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="text-center">
-                <p className="text-2xl font-bold">{totalQuestions}</p>
-                <p className="text-xs text-muted-foreground">Questions</p>
+                <p className="text-3xl font-bold">{totalQuestions}</p>
+                <p className="text-sm text-muted-foreground">Questions</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{correctCount}</p>
-                <p className="text-xs text-muted-foreground">Correct</p>
+                <p className="text-3xl font-bold text-green-600">{correctCount}</p>
+                <p className="text-sm text-muted-foreground">Correct</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold">{accuracy}%</p>
-                <p className="text-xs text-muted-foreground">Accuracy</p>
+                <p className="text-3xl font-bold">{accuracy}%</p>
+                <p className="text-sm text-muted-foreground">Accuracy</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-600">+{totalXPEarned}</p>
-                <p className="text-xs text-muted-foreground">XP Earned</p>
+                <p className="text-3xl font-bold text-yellow-600">+{totalXPEarned}</p>
+                <p className="text-sm text-muted-foreground">XP Earned</p>
               </div>
             </div>
 
@@ -280,7 +280,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                     <Badge variant={result.isCorrect ? "default" : "destructive"}>
                       {result.isCorrect ? "Correct" : "Wrong"}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-sm text-muted-foreground">
                       +{result.xpEarned} XP
                     </span>
                   </div>
@@ -353,11 +353,11 @@ export function QuizSession({ questions, character, characterId, component }: Qu
               {/* Question prompt */}
               <div className="text-center">
                 {currentQuestion.type === "measure-word" ? (
-                  <p className="text-3xl font-bold sm:text-4xl">
+                  <p className="text-3xl font-bold font-chinese sm:text-4xl">
                     {currentQuestion.prompt}
                   </p>
                 ) : (
-                  <p className="text-xl font-medium sm:text-2xl">
+                  <p className="text-xl font-medium font-chinese sm:text-2xl">
                     {currentQuestion.prompt}
                   </p>
                 )}
@@ -382,7 +382,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold">
                         {String.fromCharCode(65 + index)}
                       </span>
-                      <span className={`font-medium ${
+                      <span className={`font-medium font-chinese ${
                         currentQuestion.type === "measure-word" ? "text-2xl" : "text-lg"
                       }`}>
                         {option}

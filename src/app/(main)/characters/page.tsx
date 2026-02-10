@@ -46,7 +46,7 @@ export default async function CharactersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-pixel text-sm text-primary pixel-glow">Party Members</h1>
+        <h1 className="font-pixel text-base text-primary pixel-glow">Characters</h1>
         <p className="text-muted-foreground mt-1">
           Choose your study companion. Unlock new characters with XP!
         </p>

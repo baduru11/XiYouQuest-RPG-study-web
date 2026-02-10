@@ -496,8 +496,8 @@ export function ReadingSession({ passages, character, characterId, component }: 
               onClick={() => handleSelectPassage(passage)}
             >
               <CardContent className="pt-6">
-                <h3 className="text-lg font-bold mb-2">{passage.title}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-3">
+                <h3 className="text-lg font-bold font-chinese mb-2">{passage.title}</h3>
+                <p className="text-sm text-muted-foreground font-chinese line-clamp-3">
                   {passage.content}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -558,12 +558,12 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-600">+{totalXPEarned}</p>
-                <p className="text-xs text-muted-foreground">XP Earned</p>
+                <p className="text-3xl font-bold text-yellow-600">+{totalXPEarned}</p>
+                <p className="text-sm text-muted-foreground">XP Earned</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold">{isGood ? "Pass" : "Try Again"}</p>
-                <p className="text-xs text-muted-foreground">Result</p>
+                <p className="text-3xl font-bold">{isGood ? "Pass" : "Try Again"}</p>
+                <p className="text-sm text-muted-foreground">Result</p>
               </div>
             </div>
 
@@ -589,7 +589,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
                       key={index}
                       className="flex items-center justify-between rounded-md border p-2"
                     >
-                      <span className="text-sm flex-1 min-w-0 truncate">{item.sentence}</span>
+                      <span className="text-sm flex-1 min-w-0 truncate font-chinese">{item.sentence}</span>
                       <Badge
                         variant={
                           item.score >= 90
@@ -692,7 +692,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
             <CardContent className="py-6 space-y-4">
               {/* Passage header */}
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">{selectedPassage?.title}</h2>
+                <h2 className="text-xl font-bold font-chinese">{selectedPassage?.title}</h2>
                 <div className="flex items-center gap-2">
                   <Button
                     variant={showPinyin ? "default" : "outline"}
@@ -739,7 +739,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
                     `}
                     title="🔊 Click to hear this sentence"
                   >
-                    <span className="text-lg leading-loose">{sentence}</span>
+                    <span className="text-lg leading-loose font-chinese">{sentence}</span>
                   </span>
                 ))}
 

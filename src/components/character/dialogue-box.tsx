@@ -51,7 +51,7 @@ export function DialogueBox({
     <div className="pixel-border bg-card p-3">
       <div className="flex items-center gap-1.5 mb-1">
         <span className="inline-block h-2 w-2 bg-pixel-green" />
-        <p className="font-pixel text-[10px] text-primary">{characterName}</p>
+        <p className="font-pixel text-sm text-primary">{characterName}</p>
       </div>
       <p className="text-sm leading-relaxed">
         {displayedText}
@@ -60,7 +60,7 @@ export function DialogueBox({
       {!isComplete && (
         <button
           onClick={handleSkip}
-          className="mt-1 font-pixel text-[8px] text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          className="mt-1 font-pixel text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
         >
           Skip &gt;&gt;
         </button>

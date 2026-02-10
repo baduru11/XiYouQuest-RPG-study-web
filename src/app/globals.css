@@ -128,7 +128,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-retro), monospace;
+    font-family: var(--font-retro), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "SimHei", monospace;
     font-size: 20px;
     line-height: 1.5;
     background-image: url("/img/background/wmremove-transformed.png");
@@ -146,6 +146,10 @@
 
   .font-retro {
     font-family: var(--font-retro), monospace;
+  }
+
+  .font-chinese {
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "SimHei", sans-serif;
   }
 
   .animate-shimmer {

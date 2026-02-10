@@ -46,7 +46,7 @@ export function CharacterDisplay({
           </div>
         )}
       </div>
-      <span className="mt-2 font-pixel text-[9px] text-primary">{characterName}</span>
+      <span className="mt-2 font-pixel text-xs text-primary">{characterName}</span>
     </div>
   );
 }

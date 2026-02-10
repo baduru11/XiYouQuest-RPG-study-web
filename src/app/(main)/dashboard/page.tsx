@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import Image from "next/image";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { ClipboardCheck, Users, ArrowRight } from "lucide-react";
 
 const CHARACTER_IMAGES: Record<string, string> = {
@@ -30,7 +29,7 @@ export default async function DashboardPage() {
 
   const userId = user!.id;
 
-  const [{ data: profile }, { data: progress }, { data: selectedCharacter }] =
+  const [{ data: profile }, { data: progress }, { data: selectedCharacter }, { data: sessions }] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
       supabase.from("user_progress").select("*").eq("user_id", userId),
@@ -40,11 +39,29 @@ export default async function DashboardPage() {
         .eq("user_id", userId)
         .eq("is_selected", true)
         .single(),
+      supabase
+        .from("practice_sessions")
+        .select("component, score")
+        .eq("user_id", userId),
     ]);
 
   const progressMap = new Map(
     (progress || []).map((p: { component: number }) => [p.component, p])
   );
+
+  // Calculate average score per component from practice sessions
+  const avgScoreMap = new Map<number, number>();
+  if (sessions && sessions.length > 0) {
+    const grouped = new Map<number, number[]>();
+    for (const s of sessions) {
+      const scores = grouped.get(s.component) || [];
+      scores.push(s.score);
+      grouped.set(s.component, scores);
+    }
+    for (const [comp, scores] of grouped) {
+      avgScoreMap.set(comp, Math.round(scores.reduce((a, b) => a + b, 0) / scores.length));
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,7 +86,7 @@ export default async function DashboardPage() {
           })()}
         </div>
         <div>
-          <h1 className="font-pixel text-sm text-primary pixel-glow leading-relaxed">
+          <h1 className="font-pixel text-base text-primary pixel-glow leading-relaxed">
             Welcome back, {profile?.display_name || "Adventurer"}!
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -80,38 +97,34 @@ export default async function DashboardPage() {
 
       {/* Quest Board */}
       <div>
-        <h2 className="font-pixel text-[10px] text-foreground mb-4">Quest Board</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <h2 className="font-pixel text-sm text-foreground mb-4">Quest Board</h2>
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {COMPONENTS.map((comp) => {
-            const p = progressMap.get(comp.number) as { questions_attempted: number; questions_correct: number } | undefined;
-            const accuracy = p && p.questions_attempted > 0
-              ? Math.round((p.questions_correct / p.questions_attempted) * 100)
-              : 0;
+            const p = progressMap.get(comp.number) as { questions_attempted: number } | undefined;
+            const avgScore = avgScoreMap.get(comp.number) || 0;
+            const attempts = p?.questions_attempted || 0;
 
             return (
               <Link key={comp.number} href={comp.path} className="group">
                 <Card className="h-full hover:pixel-border-primary transition-all cursor-pointer">
-                  <CardHeader className="pb-2">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">
+                      <CardTitle className="text-4xl font-bold leading-none">
                         Quest {comp.number}
                       </CardTitle>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ArrowRight className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <p className="text-sm text-muted-foreground font-retro">{comp.name}</p>
-                    <p className="text-xs text-muted-foreground">{comp.chinese}</p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span>{p?.questions_attempted || 0} attempted</span>
-                        <span className={getAccuracyColor(accuracy)}>{accuracy}%</span>
-                      </div>
-                      <Progress value={accuracy} className="h-3" />
-                      <Button className="w-full" size="sm">
-                        Start Quest
-                      </Button>
+                    <p className="text-xl text-muted-foreground font-retro leading-none mt-1">{comp.name}</p>
+                    <p className="text-lg text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
+                    <div className="flex items-center justify-between text-xl font-medium mt-2">
+                      <span>{attempts} attempted</span>
+                      {attempts > 0 && (
+                        <span className={getAccuracyColor(avgScore)}>avg {avgScore}%</span>
+                      )}
                     </div>
+                    <Button className="w-full text-lg mt-2">
+                      Start Quest
+                    </Button>
                   </CardContent>
                 </Card>
               </Link>
@@ -125,13 +138,13 @@ export default async function DashboardPage() {
         <Link href="/mock-exam">
           <Button variant="outline">
             <ClipboardCheck className="h-4 w-4 mr-2" />
-            Final Exam
+            Mock Exam
           </Button>
         </Link>
         <Link href="/characters">
           <Button variant="outline">
             <Users className="h-4 w-4 mr-2" />
-            Party
+            Character
           </Button>
         </Link>
       </div>

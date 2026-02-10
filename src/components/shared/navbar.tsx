@@ -34,7 +34,7 @@ const NAV_ITEMS = [
   { href: "/component-3", label: "C3" },
   { href: "/component-4", label: "C4" },
   { href: "/component-5", label: "C5" },
-  { href: "/characters", label: "Party" },
+  { href: "/characters", label: "Character" },
 ];
 
 export function Navbar({ totalXP }: { totalXP: number }) {
@@ -54,7 +54,7 @@ export function Navbar({ totalXP }: { totalXP: number }) {
         <div className="flex items-center gap-6">
           <Link
             href="/dashboard"
-            className="font-pixel text-sm text-primary cursor-pointer hover:opacity-80 transition-opacity pixel-glow"
+            className="font-pixel text-base text-primary cursor-pointer hover:opacity-80 transition-opacity pixel-glow"
           >
             PSC Quest
           </Link>
@@ -120,7 +120,7 @@ export function Navbar({ totalXP }: { totalXP: number }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-64 bg-card">
               <SheetHeader>
-                <SheetTitle className="font-pixel text-xs">Menu</SheetTitle>
+                <SheetTitle className="font-pixel text-sm">Menu</SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-2 mt-6">
                 {/* Mobile XP bar */}

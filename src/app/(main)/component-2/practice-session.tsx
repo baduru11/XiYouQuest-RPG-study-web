@@ -489,20 +489,20 @@ export function PracticeSession({ questions, character, characterId, component }
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="text-center">
-                <p className="text-2xl font-bold">{totalWords}</p>
-                <p className="text-xs text-muted-foreground">Words</p>
+                <p className="text-3xl font-bold">{totalWords}</p>
+                <p className="text-sm text-muted-foreground">Words</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{correctCount}</p>
-                <p className="text-xs text-muted-foreground">Good (60+)</p>
+                <p className="text-3xl font-bold text-green-600">{correctCount}</p>
+                <p className="text-sm text-muted-foreground">Good (60+)</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold">{averageScore}</p>
-                <p className="text-xs text-muted-foreground">Avg Score</p>
+                <p className="text-3xl font-bold">{averageScore}</p>
+                <p className="text-sm text-muted-foreground">Avg Score</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-600">+{totalXPEarned}</p>
-                <p className="text-xs text-muted-foreground">XP Earned</p>
+                <p className="text-3xl font-bold text-yellow-600">+{totalXPEarned}</p>
+                <p className="text-sm text-muted-foreground">XP Earned</p>
               </div>
             </div>
 
@@ -525,7 +525,7 @@ export function PracticeSession({ questions, character, characterId, component }
                             .reduce((a, b) => a + b, 0) / result.wordScores.length
                         )}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         +{result.groupXP} XP
                       </span>
                     </div>
@@ -622,10 +622,10 @@ export function PracticeSession({ questions, character, characterId, component }
                 {currentWords.map((word, idx) => (
                   <div key={idx} className="space-y-2">
                     <div className="flex items-center justify-center rounded-lg border-2 border-muted p-6 hover:border-primary transition-colors">
-                      <p className="text-4xl font-bold">{word}</p>
+                      <p className="text-4xl font-bold font-chinese">{word}</p>
                     </div>
                     {showPinyin && (
-                      <p className="text-center text-sm text-muted-foreground italic">
+                      <p className="text-center text-2xl text-muted-foreground italic">
                         {lookupPinyinDisplay(word) ?? "—"}
                       </p>
                     )}
@@ -650,7 +650,7 @@ export function PracticeSession({ questions, character, characterId, component }
                   <div className="grid grid-cols-5 gap-3">
                     {wordScores.map((item, idx) => (
                       <div key={idx} className="text-center space-y-2">
-                        <p className="text-3xl font-bold">{item.word}</p>
+                        <p className="text-3xl font-bold font-chinese">{item.word}</p>
                         {item.score !== null ? (
                           <>
                             <p className={`text-2xl font-bold ${

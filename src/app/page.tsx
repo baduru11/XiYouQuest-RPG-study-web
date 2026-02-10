@@ -38,7 +38,7 @@ export default async function HomePage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="animate-fade-in-up text-center space-y-6 max-w-lg pixel-border bg-card p-8">
-        <h1 className="font-pixel text-xl text-primary pixel-glow leading-relaxed">
+        <h1 className="font-pixel text-2xl text-primary pixel-glow leading-relaxed">
           PSC Study Companion
         </h1>
         <p className="text-lg text-muted-foreground">
@@ -58,7 +58,7 @@ export default async function HomePage() {
               className="p-3 pixel-border hover:pixel-border-primary transition-all cursor-default"
             >
               <feature.icon className="h-5 w-5 mb-1.5 text-primary mx-auto" />
-              <p className="font-pixel text-[9px] text-foreground">{feature.title}</p>
+              <p className="font-pixel text-xs text-foreground">{feature.title}</p>
               <p>{feature.description}</p>
             </div>
           ))}

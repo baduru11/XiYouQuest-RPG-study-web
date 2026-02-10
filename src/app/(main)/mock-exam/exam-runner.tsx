@@ -178,7 +178,7 @@ export function ExamRunner({ character }: ExamRunnerProps) {
             <p className="text-4xl font-bold mt-4">
               {Math.round(lastScore.score)}/100
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               +{lastScore.xpEarned} XP earned
             </p>
           </div>
@@ -279,8 +279,8 @@ export function ExamRunner({ character }: ExamRunnerProps) {
 
           {/* Total XP */}
           <div className="text-center rounded-lg border bg-muted/50 p-4">
-            <p className="text-2xl font-bold text-yellow-600">+{totalXP} XP</p>
-            <p className="text-sm text-muted-foreground">Total XP Earned</p>
+            <p className="text-3xl font-bold text-yellow-600">+{totalXP} XP</p>
+            <p className="text-base text-muted-foreground">Total XP Earned</p>
           </div>
 
           {/* Grade scale reference */}

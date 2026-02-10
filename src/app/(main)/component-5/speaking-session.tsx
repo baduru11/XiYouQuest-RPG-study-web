@@ -481,14 +481,14 @@ export function SpeakingSession({ topics, character, characterId, component }: S
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-yellow-600">+{totalXPEarned}</p>
-                    <p className="text-xs text-muted-foreground">XP Earned</p>
+                    <p className="text-3xl font-bold text-yellow-600">+{totalXPEarned}</p>
+                    <p className="text-sm text-muted-foreground">XP Earned</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold">
+                    <p className="text-3xl font-bold">
                       {formatTime(TOTAL_TIME - timeRemaining)}
                     </p>
-                    <p className="text-xs text-muted-foreground">Time Spoken</p>
+                    <p className="text-sm text-muted-foreground">Time Spoken</p>
                   </div>
                 </div>
 
@@ -629,7 +629,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
               {/* Topic display */}
               <div className="text-center">
                 <Badge variant="outline" className="mb-2">Your Topic</Badge>
-                <h2 className="text-3xl font-bold sm:text-4xl">{selectedTopic}</h2>
+                <h2 className="text-3xl font-bold font-chinese sm:text-4xl">{selectedTopic}</h2>
               </div>
 
               {/* Speaking structure template */}
