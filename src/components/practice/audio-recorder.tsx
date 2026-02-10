@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { MicOff } from "lucide-react";
 
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob) => void;
@@ -176,15 +177,23 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
 
   if (permissionDenied) {
     return (
-      <div className="text-center space-y-2">
-        <p className="text-sm text-red-500">
-          Microphone access is required for pronunciation practice.
+      <div className="text-center space-y-3 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+        <MicOff className="h-8 w-8 mx-auto text-destructive" />
+        <p className="text-sm font-medium text-destructive">
+          Microphone access is required
         </p>
         <p className="text-xs text-muted-foreground">
-          Please allow microphone access in your browser settings.
+          Please allow microphone access in your browser settings, then try again.
         </p>
-        <Button size="sm" onClick={() => setPermissionDenied(false)}>
-          Try Again
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setPermissionDenied(false);
+            startRecording();
+          }}
+        >
+          Retry
         </Button>
       </div>
     );
@@ -198,6 +207,7 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
         variant={isRecording ? "destructive" : "default"}
         size="lg"
         className="min-w-[140px]"
+        aria-label={isRecording ? "Stop recording" : "Start recording"}
       >
         {isRecording && (
           <span className="relative mr-2 flex h-3 w-3">
@@ -214,6 +224,13 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
           {Array.from({ length: 20 }).map((_, i) => {
             // Create a bar pattern that responds to volume
             const barActive = (i + 1) / 20 <= volume;
+            const barColor = barActive
+              ? volume > 0.7
+                ? "#ef4444"
+                : volume > 0.4
+                ? "#eab308"
+                : "#22c55e"
+              : "#d1d5db";
             return (
               <div
                 key={i}
@@ -222,13 +239,7 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
                   height: barActive
                     ? `${Math.max(4, volume * 32)}px`
                     : "4px",
-                  backgroundColor: barActive
-                    ? volume > 0.7
-                      ? "#ef4444"
-                      : volume > 0.4
-                      ? "#eab308"
-                      : "#22c55e"
-                    : "#d1d5db",
+                  backgroundColor: barColor,
                 }}
               />
             );

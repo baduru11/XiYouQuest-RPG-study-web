@@ -18,19 +18,26 @@ export function CharacterDisplay({
   className = "",
 }: CharacterDisplayProps) {
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
   const imageUrl = expressionImages[currentExpression] || expressionImages["neutral"] || "";
 
   return (
     <div className={`relative flex flex-col items-center ${className}`}>
-      <div className="relative h-64 w-48 overflow-hidden rounded-lg bg-muted">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={`${characterName} - ${currentExpression}`}
-            fill
-            className={`object-contain transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
-            onLoad={() => setLoaded(true)}
-          />
+      <div className="relative h-48 w-36 sm:h-64 sm:w-48 overflow-hidden pixel-border bg-muted">
+        {imageUrl && !error ? (
+          <>
+            {!loaded && (
+              <div className="absolute inset-0 animate-pulse bg-muted" />
+            )}
+            <Image
+              src={imageUrl}
+              alt={`${characterName} - ${currentExpression}`}
+              fill
+              className={`object-contain transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+              onLoad={() => setLoaded(true)}
+              onError={() => setError(true)}
+            />
+          </>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground text-center p-2">
             {characterName}
@@ -39,7 +46,7 @@ export function CharacterDisplay({
           </div>
         )}
       </div>
-      <span className="mt-2 text-sm font-medium">{characterName}</span>
+      <span className="mt-2 font-pixel text-[9px] text-primary">{characterName}</span>
     </div>
   );
 }

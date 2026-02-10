@@ -226,16 +226,98 @@ export async function synthesizeCompanion(params: {
 }
 
 /**
- * Synthesize a group of words as a single cohesive audio.
- * Joins words with Chinese commas so the TTS engine produces natural pauses.
+ * Parse a WAV buffer to extract raw PCM data and audio format info.
+ */
+function parseWavPcm(wav: Buffer): {
+  pcm: Buffer;
+  sampleRate: number;
+  numChannels: number;
+  bitsPerSample: number;
+} {
+  const numChannels = wav.readUInt16LE(22);
+  const sampleRate = wav.readUInt32LE(24);
+  const bitsPerSample = wav.readUInt16LE(34);
+
+  // Find "data" sub-chunk
+  let dataOffset = 36;
+  while (dataOffset < wav.length - 8) {
+    if (wav.toString("ascii", dataOffset, dataOffset + 4) === "data") break;
+    dataOffset += 2;
+  }
+
+  const dataSize = wav.readUInt32LE(dataOffset + 4);
+  const pcm = wav.subarray(dataOffset + 8, dataOffset + 8 + dataSize);
+  return { pcm, sampleRate, numChannels, bitsPerSample };
+}
+
+/**
+ * Normalize inter-word pauses in PCM audio to an exact duration.
+ * Detects silence gaps >= 100ms and replaces each with a fixed-length silence.
+ * Leading/trailing silence is trimmed.
+ */
+function normalizePauses(
+  pcm: Buffer,
+  sampleRate: number,
+  targetPauseMs: number
+): Buffer {
+  const BYTES = 2; // 16-bit PCM
+  const threshold = 500;
+  const minGapSamples = Math.round(0.1 * sampleRate); // 100ms min to count as inter-word gap
+  const targetGapBytes = Math.round((targetPauseMs / 1000) * sampleRate) * BYTES;
+  const total = pcm.length / BYTES;
+
+  if (total === 0) return pcm;
+
+  // Build runs of silent/audio samples
+  const runs: { silent: boolean; s: number; e: number }[] = [];
+  let isSilent = Math.abs(pcm.readInt16LE(0)) <= threshold;
+  let s = 0;
+  for (let i = 1; i < total; i++) {
+    const cur = Math.abs(pcm.readInt16LE(i * BYTES)) <= threshold;
+    if (cur !== isSilent) {
+      runs.push({ silent: isSilent, s, e: i });
+      isSilent = cur;
+      s = i;
+    }
+  }
+  runs.push({ silent: isSilent, s, e: total });
+
+  // Find first and last audio run
+  const firstAudio = runs.findIndex((r) => !r.silent);
+  const lastAudio = runs.findLastIndex((r) => !r.silent);
+  if (firstAudio === -1) return pcm;
+
+  const parts: Buffer[] = [];
+  for (let i = firstAudio; i <= lastAudio; i++) {
+    const run = runs[i];
+    if (run.silent && run.e - run.s >= minGapSamples) {
+      // Inter-word gap — replace with exact target duration
+      parts.push(Buffer.alloc(targetGapBytes));
+    } else {
+      // Audio or short intra-word silence — keep as-is
+      parts.push(pcm.subarray(run.s * BYTES, run.e * BYTES));
+    }
+  }
+
+  return Buffer.concat(parts);
+}
+
+/**
+ * Synthesize a group of words as a single TTS call with consistent pauses.
+ * Double periods ("。。") force strong sentence boundaries between words,
+ * then normalizePauses replaces all detected gaps with exact-duration silence.
  */
 export async function synthesizeWordGroup(params: {
   voiceId: string;
   words: string[];
-  pauseMs?: number; // kept for API compat, ignored — pauses controlled by punctuation
+  pauseMs?: number;
 }): Promise<Buffer> {
-  const text = params.words.join("，");
-  return synthesizeAcademic({ voiceId: params.voiceId, text });
+  const pauseMs = params.pauseMs ?? 750;
+
+  const text = params.words.join("，，");
+  const wav = await synthesizeAcademic({ voiceId: params.voiceId, text });
+
+  return wav;
 }
 
 /**

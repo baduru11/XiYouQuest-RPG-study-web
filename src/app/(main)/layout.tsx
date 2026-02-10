@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/shared/navbar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function MainLayout({
   children,
@@ -21,13 +22,15 @@ export default async function MainLayout({
     .single();
 
   return (
-    <div className="min-h-screen">
-      <Navbar totalXP={profile?.total_xp ?? 0} />
-      <main className="mx-auto max-w-7xl p-4">
-        <div className="rounded-xl bg-background/80 backdrop-blur-sm p-6">
-          {children}
-        </div>
-      </main>
-    </div>
+    <TooltipProvider>
+      <div className="min-h-screen">
+        <Navbar totalXP={profile?.total_xp ?? 0} />
+        <main className="mx-auto max-w-7xl p-4">
+          <div className="pixel-border bg-card/80 backdrop-blur-sm p-6">
+            {children}
+          </div>
+        </main>
+      </div>
+    </TooltipProvider>
   );
 }

@@ -171,11 +171,11 @@ export function QuizSession({ questions, character, characterId, component }: Qu
   // Get button style based on answer state
   function getOptionStyle(index: number): string {
     if (phase !== "result") {
-      return "border-2 border-border hover:border-primary hover:bg-accent transition-colors";
+      return "border-2 border-border hover:border-primary hover:bg-accent/50 transition-all hover:shadow-sm";
     }
 
     if (index === currentQuestion.correctIndex) {
-      return "border-2 border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300";
+      return "border-2 border-green-500 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 animate-in fade-in duration-300";
     }
 
     if (index === selectedAnswer && index !== currentQuestion.correctIndex) {
@@ -324,9 +324,9 @@ export function QuizSession({ questions, character, characterId, component }: Qu
       </div>
 
       {/* Main content area */}
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 md:flex-row">
         {/* Left side: Character (30%) */}
-        <div className="space-y-3 lg:w-[30%]">
+        <div className="space-y-3 md:w-[30%]">
           <CharacterDisplay
             characterName={character.name}
             expressionImages={character.expressions}
@@ -339,7 +339,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
         </div>
 
         {/* Right side: Quiz area (70%) */}
-        <div className="flex-1 lg:w-[70%]">
+        <div className="flex-1 md:w-[70%]">
           <Card className="h-full">
             <CardContent className="flex flex-col gap-6 py-8">
               {/* Question type badge */}
@@ -406,7 +406,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
 
               {/* Explanation after answering */}
               {phase === "result" && (
-                <div className="rounded-lg border bg-muted/50 p-4">
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-lg border bg-muted/50 p-4">
                   <p className="text-sm font-medium mb-1">Explanation:</p>
                   <p className="text-sm text-muted-foreground">
                     {currentQuestion.explanation}
