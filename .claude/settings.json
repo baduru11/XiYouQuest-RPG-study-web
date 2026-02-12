@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "superpowers@superpowers-marketplace": true,
+    "context7@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "playwright@claude-plugins-official": false,
+    "github@claude-plugins-official": true
+  }
+}

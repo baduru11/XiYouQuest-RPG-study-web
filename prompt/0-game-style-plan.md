@@ -1,0 +1,5 @@
+b. this is where we bring difference to our webtool. we are bringing galgame style interaction where we choose a 2d anime style character(which we will update the image files later) with different personaltiy,   
+  voice that can be unlocked by gaining xp from using our webtool(with 2 default characters at the start). For each anime character, if users use them enough for their studying, their affection/relationship level   
+  reaches max and grants user a costume/skin for that character. Those characters read out the words/sentences for users to listen and learn correct pronounciation and interact with the users with their own         
+  personality. for this we need a login system for each user to follow their own progress and database to maintain this. although its a gamified experience, we must not miss the core learning experience, this is    
+  intended to attract users and reward them so that studying is not boring.  
