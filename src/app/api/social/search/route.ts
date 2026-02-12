@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -33,15 +34,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const excludeArray = Array.from(excludeIds);
+    // Validate all exclude IDs are proper UUIDs to prevent injection
+    const excludeArray = Array.from(excludeIds).filter(isValidUUID);
 
     // Search profiles by display_name using ILIKE, excluding self and existing friendships
-    const { data: profiles, error } = await supabase
+    let query = supabase
       .from("profiles")
       .select("id, display_name, avatar_url, current_level, friend_code")
       .ilike("display_name", `%${q.trim().replace(/[%_\\]/g, "\\$&")}%`)
-      .not("id", "in", `(${excludeArray.join(",")})`)
       .limit(10);
+
+    if (excludeArray.length > 0) {
+      query = query.not("id", "in", `(${excludeArray.join(",")})`);
+    }
+
+    const { data: profiles, error } = await query;
 
     if (error) {
       console.error("Search error:", error);

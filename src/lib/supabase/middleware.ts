@@ -29,11 +29,24 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/api")
-  ) {
+  // Only allow unauthenticated access to explicit public paths.
+  // The auth callback must be public so OAuth flows can complete.
+  const publicPaths = ["/login", "/api/auth/callback"];
+  const isPublicPath = publicPaths.some((path) =>
+    request.nextUrl.pathname.startsWith(path)
+  );
+
+  if (!user && !isPublicPath) {
+    // API routes: return 401 JSON so fetch() callers get a proper error
+    // (individual API routes also verify auth, but this catches any that
+    // might accidentally omit the check)
+    if (request.nextUrl.pathname.startsWith("/api")) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    // Page routes: redirect to login
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

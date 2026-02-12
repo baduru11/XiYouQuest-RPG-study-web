@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserLevel, getAffectionLevel } from "@/lib/gamification/xp";
 import { XP_VALUES } from "@/types/gamification";
+import { progressUpdateSchema } from "@/lib/validations";
+import { MAX_XP_PER_SESSION } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,6 +14,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    const parsed = progressUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+    }
     const {
       characterId,
       component,
@@ -21,26 +27,9 @@ export async function POST(request: NextRequest) {
       questionsAttempted,
       questionsCorrect,
       bestStreak,
-    } = body as {
-      characterId: string;
-      component: 1 | 2 | 3 | 4 | 5;
-      score: number;
-      xpEarned: number;
-      durationSeconds: number;
-      questionsAttempted: number;
-      questionsCorrect: number;
-      bestStreak: number;
-    };
-
-    // Validate required fields
-    if (!characterId || !component || score === undefined || xpEarned === undefined) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    } = parsed.data;
 
     // Server-side XP bounds validation
-    // Max per question: 10 XP * 2.0 streak multiplier = 20 XP
-    // Max realistic session: ~100 questions = 2000 XP (extremely generous cap)
-    const MAX_XP_PER_SESSION = 2000;
     const clampedXpEarned = Math.max(0, Math.min(Math.floor(xpEarned), MAX_XP_PER_SESSION));
 
     // 1. Insert practice session
@@ -60,47 +49,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to save session" }, { status: 500 });
     }
 
-    // 2. Upsert user_progress for this component
-    const { data: existingProgress } = await supabase
-      .from("user_progress")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("component", component)
-      .single();
+    // 2. Atomic upsert user_progress — prevents race conditions from concurrent requests
+    const { error: progressError } = await supabase.rpc("upsert_user_progress", {
+      p_user_id: user.id,
+      p_component: component,
+      p_questions_attempted: questionsAttempted,
+      p_questions_correct: questionsCorrect,
+      p_best_streak: bestStreak,
+      p_duration_seconds: durationSeconds,
+    });
 
-    if (existingProgress) {
-      const newBestStreak = Math.max(existingProgress.best_streak, bestStreak ?? 0);
-      const { error: updateError } = await supabase
-        .from("user_progress")
-        .update({
-          questions_attempted: existingProgress.questions_attempted + (questionsAttempted ?? 0),
-          questions_correct: existingProgress.questions_correct + (questionsCorrect ?? 0),
-          best_streak: newBestStreak,
-          total_practice_time_seconds: existingProgress.total_practice_time_seconds + (durationSeconds ?? 0),
-          last_practiced_at: new Date().toISOString(),
-        })
-        .eq("user_id", user.id)
-        .eq("component", component);
-
-      if (updateError) {
-        console.error("Progress update error:", updateError);
-      }
-    } else {
-      const { error: insertError } = await supabase
-        .from("user_progress")
-        .insert({
-          user_id: user.id,
-          component,
-          questions_attempted: questionsAttempted ?? 0,
-          questions_correct: questionsCorrect ?? 0,
-          best_streak: bestStreak ?? 0,
-          total_practice_time_seconds: durationSeconds ?? 0,
-          last_practiced_at: new Date().toISOString(),
-        });
-
-      if (insertError) {
-        console.error("Progress insert error:", insertError);
-      }
+    if (progressError) {
+      console.error("Progress upsert error:", progressError);
     }
 
     // 3. Get current profile

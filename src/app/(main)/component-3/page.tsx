@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
-import type { ExpressionName } from "@/types/character";
-import { getCharacterImageFallback } from "@/lib/character-images";
+import { loadSelectedCharacter } from "@/lib/character-loader";
 import { shuffle } from "@/lib/utils";
+import { QUIZ_SIZES } from "@/lib/constants";
 import type { QuizQuestion } from "@/types/practice";
 
 const QuizSession = dynamic(() => import("./quiz-session").then(m => m.QuizSession), {
@@ -44,45 +44,14 @@ export default async function Component3Page() {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch selected character and quiz questions in parallel
-  const [{ data: userCharacter }, { data: dbQuestions }] = await Promise.all([
-    supabase
-      .from("user_characters")
-      .select(`
-        *,
-        characters (
-          *,
-          character_expressions (*)
-        )
-      `)
-      .eq("user_id", user!.id)
-      .eq("is_selected", true)
-      .single(),
+  const [character, { data: dbQuestions }] = await Promise.all([
+    loadSelectedCharacter(supabase, user!.id),
     supabase
       .from("question_banks")
       .select("id, content, metadata")
       .eq("component", 3)
       .limit(500),
   ]);
-
-  // Build character data for the quiz session
-  const characterData = userCharacter?.characters;
-  const expressions: Record<string, string> = {};
-
-  if (characterData?.character_expressions) {
-    for (const expr of characterData.character_expressions as Array<{
-      expression_name: ExpressionName;
-      image_url: string;
-    }>) {
-      expressions[expr.expression_name] = expr.image_url;
-    }
-  }
-
-  const characterName = characterData?.name ?? "Study Buddy";
-  const character = {
-    name: characterName,
-    personalityPrompt: characterData?.personality_prompt ?? "You are a friendly and encouraging study companion.",
-    expressions: getCharacterImageFallback(characterName, expressions),
-  };
 
   // Parse DB questions into QuizQuestion format, or use fallback
   let questions: QuizQuestion[];
@@ -100,9 +69,9 @@ export default async function Component3Page() {
       }));
 
     // Filter by type and take subsets for regular practice
-    const wc = shuffle(allParsed.filter(q => q.type === "word-choice")).slice(0, 10);
-    const mw = shuffle(allParsed.filter(q => q.type === "measure-word")).slice(0, 10);
-    const so = shuffle(allParsed.filter(q => q.type === "sentence-order")).slice(0, 5);
+    const wc = shuffle(allParsed.filter(q => q.type === "word-choice")).slice(0, QUIZ_SIZES.WORD_CHOICE);
+    const mw = shuffle(allParsed.filter(q => q.type === "measure-word")).slice(0, QUIZ_SIZES.MEASURE_WORD);
+    const so = shuffle(allParsed.filter(q => q.type === "sentence-order")).slice(0, QUIZ_SIZES.SENTENCE_ORDER);
 
     // Combine in type order (randomized within each type)
     questions = [...wc, ...mw, ...so];
@@ -121,7 +90,7 @@ export default async function Component3Page() {
         </p>
       </div>
 
-      <QuizSession questions={questions} character={character} characterId={characterData?.id} component={3} />
+      <QuizSession questions={questions} character={character} characterId={character.id} component={3} />
     </div>
   );
 }

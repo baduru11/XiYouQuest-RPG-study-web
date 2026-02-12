@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { unlockCharacterSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -9,11 +10,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { characterId } = (await request.json()) as { characterId: string };
-
-    if (!characterId) {
-      return NextResponse.json({ error: "Missing characterId" }, { status: 400 });
+    const body = await request.json();
+    const parsed = unlockCharacterSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input: characterId must be a valid UUID" }, { status: 400 });
     }
+    const { characterId } = parsed.data;
 
     // Check if character is already unlocked
     const { data: existingUnlock } = await supabase

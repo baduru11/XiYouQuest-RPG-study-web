@@ -119,6 +119,8 @@ export function SocialClient({
   const [selfStats, setSelfStats] = useState<SelfStats | null>(null);
   const [friendsLoading, setFriendsLoading] = useState(true);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
 
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -293,15 +295,15 @@ export function SocialClient({
   const fetchRequests = useCallback(async () => {
     try {
       const res = await fetch("/api/social/requests");
-      if (res.ok) {
-        const data = await res.json();
-        setIncoming(data.incoming || []);
-        setOutgoing(data.outgoing || []);
-        const outIds = new Set<string>((data.outgoing || []).map((o: RequestEntry) => o.user.id));
-        setRequestedIds(outIds);
-      }
+      if (!res.ok) throw new Error("Failed to load requests");
+      const data = await res.json();
+      setIncoming(data.incoming || []);
+      setOutgoing(data.outgoing || []);
+      const outIds = new Set<string>((data.outgoing || []).map((o: RequestEntry) => o.user.id));
+      setRequestedIds(outIds);
+      setRequestsError(null);
     } catch {
-      // silently fail
+      setRequestsError("Failed to load friend requests");
     } finally {
       setRequestsLoading(false);
     }
@@ -310,13 +312,13 @@ export function SocialClient({
   const fetchFriends = useCallback(async () => {
     try {
       const res = await fetch("/api/social/friends");
-      if (res.ok) {
-        const data = await res.json();
-        setSelfStats(data.self || null);
-        setFriends(data.friends || []);
-      }
+      if (!res.ok) throw new Error("Failed to load friends");
+      const data = await res.json();
+      setSelfStats(data.self || null);
+      setFriends(data.friends || []);
+      setFriendsError(null);
     } catch {
-      // silently fail
+      setFriendsError("Failed to load friends list");
     } finally {
       setFriendsLoading(false);
     }
@@ -534,7 +536,15 @@ export function SocialClient({
       </div>
 
       {/* Section 2: Pending Requests */}
-      {!requestsLoading && totalPendingRequests > 0 && (
+      {requestsError && (
+        <div className="pixel-border bg-destructive/10 p-4 text-center">
+          <p className="text-base font-retro text-destructive">{requestsError}</p>
+          <Button size="xs" variant="outline" className="mt-2" onClick={fetchRequests}>
+            Retry
+          </Button>
+        </div>
+      )}
+      {!requestsLoading && !requestsError && totalPendingRequests > 0 && (
         <div className="pixel-border bg-card/60 p-4 space-y-4">
           <h2 className="font-pixel text-xs text-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -554,7 +564,7 @@ export function SocialClient({
                     {req.user.avatar_url ? (
                       <img
                         src={req.user.avatar_url}
-                        alt={req.user.display_name}
+                        alt={req.user.display_name || "User avatar"}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -605,7 +615,7 @@ export function SocialClient({
                     {req.user.avatar_url ? (
                       <img
                         src={req.user.avatar_url}
-                        alt={req.user.display_name}
+                        alt={req.user.display_name || "User avatar"}
                         className="h-full w-full object-cover"
                       />
                     ) : (
@@ -663,7 +673,15 @@ export function SocialClient({
           </div>
         )}
 
-        {!friendsLoading && friends.length === 0 && (
+        {friendsError && (
+          <div className="pixel-border bg-destructive/10 p-4 text-center">
+            <p className="text-base font-retro text-destructive">{friendsError}</p>
+            <Button size="xs" variant="outline" className="mt-2" onClick={fetchFriends}>
+              Retry
+            </Button>
+          </div>
+        )}
+        {!friendsLoading && !friendsError && friends.length === 0 && (
           <div className="pixel-border bg-card/60 p-8 text-center">
             <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
             <p className="text-lg font-retro text-muted-foreground">
@@ -672,7 +690,7 @@ export function SocialClient({
           </div>
         )}
 
-        {!friendsLoading && friends.length > 0 && (
+        {!friendsLoading && !friendsError && friends.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {friends.map((friend) => (
               <FriendCard
@@ -709,7 +727,7 @@ function UserResultCard({
         {user.avatar_url ? (
           <img
             src={user.avatar_url}
-            alt={user.display_name}
+            alt={user.display_name || "User avatar"}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -767,7 +785,7 @@ function FriendCard({
           {friend.avatar_url ? (
             <img
               src={friend.avatar_url}
-              alt={friend.display_name}
+              alt={friend.display_name || "User avatar"}
               className="h-full w-full object-cover"
             />
           ) : (

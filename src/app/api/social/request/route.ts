@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { friendRequestSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,14 +13,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { addressee_id } = body as { addressee_id: string };
-
-    if (!addressee_id) {
+    const parsed = friendRequestSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "addressee_id is required" },
+        { error: "Invalid input: addressee_id must be a valid UUID" },
         { status: 400 }
       );
     }
+    const { addressee_id } = parsed.data;
 
     // Cannot send friend request to self
     if (addressee_id === user.id) {

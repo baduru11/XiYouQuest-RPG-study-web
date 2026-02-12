@@ -1,9 +1,6 @@
 import crypto from "crypto";
 import WebSocket from "ws";
-
-const IFLYTEK_APP_ID = process.env.IFLYTEK_APP_ID!;
-const IFLYTEK_API_KEY = process.env.IFLYTEK_API_KEY!;
-const IFLYTEK_API_SECRET = process.env.IFLYTEK_API_SECRET!;
+import { IFLYTEK_APP_ID, IFLYTEK_API_KEY, IFLYTEK_API_SECRET } from "@/lib/env";
 
 const IFLYTEK_HOST = "tts-api-sg.xf-yun.com";
 const IFLYTEK_PATH = "/v2/tts";

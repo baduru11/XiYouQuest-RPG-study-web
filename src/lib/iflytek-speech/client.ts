@@ -1,9 +1,7 @@
 import crypto from "crypto";
 import WebSocket from "ws";
-
-const IFLYTEK_APP_ID = process.env.IFLYTEK_APP_ID!;
-const IFLYTEK_API_KEY = process.env.IFLYTEK_API_KEY!;
-const IFLYTEK_API_SECRET = process.env.IFLYTEK_API_SECRET!;
+import { IFLYTEK_APP_ID, IFLYTEK_API_KEY, IFLYTEK_API_SECRET } from "@/lib/env";
+import { ISE_TIMEOUT_MS } from "@/lib/constants";
 
 const ISE_HOST = "ise-api-sg.xf-yun.com";
 const ISE_PATH = "/v2/ise";
@@ -491,8 +489,7 @@ export async function assessPronunciation(
     const resultChunks: string[] = [];
     const startTime = Date.now();
 
-    // Timeout: 90s for ISE processing (audio upload is near-instant now)
-    const TIMEOUT_MS = 90_000;
+    const TIMEOUT_MS = ISE_TIMEOUT_MS;
     console.log(
       `[ISE] category=${category}, pcm=${pcmData.length} bytes (${Math.round(pcmData.length / 32000)}s audio)`
     );

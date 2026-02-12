@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { Button } from "@/components/ui/button";
@@ -44,13 +44,23 @@ export function QuizSession({ questions, character, characterId, component }: Qu
   const currentQuestion = randomizedQuestions[currentIndex];
   const progressPercent = randomizedQuestions.length > 0 ? Math.round((currentIndex / randomizedQuestions.length) * 100) : 0;
 
+  // Refs for values needed by the save effect (avoids stale closures without
+  // adding them to the dependency array, which would cause re-runs)
+  const resultsRef = useRef(results);
+  const totalXPEarnedRef = useRef(totalXPEarned);
+  const streakRef = useRef(streak);
+  useEffect(() => { resultsRef.current = results; }, [results]);
+  useEffect(() => { totalXPEarnedRef.current = totalXPEarned; }, [totalXPEarned]);
+  useEffect(() => { streakRef.current = streak; }, [streak]);
+
   // Save progress when quiz completes
   useEffect(() => {
     if (phase !== "complete" || !characterId) return;
 
     const saveProgress = async () => {
-      const totalQuestions = results.length;
-      const correctCount = results.filter(r => r.isCorrect).length;
+      const currentResults = resultsRef.current;
+      const totalQuestions = currentResults.length;
+      const correctCount = currentResults.filter(r => r.isCorrect).length;
       const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
       try {
@@ -61,11 +71,11 @@ export function QuizSession({ questions, character, characterId, component }: Qu
             characterId,
             component,
             score: accuracy,
-            xpEarned: totalXPEarned,
+            xpEarned: totalXPEarnedRef.current,
             durationSeconds: 0,
             questionsAttempted: totalQuestions,
             questionsCorrect: correctCount,
-            bestStreak: streak,
+            bestStreak: streakRef.current,
           }),
         });
       } catch (err) {
@@ -74,7 +84,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
     };
 
     saveProgress();
-  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, characterId, component]);
 
   const handleAnswer = useCallback(async (answerIndex: number) => {
     if (phase !== "answering") return;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { friendRespondSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,24 +13,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { friendship_id, action } = body as {
-      friendship_id: string;
-      action: "accept" | "reject";
-    };
-
-    if (!friendship_id || !action) {
+    const parsed = friendRespondSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "friendship_id and action are required" },
+        { error: "Invalid input: friendship_id must be a UUID, action must be 'accept' or 'reject'" },
         { status: 400 }
       );
     }
-
-    if (action !== "accept" && action !== "reject") {
-      return NextResponse.json(
-        { error: "action must be 'accept' or 'reject'" },
-        { status: 400 }
-      );
-    }
+    const { friendship_id, action } = parsed.data;
 
     // Fetch the friendship — only the addressee can respond to a pending request
     const { data: friendship, error: fetchError } = await supabase

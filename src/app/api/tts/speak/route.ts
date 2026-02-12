@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { synthesizeAcademic, synthesizeWordGroup } from "@/lib/voice/client";
+import { ttsSpeakSchema } from "@/lib/validations";
+import { TTS_CACHE_MAX_SIZE } from "@/lib/constants";
 
 // In-memory cache for consistent pronunciation
 // Key: `${voiceId}:${text}`, Value: Buffer
@@ -14,11 +16,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { voiceId, text, words, pauseMs } = await request.json();
-
-    if (!voiceId || (!text && !words)) {
-      return NextResponse.json({ error: "Missing voiceId or text/words" }, { status: 400 });
+    const body = await request.json();
+    const parsed = ttsSpeakSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input: provide voiceId with text or words" }, { status: 400 });
     }
+    const { voiceId, text, words, pauseMs } = parsed.data;
 
     let cacheKey: string;
     let audioBuffer: Buffer | undefined;
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
         audioBuffer = await synthesizeWordGroup({ voiceId, words, pauseMs: pause });
         audioCache.set(cacheKey, audioBuffer);
 
-        if (audioCache.size > 500) {
+        if (audioCache.size > TTS_CACHE_MAX_SIZE) {
           const firstKey = audioCache.keys().next().value;
           if (firstKey !== undefined) {
             audioCache.delete(firstKey);
@@ -41,15 +44,15 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      // Single text mode
+      // Single text mode — text is guaranteed by .refine()
       cacheKey = `academic:${voiceId}:${text}`;
       audioBuffer = audioCache.get(cacheKey);
 
       if (!audioBuffer) {
-        audioBuffer = await synthesizeAcademic({ voiceId, text });
+        audioBuffer = await synthesizeAcademic({ voiceId, text: text! });
         audioCache.set(cacheKey, audioBuffer);
 
-        if (audioCache.size > 500) {
+        if (audioCache.size > TTS_CACHE_MAX_SIZE) {
           const firstKey = audioCache.keys().next().value;
           if (firstKey !== undefined) {
             audioCache.delete(firstKey);

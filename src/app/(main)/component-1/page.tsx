@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
-import type { ExpressionName } from "@/types/character";
-import { getCharacterImageFallback } from "@/lib/character-images";
+import { loadSelectedCharacter } from "@/lib/character-loader";
 import { shuffle } from "@/lib/utils";
 
 const PracticeSession = dynamic(() => import("./practice-session").then(m => m.PracticeSession), {
@@ -30,46 +29,14 @@ export default async function Component1Page() {
   const userId = user!.id;
 
   // Fetch character and questions in parallel
-  const [{ data: userCharacter }, { data: dbQuestions }] = await Promise.all([
-    supabase
-      .from("user_characters")
-      .select(`
-        *,
-        characters (
-          *,
-          character_expressions (*)
-        )
-      `)
-      .eq("user_id", userId)
-      .eq("is_selected", true)
-      .single(),
+  const [character, { data: dbQuestions }] = await Promise.all([
+    loadSelectedCharacter(supabase, userId),
     supabase
       .from("question_banks")
       .select("content")
       .eq("component", 1)
       .limit(50),
   ]);
-
-  // Build character data for the practice session
-  const characterData = userCharacter?.characters;
-  const expressions: Record<string, string> = {};
-
-  if (characterData?.character_expressions) {
-    for (const expr of characterData.character_expressions as Array<{
-      expression_name: ExpressionName;
-      image_url: string;
-    }>) {
-      expressions[expr.expression_name] = expr.image_url;
-    }
-  }
-
-  const characterName = characterData?.name ?? "Study Buddy";
-  const character = {
-    name: characterName,
-    personalityPrompt: characterData?.personality_prompt ?? "You are a friendly and encouraging study companion.",
-    voiceId: characterData?.voice_id ?? "",
-    expressions: getCharacterImageFallback(characterName, expressions),
-  };
 
   const questions: string[] = shuffle(
     dbQuestions && dbQuestions.length > 0
@@ -88,7 +55,7 @@ export default async function Component1Page() {
         </p>
       </div>
 
-      <PracticeSession questions={questions} character={character} characterId={characterData?.id} component={1} />
+      <PracticeSession questions={questions} character={character} characterId={character.id} component={1} />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
-import type { ExpressionName } from "@/types/character";
-import { getCharacterImageFallback } from "@/lib/character-images";
+import { loadSelectedCharacter } from "@/lib/character-loader";
 import { shuffle } from "@/lib/utils";
 
 const SpeakingSession = dynamic(() => import("./speaking-session").then(m => m.SpeakingSession), {
@@ -30,46 +29,14 @@ export default async function Component5Page() {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch selected character and topics in parallel
-  const [{ data: userCharacter }, { data: dbTopics }] = await Promise.all([
-    supabase
-      .from("user_characters")
-      .select(`
-        *,
-        characters (
-          *,
-          character_expressions (*)
-        )
-      `)
-      .eq("user_id", user!.id)
-      .eq("is_selected", true)
-      .single(),
+  const [character, { data: dbTopics }] = await Promise.all([
+    loadSelectedCharacter(supabase, user!.id),
     supabase
       .from("question_banks")
       .select("content")
       .eq("component", 5)
       .limit(150),
   ]);
-
-  // Build character data for the speaking session
-  const characterData = userCharacter?.characters;
-  const expressions: Record<string, string> = {};
-
-  if (characterData?.character_expressions) {
-    for (const expr of characterData.character_expressions as Array<{
-      expression_name: ExpressionName;
-      image_url: string;
-    }>) {
-      expressions[expr.expression_name] = expr.image_url;
-    }
-  }
-
-  const characterName = characterData?.name ?? "Study Buddy";
-  const character = {
-    name: characterName,
-    personalityPrompt: characterData?.personality_prompt ?? "You are a friendly and encouraging study companion.",
-    voiceId: characterData?.voice_id ?? "",
-    expressions: getCharacterImageFallback(characterName, expressions),
-  };
 
   // Use DB topics with shuffle, or fallback
   const topics: string[] = shuffle(
@@ -89,7 +56,7 @@ export default async function Component5Page() {
         </p>
       </div>
 
-      <SpeakingSession topics={topics} character={character} characterId={characterData?.id} component={5} />
+      <SpeakingSession topics={topics} character={character} characterId={character.id} component={5} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validations";
 
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
@@ -11,39 +12,27 @@ export async function DELETE(request: NextRequest) {
   }
 
   const id = request.nextUrl.searchParams.get("id");
-  if (!id) {
+  if (!id || !isValidUUID(id)) {
     return NextResponse.json(
-      { error: "Friendship id is required" },
+      { error: "A valid friendship id is required" },
       { status: 400 }
     );
   }
 
   try {
-    // Verify the user is a party to this friendship before deleting
-    const { data: friendship, error: fetchError } = await supabase
+    // Atomically verify ownership and delete in one query to prevent TOCTOU
+    const { data: deleted, error: deleteError } = await supabase
       .from("friendships")
-      .select("id, requester_id, addressee_id")
+      .delete()
       .eq("id", id)
       .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .select("id")
       .single();
 
-    if (fetchError || !friendship) {
+    if (deleteError || !deleted) {
       return NextResponse.json(
         { error: "Friendship not found" },
         { status: 404 }
-      );
-    }
-
-    const { error: deleteError } = await supabase
-      .from("friendships")
-      .delete()
-      .eq("id", id);
-
-    if (deleteError) {
-      console.error("Remove error:", deleteError);
-      return NextResponse.json(
-        { error: "Failed to remove friendship" },
-        { status: 500 }
       );
     }
 

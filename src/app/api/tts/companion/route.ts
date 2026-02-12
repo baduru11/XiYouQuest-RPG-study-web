@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { synthesizeAcademic } from "@/lib/voice/client";
+import { ttsCompanionSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -10,14 +11,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { voiceId, text } = await request.json() as {
-      voiceId: string;
-      text: string;
-    };
-
-    if (!voiceId || !text) {
-      return NextResponse.json({ error: "Missing voiceId or text" }, { status: 400 });
+    const body = await request.json();
+    const parsed = ttsCompanionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input: voiceId and text are required" }, { status: 400 });
     }
+    const { voiceId, text } = parsed.data;
 
     const audioBuffer = await synthesizeAcademic({ voiceId, text });
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateFeedback } from "@/lib/gemini/client";
+import { aiFeedbackSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,7 +13,11 @@ export async function POST(request: NextRequest) {
   let body: Record<string, unknown> | undefined;
   try {
     body = await request.json();
-    const feedback = await generateFeedback(body as Parameters<typeof generateFeedback>[0]);
+    const parsed = aiFeedbackSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+    const feedback = await generateFeedback(parsed.data);
 
     return NextResponse.json({ feedback });
   } catch (error) {
