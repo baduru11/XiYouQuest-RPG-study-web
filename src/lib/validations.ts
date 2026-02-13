@@ -68,6 +68,13 @@ export const ttsCompanionSchema = z.object({
   text: z.string().min(1),
 });
 
+// --- Leaderboard API Schemas ---
+
+export const leaderboardQuerySchema = z.object({
+  tab: z.enum(["xp", "accuracy", "streak"]),
+  scope: z.enum(["global", "friends"]),
+});
+
 // --- Helpers ---
 
 /** Validate UUID format (for query params and array values) */
