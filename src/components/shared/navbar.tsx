@@ -42,6 +42,7 @@ const NAV_ITEMS = [
   { href: "/component-4", label: "C4" },
   { href: "/component-5", label: "C5" },
   { href: "/characters", label: "Character" },
+  { href: "/leaderboard", label: "Ranks" },
 ];
 
 interface NavbarProps {
