@@ -1,9 +1,6 @@
-"use client";
-
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 import {
   Swords,
   BookOpen,
@@ -11,28 +8,16 @@ import {
   Trophy,
   Users,
   UserCircle,
-  LogOut,
   ArrowRight,
-  Ear,
-  Languages,
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { CHARACTER_IMAGES } from "@/lib/character-images";
 
 const MENU_ITEMS = [
   {
     href: "/practice",
     icon: BookOpen,
     label: "Practice Session",
-    description: "Train all 5 PSC components",
+    description: "Train all 5 PSC components + supplementary drills",
   },
   {
     href: "/mock-exam",
@@ -52,40 +37,59 @@ const MENU_ITEMS = [
     label: "Characters",
     description: "Gallery, unlocks, and affection",
   },
-  {
-    href: "/component-6",
-    icon: Ear,
-    label: "Cantonese Mistakes",
-    description: "Trouble sounds drill (z/zh, n/ng, l/n)",
-  },
-  {
-    href: "/component-7",
-    icon: Languages,
-    label: "Polyphonic Characters",
-    description: "Context-based pronunciation quiz",
-  },
 ];
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [logoutOpen, setLogoutOpen] = useState(false);
+export default async function DashboardPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-  }
+  const userId = user!.id;
+
+  const [{ data: profile }, { data: selectedCharacter }, { count: pendingCount }] =
+    await Promise.all([
+      supabase.from("profiles").select("display_name").eq("id", userId).single(),
+      supabase
+        .from("user_characters")
+        .select("*, characters(*)")
+        .eq("user_id", userId)
+        .eq("is_selected", true)
+        .single(),
+      supabase
+        .from("friendships")
+        .select("*", { count: "exact", head: true })
+        .eq("addressee_id", userId)
+        .eq("status", "pending"),
+    ]);
+
+  const charName = selectedCharacter?.characters?.name;
+  const charImage = selectedCharacter?.characters?.image_url || (charName ? CHARACTER_IMAGES[charName] : null);
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 py-6">
-      {/* Header */}
-      <div className="py-4 text-center">
-        <h1 className="font-pixel text-3xl text-primary pixel-glow leading-relaxed">
-          PSC Quest
-        </h1>
-        <p className="text-lg text-muted-foreground mt-1">
-          Master the Putonghua Proficiency Test
-        </p>
+      {/* Greeting with character */}
+      <div className="flex items-center gap-5 py-4">
+        <div className="relative h-24 w-24 pixel-border bg-muted overflow-hidden shrink-0">
+          {charImage ? (
+            <Image
+              src={charImage}
+              alt={charName || "Character"}
+              fill
+              className="object-contain"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              {charName || "?"}
+            </div>
+          )}
+        </div>
+        <div>
+          <h1 className="font-pixel text-xl text-primary pixel-glow leading-relaxed">
+            Welcome back, {profile?.display_name || "Adventurer"}!
+          </h1>
+          <p className="text-lg text-muted-foreground mt-1">
+            Ready to continue your quest?
+          </p>
+        </div>
       </div>
 
       {/* Main Quest — coming soon */}
@@ -122,8 +126,8 @@ export default function DashboardPage() {
         </Link>
       ))}
 
-      {/* Profile / Social / Logout row */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Profile / Social row */}
+      <div className="grid grid-cols-2 gap-4">
         <Link href="/profile" className="group block">
           <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
             <UserCircle className="h-8 w-8 text-primary shrink-0" />
@@ -134,32 +138,14 @@ export default function DashboardPage() {
           <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
             <Users className="h-8 w-8 text-primary shrink-0" />
             <p className="font-pixel text-sm text-foreground leading-relaxed">Social</p>
+            {(pendingCount ?? 0) > 0 && (
+              <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs font-bold bg-primary text-primary-foreground pixel-border">
+                {pendingCount}
+              </span>
+            )}
           </div>
         </Link>
-        <button onClick={() => setLogoutOpen(true)} className="group block w-full text-left">
-          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
-            <LogOut className="h-8 w-8 text-destructive shrink-0" />
-            <p className="font-pixel text-sm text-destructive leading-relaxed">Logout</p>
-          </div>
-        </button>
       </div>
-
-      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Save & Quit?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your progress is saved. You can sign back in anytime to continue your quest.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSignOut}>
-              Quit Game
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
