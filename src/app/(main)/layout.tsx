@@ -35,10 +35,8 @@ export default async function MainLayout({
         avatarUrl={profile?.avatar_url ?? null}
         pendingRequestCount={pendingCount ?? 0}
       />
-      <main className="mx-auto max-w-screen-2xl px-6 py-6 lg:px-10">
-        <div className="pixel-border bg-card/80 backdrop-blur-sm p-8">
-          {children}
-        </div>
+      <main className="mx-auto max-w-screen-2xl px-4 py-3 lg:px-6">
+        {children}
       </main>
     </div>
   );
