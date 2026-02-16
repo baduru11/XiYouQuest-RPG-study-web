@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
         xpEarned: xpResult.totalXP,
       },
     ]);
-  }, [phase, currentQuestion, streak, character.personalityPrompt]);
+  }, [phase, currentQuestion, streak, character.personalityPrompt, component]);
 
   const handleNext = useCallback(() => {
     if (currentIndex + 1 >= randomizedQuestions.length) {
@@ -340,7 +341,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                 Try Again
               </Button>
               <Button variant="outline" asChild>
-                <a href="/dashboard">Back to Dashboard</a>
+                <Link href="/practice">Back to Practice</Link>
               </Button>
             </div>
           </CardContent>
@@ -407,7 +408,11 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                 currentQuestion.type === "measure-word"
                   ? "grid-cols-3 sm:grid-cols-5"
                   : currentQuestion.type === "word-choice" || currentQuestion.type === "polyphonic"
-                    ? "grid-cols-2 sm:grid-cols-4"
+                    ? currentQuestion.options.length === 2
+                      ? "grid-cols-2 mx-auto"
+                      : currentQuestion.options.length === 3
+                        ? "grid-cols-3 mx-auto"
+                        : "grid-cols-2 sm:grid-cols-4"
                     : "grid-cols-1"
               }`}>
                 {currentQuestion.options.map((option, index) => (
@@ -415,11 +420,11 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                     key={index}
                     onClick={() => handleAnswer(index)}
                     disabled={phase === "result"}
-                    className={`rounded-lg p-4 text-left transition-all ${getOptionStyle(index)} ${
+                    className={`rounded-lg px-8 py-4 text-left transition-all ${getOptionStyle(index)} ${
                       phase === "answering" ? "cursor-pointer" : "cursor-default"
                     }`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-xl font-bold">
                         {String.fromCharCode(65 + index)}
                       </span>
