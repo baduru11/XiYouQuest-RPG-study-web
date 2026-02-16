@@ -25,10 +25,11 @@ No test framework is configured.
 
 ```
 src/app/
-├── page.tsx                    # Landing page (public)
+├── page.tsx                    # Auth redirect (→ /login or /dashboard)
 ├── (auth)/login/               # Email/password + Google OAuth
 ├── (main)/                     # Protected layout — enforces auth, renders Navbar
-│   ├── dashboard/              # Progress overview, component cards, character display
+│   ├── dashboard/              # Home hub — single-column tile menu (Practice, Mock Exam, Leaderboard, Characters, Profile)
+│   ├── practice/               # Quest board — 5 component cards with stats
 │   ├── component-1/            # Monosyllabic characters (读单音节字词)
 │   ├── component-2/            # Multisyllabic words (读多音节词语)
 │   ├── component-3/            # Vocabulary/grammar judgment (选择判断)
@@ -59,7 +60,11 @@ src/app/
 
 ### Auth Flow
 
-Three-layer auth: **middleware** refreshes session → **(main)/layout.tsx** calls `getUser()` and redirects if unauthenticated → **pages** can safely use `user!.id` without re-checking. API routes independently verify auth.
+Three-layer auth: **middleware** refreshes session → **(main)/layout.tsx** calls `getUser()` and redirects if unauthenticated → **pages** can safely use `user!.id` without re-checking. API routes independently verify auth. Root page (`/`) redirects unauthenticated users to `/login` and authenticated users to `/dashboard`.
+
+### Navigation
+
+Minimal navbar: **PSC Quest** logo (→ `/dashboard`), XP bar, profile dropdown (Profile, Social with pending badge, Log Out with confirmation). All primary navigation happens through the home hub tile menu at `/dashboard`.
 
 ### External Services (all in `src/lib/`)
 
