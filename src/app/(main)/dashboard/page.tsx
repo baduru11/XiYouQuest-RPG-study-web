@@ -1,151 +1,151 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
 import Link from "next/link";
-import Image from "next/image";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ClipboardCheck, Users, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Swords,
+  BookOpen,
+  ClipboardCheck,
+  Trophy,
+  Users,
+  UserCircle,
+  LogOut,
+  ArrowRight,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-import { CHARACTER_IMAGES } from "@/lib/character-images";
-
-const COMPONENTS = [
-  { number: 1, name: "Monosyllabic Characters", chinese: "\u8BFB\u5355\u97F3\u8282\u5B57\u8BCD", path: "/component-1" },
-  { number: 2, name: "Multisyllabic Words", chinese: "\u8BFB\u591A\u97F3\u8282\u8BCD\u8BED", path: "/component-2" },
-  { number: 3, name: "Judgment", chinese: "\u9009\u62E9\u5224\u65AD", path: "/component-3" },
-  { number: 4, name: "Passage Reading", chinese: "\u6717\u8BFB\u77ED\u6587", path: "/component-4" },
-  { number: 5, name: "Prompted Speaking", chinese: "\u547D\u9898\u8BF4\u8BDD", path: "/component-5" },
+const MENU_ITEMS = [
+  {
+    href: "/practice",
+    icon: BookOpen,
+    label: "Practice Session",
+    description: "Train all 5 PSC components",
+  },
+  {
+    href: "/mock-exam",
+    icon: ClipboardCheck,
+    label: "Mock Exam",
+    description: "Full 5-component exam simulation",
+  },
+  {
+    href: "/leaderboard",
+    icon: Trophy,
+    label: "Leaderboard",
+    description: "See how you rank",
+  },
+  {
+    href: "/characters",
+    icon: Users,
+    label: "Characters",
+    description: "Gallery, unlocks, and affection",
+  },
 ];
 
-function getAccuracyColor(accuracy: number): string {
-  if (accuracy >= 80) return "text-pixel-green";
-  if (accuracy >= 50) return "text-pixel-gold";
-  return "text-pixel-red";
-}
+export default function DashboardPage() {
+  const router = useRouter();
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const userId = user!.id;
-
-  const [{ data: profile }, { data: progress }, { data: selectedCharacter }, { data: sessions }] =
-    await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).single(),
-      supabase.from("user_progress").select("*").eq("user_id", userId),
-      supabase
-        .from("user_characters")
-        .select("*, characters(*)")
-        .eq("user_id", userId)
-        .eq("is_selected", true)
-        .single(),
-      supabase
-        .from("practice_sessions")
-        .select("component, score")
-        .eq("user_id", userId),
-    ]);
-
-  const progressMap = new Map(
-    (progress || []).map((p: { component: number }) => [p.component, p])
-  );
-
-  // Calculate average score per component from practice sessions
-  const avgScoreMap = new Map<number, number>();
-  if (sessions && sessions.length > 0) {
-    const grouped = new Map<number, number[]>();
-    for (const s of sessions) {
-      const scores = grouped.get(s.component) || [];
-      scores.push(s.score);
-      grouped.set(s.component, scores);
-    }
-    for (const [comp, scores] of grouped) {
-      avgScoreMap.set(comp, Math.round(scores.reduce((a, b) => a + b, 0) / scores.length));
-    }
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
   }
 
   return (
-    <div className="space-y-8">
-      {/* Greeting Section */}
-      <div className="flex items-center gap-6">
-        <div className="relative h-32 w-32 pixel-border bg-muted overflow-hidden">
-          {(() => {
-            const charName = selectedCharacter?.characters?.name;
-            const charImage = selectedCharacter?.characters?.image_url || (charName ? CHARACTER_IMAGES[charName] : null);
-            return charImage ? (
-              <Image
-                src={charImage}
-                alt={charName || "Character"}
-                fill
-                className="object-contain"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                {charName || "No character"}
+    <div className="mx-auto max-w-2xl space-y-3 py-6">
+      {/* Header */}
+      <div className="py-4 text-center">
+        <h1 className="font-pixel text-3xl text-primary pixel-glow leading-relaxed">
+          PSC Quest
+        </h1>
+        <p className="text-lg text-muted-foreground mt-1">
+          Master the Putonghua Proficiency Test
+        </p>
+      </div>
+
+      {/* Main Quest — coming soon */}
+      <div className="pixel-border bg-card px-5 py-3 opacity-50 cursor-not-allowed">
+        <div className="flex items-center gap-5">
+          <Swords className="h-8 w-8 text-muted-foreground shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-pixel text-sm text-muted-foreground leading-relaxed">
+              Main Quest
+            </p>
+            <p className="text-base text-muted-foreground">Story-driven campaign</p>
+          </div>
+          <span className="shrink-0 text-xs font-pixel px-3 py-1.5 pixel-border bg-muted text-muted-foreground">
+            Coming Soon
+          </span>
+        </div>
+      </div>
+
+      {/* Menu tiles */}
+      {MENU_ITEMS.map((item) => (
+        <Link key={item.href} href={item.href} className="group block">
+          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all">
+            <div className="flex items-center gap-5">
+              <item.icon className="h-8 w-8 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-pixel text-sm text-foreground leading-relaxed">
+                  {item.label}
+                </p>
+                <p className="text-base text-muted-foreground">{item.description}</p>
               </div>
-            );
-          })()}
-        </div>
-        <div>
-          <h1 className="font-pixel text-base text-primary pixel-glow leading-relaxed">
-            Welcome back, {profile?.display_name || "Adventurer"}!
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Ready to continue your quest?
-          </p>
-        </div>
-      </div>
-
-      {/* Quest Board */}
-      <div>
-        <h2 className="font-pixel text-sm text-foreground mb-4">Quest Board</h2>
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {COMPONENTS.map((comp) => {
-            const p = progressMap.get(comp.number) as { questions_attempted: number } | undefined;
-            const avgScore = avgScoreMap.get(comp.number) || 0;
-            const attempts = p?.questions_attempted || 0;
-
-            return (
-              <Link key={comp.number} href={comp.path} className="group">
-                <Card className="h-full hover:pixel-border-primary transition-all cursor-pointer">
-                  <CardContent className="px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-2xl font-bold leading-none">
-                        Quest {comp.number}
-                      </CardTitle>
-                      <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <p className="text-lg text-muted-foreground font-retro leading-none mt-1">{comp.name}</p>
-                    <p className="text-base text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
-                    <div className="flex items-center justify-between text-lg font-medium mt-2">
-                      <span>{attempts} attempted</span>
-                      {attempts > 0 && (
-                        <span className={getAccuracyColor(avgScore)}>avg {avgScore}%</span>
-                      )}
-                    </div>
-                    <Button className="w-full text-base mt-2" size="sm">
-                      Start Quest
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="flex gap-5">
-        <Link href="/mock-exam">
-          <Button variant="outline">
-            <ClipboardCheck className="h-4 w-4 mr-2" />
-            Mock Exam
-          </Button>
+              <ArrowRight className="h-6 w-6 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
         </Link>
-        <Link href="/characters">
-          <Button variant="outline">
-            <Users className="h-4 w-4 mr-2" />
-            Character
-          </Button>
+      ))}
+
+      {/* Profile / Social / Logout row */}
+      <div className="grid grid-cols-3 gap-4">
+        <Link href="/profile" className="group block">
+          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
+            <UserCircle className="h-8 w-8 text-primary shrink-0" />
+            <p className="font-pixel text-sm text-foreground leading-relaxed">Profile</p>
+          </div>
         </Link>
+        <Link href="/social" className="group block">
+          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
+            <Users className="h-8 w-8 text-primary shrink-0" />
+            <p className="font-pixel text-sm text-foreground leading-relaxed">Social</p>
+          </div>
+        </Link>
+        <button onClick={() => setLogoutOpen(true)} className="group block w-full text-left">
+          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
+            <LogOut className="h-8 w-8 text-destructive shrink-0" />
+            <p className="font-pixel text-sm text-destructive leading-relaxed">Logout</p>
+          </div>
+        </button>
       </div>
+
+      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save & Quit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your progress is saved. You can sign back in anytime to continue your quest.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSignOut}>
+              Quit Game
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
