@@ -1,6 +1,6 @@
 export type PracticeMode = "study" | "practice" | "mock-exam";
 
-export type ComponentNumber = 1 | 2 | 3 | 4 | 5;
+export type ComponentNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface PronunciationResult {
   text: string;
@@ -19,7 +19,7 @@ export interface WordResult {
 
 export interface QuizQuestion {
   id: string;
-  type: "word-choice" | "measure-word" | "sentence-order";
+  type: "word-choice" | "measure-word" | "sentence-order" | "polyphonic";
   prompt: string;
   options: string[];
   correctIndex: number;

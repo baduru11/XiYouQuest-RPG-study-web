@@ -15,7 +15,7 @@ export interface Profile {
 export interface UserProgress {
   id: string;
   user_id: string;
-  component: 1 | 2 | 3 | 4 | 5;
+  component: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   questions_attempted: number;
   questions_correct: number;
   best_streak: number;
@@ -63,7 +63,7 @@ export interface PracticeSession {
   id: string;
   user_id: string;
   character_id: string;
-  component: 1 | 2 | 3 | 4 | 5;
+  component: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   score: number;
   xp_earned: number;
   duration_seconds: number;
@@ -82,7 +82,7 @@ export interface PracticeDetail {
 
 export interface QuestionBank {
   id: string;
-  component: 1 | 2 | 3 | 4 | 5;
+  component: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   set_number: number;
   content: string;
   pinyin: string | null;
