@@ -15,28 +15,23 @@ const QuizSession = dynamic(() => import("./quiz-session").then(m => m.QuizSessi
   ),
 });
 
-// Default quiz questions covering all 3 sub-types
+// Default quiz questions covering all 3 sub-types (matches new real question format)
 const FALLBACK_QUESTIONS: QuizQuestion[] = [
-  { id: "1", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["工作", "返工"], correctIndex: 0, explanation: "'工作' is standard Putonghua. '返工' is Cantonese." },
-  { id: "2", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["现在", "而家"], correctIndex: 0, explanation: "'现在' is standard. '而家' is Cantonese for 'now'." },
-  { id: "3", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["不要", "唔好"], correctIndex: 0, explanation: "'不要' is standard. '唔好' is Cantonese." },
-  { id: "4", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["聊天", "吹水"], correctIndex: 0, explanation: "'聊天' is standard. '吹水' is Cantonese slang." },
-  { id: "5", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["下雨", "落雨"], correctIndex: 0, explanation: "'下雨' is standard. '落雨' is dialectal." },
-  { id: "6", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["便宜", "平"], correctIndex: 0, explanation: "'便宜' is standard. '平' meaning cheap is Cantonese." },
-  { id: "7", type: "word-choice", prompt: "Which is more standard Putonghua?", options: ["空调", "冷气"], correctIndex: 0, explanation: "'空调' is the standard term. '冷气' is used in Cantonese regions." },
-  { id: "8", type: "measure-word", prompt: "一___桌子", options: ["张", "个", "把", "条"], correctIndex: 0, explanation: "桌子 uses 张 as its measure word." },
-  { id: "9", type: "measure-word", prompt: "一___书", options: ["本", "张", "个", "片"], correctIndex: 0, explanation: "书 uses 本 as its measure word." },
-  { id: "10", type: "measure-word", prompt: "一___狗", options: ["只", "条", "个", "头"], correctIndex: 0, explanation: "狗 commonly uses 只 as its measure word." },
-  { id: "11", type: "measure-word", prompt: "一___车", options: ["辆", "台", "个", "部"], correctIndex: 0, explanation: "车 uses 辆 as its measure word." },
-  { id: "12", type: "measure-word", prompt: "一___信", options: ["封", "张", "本", "份"], correctIndex: 0, explanation: "信 uses 封 as its measure word." },
-  { id: "13", type: "measure-word", prompt: "一___刀", options: ["把", "条", "支", "根"], correctIndex: 0, explanation: "刀 uses 把 as its measure word." },
-  { id: "14", type: "measure-word", prompt: "一___花", options: ["朵", "束", "根", "棵"], correctIndex: 0, explanation: "花 uses 朵 as its measure word for a single flower." },
-  { id: "15", type: "sentence-order", prompt: "Which sentence is correct?", options: ["我把书放在桌子上。", "我放在桌子上把书。"], correctIndex: 0, explanation: "The 把 structure requires: Subject + 把 + Object + Verb + Complement." },
-  { id: "16", type: "sentence-order", prompt: "Which sentence is correct?", options: ["因为下雨，所以我没去。", "虽然下雨，所以我没去。"], correctIndex: 0, explanation: "'因为...所以...' is the correct paired conjunction. '虽然' pairs with '但是'." },
-  { id: "17", type: "sentence-order", prompt: "Which sentence is correct?", options: ["虽然很累，但是我还得工作。", "虽然很累，所以我还得工作。"], correctIndex: 0, explanation: "'虽然...但是...' is the correct concessive conjunction pair." },
-  { id: "18", type: "sentence-order", prompt: "Which sentence is correct?", options: ["我从来没见过他。", "我没从来见过他。"], correctIndex: 0, explanation: "'从来' should come before '没' in the negative pattern." },
-  { id: "19", type: "sentence-order", prompt: "Which sentence is correct?", options: ["你先别着急。", "你别先着急。"], correctIndex: 0, explanation: "'先' modifies '别着急' as a whole — 'first, don't worry'." },
-  { id: "20", type: "sentence-order", prompt: "Which sentence is correct?", options: ["这本书我看过两遍。", "这本书我两遍看过。"], correctIndex: 0, explanation: "The frequency complement '两遍' goes after the verb '看过'." },
+  { id: "1", type: "word-choice", prompt: "选择普通话词语", options: ["鼻公", "鼻哥", "鼻子", "鼻"], correctIndex: 2, explanation: "「鼻子」是普通话标准说法。" },
+  { id: "2", type: "word-choice", prompt: "选择普通话词语", options: ["为么子", "为什么", "做脉个", "为怎样"], correctIndex: 1, explanation: "「为什么」是普通话标准说法。" },
+  { id: "3", type: "word-choice", prompt: "选择普通话词语", options: ["单车", "自行车", "脚踏车"], correctIndex: 1, explanation: "「自行车」是普通话标准说法。" },
+  { id: "4", type: "word-choice", prompt: "选择普通话词语", options: ["厨房", "灶下", "灶披", "灶房"], correctIndex: 0, explanation: "「厨房」是普通话标准说法。" },
+  { id: "5", type: "word-choice", prompt: "选择普通话词语", options: ["吹大炮", "车大炮", "吹牛"], correctIndex: 2, explanation: "「吹牛」是普通话标准说法。" },
+  { id: "6", type: "measure-word", prompt: "一（　）钥匙", options: ["把", "根", "条", "个", "串"], correctIndex: 0, explanation: "钥匙用「把」作量词。" },
+  { id: "7", type: "measure-word", prompt: "一（　）床", options: ["张", "架", "条", "铺", "个"], correctIndex: 0, explanation: "床用「张」作量词。" },
+  { id: "8", type: "measure-word", prompt: "一（　）树", options: ["棵", "颗", "株", "根", "条"], correctIndex: 0, explanation: "树用「棵」作量词。" },
+  { id: "9", type: "measure-word", prompt: "一（　）鱼", options: ["条", "尾", "只", "个", "头"], correctIndex: 0, explanation: "鱼用「条」作量词。" },
+  { id: "10", type: "measure-word", prompt: "一（　）花", options: ["朵", "枝", "束", "盆", "棵"], correctIndex: 0, explanation: "花用「朵」作量词。" },
+  { id: "11", type: "sentence-order", prompt: "选择正确的句子", options: ["我先走", "我走先", "我走头先"], correctIndex: 0, explanation: "「我先走」是普通话标准语序。" },
+  { id: "12", type: "sentence-order", prompt: "选择正确的句子", options: ["给本书我", "把本书我", "给我一本书"], correctIndex: 2, explanation: "「给我一本书」是普通话标准语序。" },
+  { id: "13", type: "sentence-order", prompt: "选择正确的句子", options: ["他比我高", "他高过我", "他比我过高"], correctIndex: 0, explanation: "「他比我高」是普通话标准比较句式。" },
+  { id: "14", type: "sentence-order", prompt: "选择正确的句子", options: ["你吃饭头先", "你吃饭先", "你先吃饭"], correctIndex: 2, explanation: "「你先吃饭」是普通话标准语序。" },
+  { id: "15", type: "sentence-order", prompt: "选择正确的句子", options: ["我买了西瓜两个", "我两个西瓜买了", "我买了两个西瓜"], correctIndex: 2, explanation: "「我买了两个西瓜」是普通话标准语序。" },
 ];
 
 export default async function Component3Page() {
