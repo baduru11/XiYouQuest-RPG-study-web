@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { lookupPinyinDisplay } from "@/lib/pinyin";
 import type { ExpressionName } from "@/types/character";
+import type { ComponentNumber } from "@/types/practice";
 
 interface PracticeSessionProps {
   questions: string[];
@@ -21,7 +22,7 @@ interface PracticeSessionProps {
     expressions: Record<string, string>;
   };
   characterId?: string;
-  component: 1 | 2 | 3 | 4 | 5;
+  component: ComponentNumber;
 }
 
 type SessionPhase = "ready" | "recording" | "assessing" | "feedback" | "complete";

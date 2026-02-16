@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { shuffle } from "@/lib/utils";
 import type { ExpressionName } from "@/types/character";
+import type { ComponentNumber } from "@/types/practice";
 
 // Speaking structure template
 const SPEAKING_TEMPLATE = {
@@ -35,7 +36,7 @@ interface SpeakingSessionProps {
     expressions: Record<string, string>;
   };
   characterId?: string;
-  component: 1 | 2 | 3 | 4 | 5;
+  component: ComponentNumber;
 }
 
 type SessionPhase =

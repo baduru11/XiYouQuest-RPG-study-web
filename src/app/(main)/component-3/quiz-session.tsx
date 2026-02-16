@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import type { ExpressionName } from "@/types/character";
-import type { QuizQuestion, QuestionResult } from "@/types/practice";
+import type { QuizQuestion, QuestionResult, ComponentNumber } from "@/types/practice";
 
 interface QuizSessionProps {
   questions: QuizQuestion[];
@@ -20,7 +20,7 @@ interface QuizSessionProps {
     expressions: Record<string, string>;
   };
   characterId?: string;
-  component: 1 | 2 | 3 | 4 | 5;
+  component: ComponentNumber;
 }
 
 type SessionPhase = "answering" | "result" | "complete";
@@ -124,7 +124,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             characterPrompt: character.personalityPrompt,
-            component: 3,
+            component,
             questionText: currentQuestion.prompt + " " + currentQuestion.options.join(" / "),
             userAnswer: currentQuestion.options[answerIndex],
             isCorrect: false,
@@ -179,9 +179,44 @@ export function QuizSession({ questions, character, characterId, component }: Qu
         return "Measure Word";
       case "sentence-order":
         return "Sentence Order";
+      case "polyphonic":
+        return "多音字";
       default:
         return "Question";
     }
+  }
+
+  // Render polyphonic prompt with highlighted character
+  function renderPrompt(question: QuizQuestion) {
+    if (question.type === "polyphonic") {
+      // Parse **X** markers into highlighted spans
+      const parts = question.prompt.split(/\*\*(.+?)\*\*/);
+      return (
+        <p className="text-xl font-chinese sm:text-2xl leading-relaxed">
+          {parts.map((part, i) =>
+            i % 2 === 1 ? (
+              <span key={i} className="font-bold text-primary underline underline-offset-4 decoration-2">
+                {part}
+              </span>
+            ) : (
+              <span key={i}>{part}</span>
+            )
+          )}
+        </p>
+      );
+    }
+    if (question.type === "measure-word") {
+      return (
+        <p className="text-3xl font-bold font-chinese sm:text-4xl">
+          {question.prompt}
+        </p>
+      );
+    }
+    return (
+      <p className="text-[1.7rem] font-medium sm:text-[2.04rem]">
+        {question.prompt}
+      </p>
+    );
   }
 
   // Get button style based on answer state
@@ -207,14 +242,18 @@ export function QuizSession({ questions, character, characterId, component }: Qu
     const correctCount = results.filter((r) => r.isCorrect).length;
     const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
-    // Count by type
-    const wordChoiceResults = results.filter((_, i) => randomizedQuestions[i]?.type === "word-choice");
-    const measureWordResults = results.filter((_, i) => randomizedQuestions[i]?.type === "measure-word");
-    const sentenceOrderResults = results.filter((_, i) => randomizedQuestions[i]?.type === "sentence-order");
-
-    const wordChoiceCorrect = wordChoiceResults.filter((r) => r.isCorrect).length;
-    const measureWordCorrect = measureWordResults.filter((r) => r.isCorrect).length;
-    const sentenceOrderCorrect = sentenceOrderResults.filter((r) => r.isCorrect).length;
+    // Count by type — dynamically based on what types are present
+    const typeBreakdown = new Map<string, { label: string; total: number; correct: number }>();
+    results.forEach((r, i) => {
+      const type = randomizedQuestions[i]?.type;
+      if (!type) return;
+      if (!typeBreakdown.has(type)) {
+        typeBreakdown.set(type, { label: getTypeLabel(type), total: 0, correct: 0 });
+      }
+      const entry = typeBreakdown.get(type)!;
+      entry.total++;
+      if (r.isCorrect) entry.correct++;
+    });
 
     return (
       <div className="space-y-6">
@@ -256,25 +295,17 @@ export function QuizSession({ questions, character, characterId, component }: Qu
             <Progress value={accuracy} className="h-3" />
 
             {/* Breakdown by type */}
-            <div className="grid grid-cols-3 gap-3 text-center text-sm">
-              <div className="rounded-md border p-2">
-                <p className="font-medium">Word Choice</p>
-                <p className="text-muted-foreground">
-                  {wordChoiceCorrect}/{wordChoiceResults.length}
-                </p>
-              </div>
-              <div className="rounded-md border p-2">
-                <p className="font-medium">Measure Words</p>
-                <p className="text-muted-foreground">
-                  {measureWordCorrect}/{measureWordResults.length}
-                </p>
-              </div>
-              <div className="rounded-md border p-2">
-                <p className="font-medium">Sentence Order</p>
-                <p className="text-muted-foreground">
-                  {sentenceOrderCorrect}/{sentenceOrderResults.length}
-                </p>
-              </div>
+            <div className={`grid gap-3 text-center text-sm ${
+              typeBreakdown.size === 1 ? "grid-cols-1" : typeBreakdown.size === 2 ? "grid-cols-2" : "grid-cols-3"
+            }`}>
+              {Array.from(typeBreakdown.values()).map((entry) => (
+                <div key={entry.label} className="rounded-md border p-2">
+                  <p className="font-medium">{entry.label}</p>
+                  <p className="text-muted-foreground">
+                    {entry.correct}/{entry.total}
+                  </p>
+                </div>
+              ))}
             </div>
 
             {/* Individual results */}
@@ -368,22 +399,16 @@ export function QuizSession({ questions, character, characterId, component }: Qu
 
               {/* Question prompt */}
               <div className="text-center">
-                {currentQuestion.type === "measure-word" ? (
-                  <p className="text-3xl font-bold font-chinese sm:text-4xl">
-                    {currentQuestion.prompt}
-                  </p>
-                ) : (
-                  <p className="text-[1.7rem] font-medium sm:text-[2.04rem]">
-                    {currentQuestion.prompt}
-                  </p>
-                )}
+                {renderPrompt(currentQuestion)}
               </div>
 
               {/* Answer options */}
               <div className={`grid gap-3 ${
                 currentQuestion.type === "measure-word"
-                  ? "grid-cols-2 sm:grid-cols-4"
-                  : "grid-cols-1"
+                  ? "grid-cols-3 sm:grid-cols-5"
+                  : currentQuestion.type === "word-choice" || currentQuestion.type === "polyphonic"
+                    ? "grid-cols-2 sm:grid-cols-4"
+                    : "grid-cols-1"
               }`}>
                 {currentQuestion.options.map((option, index) => (
                   <button
@@ -398,7 +423,9 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-xl font-bold">
                         {String.fromCharCode(65 + index)}
                       </span>
-                      <span className={`font-bold font-chinese ${
+                      <span className={`font-bold ${
+                        currentQuestion.type === "polyphonic" ? "text-xl" : "font-chinese"
+                      } ${
                         currentQuestion.type === "measure-word" ? "text-[2.04rem]" : "text-[1.52rem]"
                       }`}>
                         {option}
