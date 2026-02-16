@@ -12,6 +12,11 @@ const COMPONENTS = [
   { number: 5, name: "Prompted Speaking", chinese: "命题说话", path: "/component-5" },
 ];
 
+const SUPPLEMENTARY = [
+  { number: 6, name: "Cantonese Mistakes", chinese: "易错字词练习", path: "/component-6" },
+  { number: 7, name: "Polyphonic Characters", chinese: "多音字练习", path: "/component-7" },
+];
+
 function getAccuracyColor(accuracy: number): string {
   if (accuracy >= 80) return "text-pixel-green";
   if (accuracy >= 50) return "text-pixel-gold";
@@ -80,6 +85,42 @@ export default async function PracticePage() {
                   </div>
                   <Button className="w-full text-base mt-2" size="sm">
                     Start Quest
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Supplementary Drills */}
+      <h2 className="font-pixel text-sm text-foreground">Supplementary Drills</h2>
+      <div className="grid gap-2 md:grid-cols-2">
+        {SUPPLEMENTARY.map((comp) => {
+          const p = progressMap.get(comp.number) as { questions_attempted: number } | undefined;
+          const avgScore = avgScoreMap.get(comp.number) || 0;
+          const attempts = p?.questions_attempted || 0;
+
+          return (
+            <Link key={comp.number} href={comp.path} className="group">
+              <Card className="h-full hover:pixel-border-primary transition-all cursor-pointer">
+                <CardContent className="px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-2xl font-bold leading-none">
+                      Extra {comp.number - 5}
+                    </CardTitle>
+                    <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-lg text-muted-foreground font-retro leading-none mt-1">{comp.name}</p>
+                  <p className="text-base text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
+                  <div className="flex items-center justify-between text-lg font-medium mt-2">
+                    <span>{attempts} attempted</span>
+                    {attempts > 0 && (
+                      <span className={getAccuracyColor(avgScore)}>avg {avgScore}%</span>
+                    )}
+                  </div>
+                  <Button className="w-full text-base mt-2" size="sm">
+                    Start Drill
                   </Button>
                 </CardContent>
               </Card>

@@ -13,6 +13,8 @@ import {
   UserCircle,
   LogOut,
   ArrowRight,
+  Ear,
+  Languages,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -49,6 +51,18 @@ const MENU_ITEMS = [
     icon: Users,
     label: "Characters",
     description: "Gallery, unlocks, and affection",
+  },
+  {
+    href: "/component-6",
+    icon: Ear,
+    label: "Cantonese Mistakes",
+    description: "Trouble sounds drill (z/zh, n/ng, l/n)",
+  },
+  {
+    href: "/component-7",
+    icon: Languages,
+    label: "Polyphonic Characters",
+    description: "Context-based pronunciation quiz",
   },
 ];
 
