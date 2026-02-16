@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { lookupPinyinDisplay } from "@/lib/pinyin";
+import { C6_WORDS_PER_GROUP } from "@/lib/constants";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -57,8 +59,8 @@ export function PracticeSession({ questions, character, characterId, component, 
   const [maxStreak, setMaxStreak] = useState(0);
   const [totalXPEarned, setTotalXPEarned] = useState(0);
   const [groupResults, setGroupResults] = useState<GroupResult[]>([]);
-  const [, setFeedbackText] = useState("");
   const [showPinyin, setShowPinyin] = useState(false);
+  const sessionStartRef = useRef(Date.now());
   const [playingWordIndex, setPlayingWordIndex] = useState<number | null>(null);
   const playingRef = useRef(false);
   const wordAudioCache = useRef<Map<string, string>>(new Map());
@@ -66,8 +68,8 @@ export function PracticeSession({ questions, character, characterId, component, 
   // Split questions into groups of 5 (preserving category order)
   useEffect(() => {
     const groups: string[][] = [];
-    for (let i = 0; i < questions.length; i += 5) {
-      groups.push(questions.slice(i, i + 5));
+    for (let i = 0; i < questions.length; i += C6_WORDS_PER_GROUP) {
+      groups.push(questions.slice(i, i + C6_WORDS_PER_GROUP));
     }
     setWordGroups(groups);
   }, [questions]);
@@ -77,7 +79,7 @@ export function PracticeSession({ questions, character, characterId, component, 
 
   // Determine the current category label based on the word index
   const currentCategoryLabel = useMemo(() => {
-    const wordIndex = currentGroupIndex * 5;
+    const wordIndex = currentGroupIndex * C6_WORDS_PER_GROUP;
     let label = "";
     for (const boundary of categoryBoundaries) {
       if (wordIndex >= boundary.startIndex) {
@@ -89,9 +91,20 @@ export function PracticeSession({ questions, character, characterId, component, 
 
   // Detect if we're at the start of a new category
   const isNewCategory = useMemo(() => {
-    const wordIndex = currentGroupIndex * 5;
+    const wordIndex = currentGroupIndex * C6_WORDS_PER_GROUP;
     return categoryBoundaries.some(b => b.startIndex === wordIndex);
   }, [currentGroupIndex, categoryBoundaries]);
+
+  // Computed averages for the feedback score display
+  const avgPronunciation = useMemo(() => {
+    const valid = wordScores.filter(w => w.score !== null).map(w => w.score!);
+    return valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
+  }, [wordScores]);
+
+  const avgTone = useMemo(() => {
+    const tones = wordScores.filter(w => w.toneScore !== undefined).map(w => w.toneScore!);
+    return tones.length > 0 ? Math.round(tones.reduce((a, b) => a + b, 0) / tones.length) : null;
+  }, [wordScores]);
 
   const speakWithBrowserTTS = useCallback((text: string): Promise<void> => {
     return new Promise((resolve) => {
@@ -125,7 +138,7 @@ export function PracticeSession({ questions, character, characterId, component, 
             component,
             score: avgScore,
             xpEarned: totalXPEarned,
-            durationSeconds: 0,
+            durationSeconds: Math.round((Date.now() - sessionStartRef.current) / 1000),
             questionsAttempted: groupResults.filter(g => g.wordScores.some(ws => ws.score !== null)).length,
             questionsCorrect: groupResults.filter(g => {
               const valid = g.wordScores.filter(ws => ws.score !== null).map(ws => ws.score!);
@@ -327,7 +340,6 @@ export function PracticeSession({ questions, character, characterId, component, 
           : "Keep practicing the sound distinctions.";
       }
 
-      setFeedbackText(spokenFeedback);
       setDialogue(spokenFeedback);
 
       const feedbackExpression: ExpressionName =
@@ -364,7 +376,6 @@ export function PracticeSession({ questions, character, characterId, component, 
       setCurrentGroupIndex(prev => prev + 1);
       setPhase("ready");
       setWordScores([]);
-      setFeedbackText("");
       setShowPinyin(false);
       setExpression("neutral");
       setDialogue("Skipped! Ready for the next group?");
@@ -380,7 +391,6 @@ export function PracticeSession({ questions, character, characterId, component, 
       setCurrentGroupIndex(prev => prev + 1);
       setPhase("ready");
       setWordScores([]);
-      setFeedbackText("");
       setShowPinyin(false);
       setExpression("neutral");
       setDialogue("Ready for the next group? Tap any word to listen!");
@@ -477,7 +487,7 @@ export function PracticeSession({ questions, character, characterId, component, 
             <div className="flex gap-3 justify-center pt-2">
               <Button onClick={() => window.location.reload()}>Practice Again</Button>
               <Button variant="outline" asChild>
-                <a href="/dashboard">Back to Dashboard</a>
+                <Link href="/practice">Back to Practice</Link>
               </Button>
             </div>
           </CardContent>
@@ -500,13 +510,6 @@ export function PracticeSession({ questions, character, characterId, component, 
         </div>
         <Progress value={progressPercent} className="h-2" />
       </div>
-
-      {/* Category section label */}
-      {isNewCategory && phase === "ready" && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-300 rounded-lg border-2 border-primary/30 bg-primary/5 p-3 text-center">
-          <p className="font-pixel text-sm text-primary">{currentCategoryLabel}</p>
-        </div>
-      )}
 
       {/* Current category indicator */}
       <div className="flex justify-center">
@@ -611,29 +614,19 @@ export function PracticeSession({ questions, character, characterId, component, 
                   <div className="flex items-center justify-center gap-6 rounded-lg border-2 border-primary/20 bg-card p-4">
                     <div className="text-center">
                       <p className="font-pixel text-[10px] text-muted-foreground mb-1">Pronunciation</p>
-                      <p className={`text-3xl font-bold ${(() => {
-                        const valid = wordScores.filter(w => w.score !== null).map(w => w.score!);
-                        const avg = valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
-                        return avg >= 90 ? "text-green-600" : avg >= 60 ? "text-yellow-600" : "text-red-600";
-                      })()}`}>
-                        {(() => {
-                          const valid = wordScores.filter(w => w.score !== null).map(w => w.score!);
-                          return valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
-                        })()}
+                      <p className={`text-3xl font-bold ${
+                        avgPronunciation >= 90 ? "text-green-600" : avgPronunciation >= 60 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {avgPronunciation}
                       </p>
                     </div>
                     <div className="h-10 w-px bg-border" />
                     <div className="text-center">
                       <p className="font-pixel text-[10px] text-muted-foreground mb-1">Tone 声调</p>
-                      <p className={`text-3xl font-bold ${(() => {
-                        const tones = wordScores.filter(w => w.toneScore !== undefined).map(w => w.toneScore!);
-                        const avg = tones.length > 0 ? Math.round(tones.reduce((a, b) => a + b, 0) / tones.length) : 0;
-                        return avg >= 80 ? "text-green-600" : avg >= 50 ? "text-yellow-600" : "text-red-600";
-                      })()}`}>
-                        {(() => {
-                          const tones = wordScores.filter(w => w.toneScore !== undefined).map(w => w.toneScore!);
-                          return tones.length > 0 ? Math.round(tones.reduce((a, b) => a + b, 0) / tones.length) : "—";
-                        })()}
+                      <p className={`text-3xl font-bold ${
+                        avgTone !== null && avgTone >= 80 ? "text-green-600" : avgTone !== null && avgTone >= 50 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {avgTone ?? "—"}
                       </p>
                     </div>
                   </div>

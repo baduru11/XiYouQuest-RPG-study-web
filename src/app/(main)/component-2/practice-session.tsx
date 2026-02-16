@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import Link from "next/link";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
@@ -562,7 +563,7 @@ export function PracticeSession({ questions, character, characterId, component }
                 Practice Again
               </Button>
               <Button variant="outline" asChild>
-                <a href="/dashboard">Back to Dashboard</a>
+                <Link href="/practice">Back to Practice</Link>
               </Button>
             </div>
           </CardContent>

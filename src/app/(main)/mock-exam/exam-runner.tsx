@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -688,7 +689,7 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
 
         <div className="flex justify-center pb-8">
           <Button asChild size="lg">
-            <a href="/dashboard">Back to Dashboard</a>
+            <Link href="/dashboard">Back to Dashboard</Link>
           </Button>
         </div>
       </div>

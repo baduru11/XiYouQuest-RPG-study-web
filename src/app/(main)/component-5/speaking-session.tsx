@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import Link from "next/link";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { Button } from "@/components/ui/button";
@@ -470,7 +471,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
                 Choose Another Topic
               </Button>
               <Button variant="outline" asChild className="w-full">
-                <a href="/dashboard">Back to Dashboard</a>
+                <Link href="/practice">Back to Practice</Link>
               </Button>
             </div>
           </div>
