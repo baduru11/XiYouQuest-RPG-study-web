@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NavbarClient } from "@/components/shared/navbar-client";
+import { ContentWrapper } from "@/components/shared/content-wrapper";
 
 export default async function MainLayout({
   children,
@@ -36,7 +37,7 @@ export default async function MainLayout({
         pendingRequestCount={pendingCount ?? 0}
       />
       <main className="mx-auto max-w-screen-2xl px-4 py-3 lg:px-6">
-        {children}
+        <ContentWrapper>{children}</ContentWrapper>
       </main>
     </div>
   );
