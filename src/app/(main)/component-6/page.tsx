@@ -17,7 +17,7 @@ const PracticeSession = dynamic(() => import("./practice-session").then(m => m.P
 // Fallback words per category
 const FALLBACK_WORDS: Record<string, string[]> = {
   zhcs: ["杂志", "竹子", "自习", "知识", "早餐", "长城", "从此", "城市", "三十", "山水"],
-  nng: ["北京", "上海", "天津", "重庆", "长城", "长江", "黄河", "黄山", "心情", "心静"],
+  nng: ["真正", "陈成", "分风", "民明", "人仍", "针征", "亲清", "身生", "品评", "林灵"],
   ln: ["奶奶", "来来", "牛奶", "流利", "那里", "哪里", "男女", "褴褛", "蓝绿", "南岭"],
 };
 
