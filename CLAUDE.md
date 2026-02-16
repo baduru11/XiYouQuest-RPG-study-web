@@ -29,12 +29,14 @@ src/app/
 ├── (auth)/login/               # Email/password + Google OAuth
 ├── (main)/                     # Protected layout — enforces auth, renders Navbar
 │   ├── dashboard/              # Home hub — single-column tile menu (Practice, Mock Exam, Leaderboard, Characters, Profile)
-│   ├── practice/               # Quest board — 5 component cards with stats
+│   ├── practice/               # Quest board — 5 component cards + supplementary drills
 │   ├── component-1/            # Monosyllabic characters (读单音节字词)
 │   ├── component-2/            # Multisyllabic words (读多音节词语)
 │   ├── component-3/            # Vocabulary/grammar judgment (选择判断)
 │   ├── component-4/            # Passage reading (朗读短文)
 │   ├── component-5/            # Prompted speaking (命题说话)
+│   ├── component-6/            # Cantonese mistakes drill (易错字词练习) — pronunciation
+│   ├── component-7/            # Polyphonic characters quiz (多音字练习) — MCQ
 │   ├── characters/             # Gallery, unlock shop, affection display
 │   ├── profile/                # User stats, practice history, level progress
 │   ├── social/                 # Friends list, friend requests, user search
@@ -82,6 +84,8 @@ Each component page (server component) fetches character data + questions from S
 - Component 3: `QuizSession` — multiple-choice quiz (word-choice, measure-word, sentence-order)
 - Component 4: `ReadingSession` — passage reading with speech scoring
 - Component 5: `SpeakingSession` — timed prompted speaking (3 min)
+- Component 6: `PracticeSession` (own copy) — Cantonese trouble sounds drill, 3 sequential categories (平翘舌/前后鼻/边鼻), 2 groups of 5 per category
+- Component 7: Reuses C3 `QuizSession` — polyphonic character MCQ with highlighted characters in sentences, 15 per session
 - Mock Exam: `ExamRunner` — all 5 components sequentially with PSC grade mapping
 
 ### Speech Evaluation System (`src/lib/iflytek-speech/`)
@@ -121,7 +125,7 @@ All TTS uses iFlytek's global open platform WebSocket API (`wss://tts-api-sg.xf-
 
 ### Database (Supabase PostgreSQL with RLS)
 
-10 tables defined in `src/types/database.ts`: profiles, user_progress, characters, character_expressions, character_skins, user_characters, practice_sessions, practice_details, question_banks, friendships. Migrations applied via Supabase MCP (`apply_migration`).
+10 tables defined in `src/types/database.ts`: profiles, user_progress, characters, character_expressions, character_skins, user_characters, practice_sessions, practice_details, question_banks, friendships. Component columns support values 1-7 (C1-C5 are official PSC components, C6-C7 are supplementary drills). Migrations applied via Supabase MCP (`apply_migration`).
 
 ### UI Theme
 
