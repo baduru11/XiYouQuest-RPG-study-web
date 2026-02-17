@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="public/img/background/pixel-quest-banner.png" alt="PSC Quest Banner" width="600" />
-</p>
-
 <h1 align="center">PSC Quest — 普通话水平测试 Study Companion</h1>
 
 <p align="center">
@@ -165,7 +161,7 @@ Practice individual Chinese character pronunciation with per-character tone and 
 │                                                                          │
 │       Server pipeline:                                                   │
 │       ├── Auth check (Supabase session)                                  │
-│       ├── Validate: size < 25MB, MIME = audio/*                          │
+│       ├── Validate: size < 25MB, MIME allowlist (wav/webm/ogg/mpeg)       │
 │       └── assessPronunciation() →                                        │
 │           ├── Build WSS URL with HMAC-SHA256 signature                   │
 │           ├── SSB frame: params + UTF-8 BOM + newline-separated chars    │
@@ -379,10 +375,11 @@ Client (SpeakingSession):
   │  │  Vocabulary/Grammar (5 pts):                                │ │
   │  │    Gemini level 1→0, 2→1, 3→3 deduction                    │ │
   │  │                                                              │ │
-  │  │  Fluency (5 pts):                                           │ │
-  │  │    ISE fluencyScore → 0-5 scale                             │ │
+  │  │  Fluency (5 pts — 3-tier fallback):                           │ │
+  │  │    ISE fluencyScore → ISE pronunciationScore (if fluency=0) │ │
+  │  │    → Gemini fluencyLevel (last resort) → 0-5 scale          │ │
   │  │                                                              │ │
-  │  │  Time penalty: (180 - seconds) if under 3 min              │ │
+  │  │  Time penalty: min(30, 180 - seconds) if under 3 min        │ │
   │  │                                                              │ │
   │  │  Total = (20-pron) + (5-vocab) + (5-fluency) - timePenalty  │ │
   │  │  Normalized = round(total / 30 × 100) → 0-100              │ │
@@ -528,6 +525,7 @@ URL = wss://...?authorization={auth}&date={date}&host={host}
 | `read_syllable` | C1 | `<read_syllable>` | total, phone, fluency, tone, integrity |
 | `read_word` | C2, C6 | `<read_word>` | total, phone, fluency, tone, integrity |
 | `read_chapter` | C4, C5 | `<read_chapter>` | total, phone, fluency, tone, integrity |
+| `read_sentence` | (available) | `<read_sentence>` | total, phone, fluency, tone, integrity |
 
 ### Error Detection (Per-Phone)
 
@@ -575,7 +573,7 @@ When synthesizing multiple words, raw TTS produces inconsistent pauses. The `nor
 
 ### Server-Side Caching
 
-`/api/tts/speak` maintains an in-memory LRU cache (max 500 entries) keyed on `voiceId:text:pauseMs`. Cache hits skip the WebSocket call entirely. Responses include `Cache-Control: public, max-age=3600`.
+`/api/tts/speak` maintains an in-memory LRU cache (max 500 entries) keyed on `academic:voiceId:text` for single synthesis or `group:voiceId:words:pauseMs` for word groups. Cache hits skip the WebSocket call entirely. Responses include `Cache-Control: public, max-age=3600`.
 
 ### Voice Library
 
@@ -617,8 +615,8 @@ When synthesizing multiple words, raw TTS produces inconsistent pauses. The `nor
 │  Attempt 3: ~4-5s delay (1000ms × 2² + jitter)         │
 │                                                         │
 │  All retries exhausted → fallback message:              │
-│    score ≥ 60: "做得好！继续加油！"                        │
-│    score < 60: "再试一次吧！你可以的！"                    │
+│    isCorrect: "做得好！继续加油！ Nice work, keep it up!" │
+│    !isCorrect: "再试一次吧！Practice makes perfect!"     │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -1106,6 +1104,7 @@ A pixel-art retro aesthetic with warm, inviting colors:
 - **Design Document**: `docs/plans/2026-02-08-psc-webtool-design.md`
 - **Implementation Plan**: `docs/plans/2026-02-08-psc-webtool-implementation.md`
 - **PSC Reference**: `doc/PSC_comprehensive_guide.md`
+- See `docs/plans/` for additional design documents (social, leaderboard, home hub, C3/C6/C7 component designs)
 
 ---
 
