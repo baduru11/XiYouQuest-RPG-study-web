@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
+import { encodeWAV } from "@/lib/audio-utils";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
 import type { QuizQuestion } from "@/types/practice";
 
@@ -228,6 +229,15 @@ interface ComponentResult {
   wordScores?: { word: string; score: number | null }[];
   quizResults?: { question: QuizQuestion; selectedIndex: number; isCorrect: boolean }[];
   sentenceScores?: { sentence: string; score: number }[];
+  c5Detail?: {
+    totalScore: number;
+    pronunciation: { score: number; deduction: number; level: number; label: string; notes: string };
+    vocabGrammar: { score: number; deduction: number; level: number; label: string; notes: string };
+    fluency: { score: number; deduction: number; level: number; label: string; notes: string };
+    timePenalty: number;
+    transcript: string;
+    errorCount: number;
+  };
 }
 
 // Split passage into sentences by Chinese punctuation (same as reading-session.tsx)
@@ -409,17 +419,23 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
           };
         }
       } else if (raw.componentNumber === 5 && raw.audioBlob) {
-        // C5: Prompted speaking — word-by-word scores from recognized speech
+        // C5: Prompted speaking — 3-step pipeline via /api/speech/c5-assess
         try {
-          const apiResult = await assessAudio(raw.audioBlob, raw.selectedTopic ?? "", "read_chapter");
-          const score = apiResult.pronunciationScore ?? 0;
-          // Show all recognized words with individual scores
-          const recognizedWords = (apiResult.words ?? [])
-            .filter((w: { errorType?: string }) => w.errorType !== "Insertion")
-            .map((w: { word: string; accuracyScore?: number }) => ({
-              word: w.word,
-              score: w.accuracyScore ?? null,
-            }));
+          const formData = new FormData();
+          formData.append("audio", raw.audioBlob, "recording.wav");
+          formData.append("topic", raw.selectedTopic ?? "");
+          formData.append("spokenDurationSeconds", "180"); // Full exam time
+
+          const c5Response = await fetch("/api/speech/c5-assess", {
+            method: "POST",
+            body: formData,
+          });
+          if (!c5Response.ok) {
+            throw new Error(`C5 assessment failed (${c5Response.status})`);
+          }
+          const c5Result = await c5Response.json();
+          const score = c5Result.normalizedScore ?? 0;
+
           const xpResult = calculateXP({
             pronunciationScore: score,
             isCorrect: score >= 60,
@@ -430,7 +446,15 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
             componentNumber: 5,
             score,
             xpEarned: xpResult.totalXP,
-            wordScores: recognizedWords,
+            c5Detail: {
+              totalScore: c5Result.totalScore ?? 0,
+              pronunciation: c5Result.pronunciation,
+              vocabGrammar: c5Result.vocabGrammar,
+              fluency: c5Result.fluency,
+              timePenalty: c5Result.timePenalty ?? 0,
+              transcript: c5Result.transcript ?? "",
+              errorCount: c5Result.errorCount ?? 0,
+            },
           };
         } catch {
           result = {
@@ -894,36 +918,13 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
               </div>
             )}
 
-            {/* C5: Recognized words with per-word scores */}
-            {result.componentNumber === 5 && result.wordScores && result.wordScores.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Recognized words:</p>
-                <div className="max-h-[400px] overflow-y-auto rounded-lg border bg-muted/30 p-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {result.wordScores.map((ws, idx) => (
-                      <span
-                        key={idx}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-sm font-chinese ${
-                          ws.score !== null
-                            ? ws.score >= 90 ? "bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300"
-                            : ws.score >= 60 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-300"
-                            : "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300"
-                          : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {ws.word}
-                        {ws.score !== null && (
-                          <span className="text-[10px] font-mono opacity-75">{ws.score}</span>
-                        )}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            {/* C5: PSC-style score breakdown */}
+            {result.c5Detail && (
+              <C5DetailCard detail={result.c5Detail} />
             )}
 
             {/* Fallback: no detailed data available */}
-            {!result.wordScores && !result.quizResults && !result.sentenceScores && (
+            {!result.wordScores && !result.quizResults && !result.sentenceScores && !result.c5Detail && (
               <div className="text-center py-4">
                 <p className={`text-4xl font-bold ${
                   result.score >= 90 ? "text-green-600" :
@@ -938,6 +939,111 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ============================================================
+// C5 Detail Card (PSC-style score breakdown)
+// ============================================================
+
+function C5DetailCard({ detail }: { detail: NonNullable<ComponentResult["c5Detail"]> }) {
+  const [showTranscript, setShowTranscript] = useState(false);
+
+  return (
+    <div className="space-y-3">
+      {/* Total PSC score */}
+      <div className="text-center py-2">
+        <p className={`text-3xl font-bold ${
+          detail.totalScore >= 25 ? "text-green-600" :
+          detail.totalScore >= 18 ? "text-yellow-600" : "text-red-600"
+        }`}>
+          {detail.totalScore}/30
+        </p>
+        <p className="text-xs text-muted-foreground">PSC C5 Score (命题说话)</p>
+      </div>
+
+      {/* Pronunciation */}
+      <div className="rounded-lg border p-2.5 space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">语音 Pronunciation</span>
+            <Badge variant="secondary" className="text-xs">{detail.pronunciation.label}</Badge>
+          </div>
+          <span className={`font-bold ${
+            detail.pronunciation.score >= 17 ? "text-green-600" :
+            detail.pronunciation.score >= 14 ? "text-yellow-600" : "text-red-600"
+          }`}>
+            {detail.pronunciation.score}/20
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">{detail.pronunciation.notes}</p>
+        <Progress value={(detail.pronunciation.score / 20) * 100} className="h-1.5" />
+      </div>
+
+      {/* Vocab/Grammar */}
+      <div className="rounded-lg border p-2.5 space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">词汇语法 Vocab & Grammar</span>
+            <Badge variant="secondary" className="text-xs">{detail.vocabGrammar.label}</Badge>
+          </div>
+          <span className={`font-bold ${
+            detail.vocabGrammar.score >= 4 ? "text-green-600" :
+            detail.vocabGrammar.score >= 3 ? "text-yellow-600" : "text-red-600"
+          }`}>
+            {detail.vocabGrammar.score}/5
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">{detail.vocabGrammar.notes}</p>
+        <Progress value={(detail.vocabGrammar.score / 5) * 100} className="h-1.5" />
+      </div>
+
+      {/* Fluency */}
+      <div className="rounded-lg border p-2.5 space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">自然流畅 Fluency</span>
+            <Badge variant="secondary" className="text-xs">{detail.fluency.label}</Badge>
+          </div>
+          <span className={`font-bold ${
+            detail.fluency.score >= 4 ? "text-green-600" :
+            detail.fluency.score >= 3 ? "text-yellow-600" : "text-red-600"
+          }`}>
+            {detail.fluency.score}/5
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">{detail.fluency.notes}</p>
+        <Progress value={(detail.fluency.score / 5) * 100} className="h-1.5" />
+      </div>
+
+      {/* Time penalty */}
+      {detail.timePenalty > 0 && (
+        <div className="rounded-lg border border-red-500/50 bg-red-50 dark:bg-red-950/20 p-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-red-600">时间扣分 Time Penalty</span>
+            <span className="font-bold text-red-600">-{detail.timePenalty}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Transcript (collapsible) */}
+      {detail.transcript && (
+        <div className="space-y-1">
+          <button
+            onClick={() => setShowTranscript(!showTranscript)}
+            className="text-sm font-medium flex items-center gap-1 cursor-pointer"
+          >
+            Transcript ({detail.errorCount} pronunciation {detail.errorCount === 1 ? "error" : "errors"})
+            <span className="text-muted-foreground">{showTranscript ? "▲" : "▼"}</span>
+          </button>
+          {showTranscript && (
+            <div className="rounded-lg border bg-muted/30 p-2.5 max-h-[200px] overflow-y-auto">
+              <p className="text-sm font-chinese leading-relaxed">{detail.transcript}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1154,61 +1260,117 @@ interface PassageComponentProps {
 function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComponentProps) {
   const [phase, setPhase] = useState<"ready" | "recording">("ready");
   const [isDone, setIsDone] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  // PCM WAV recording refs (replaces MediaRecorder)
+  const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Float32Array[]>([]);
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current?.state !== "closed") {
+        audioContextRef.current?.close();
+      }
+      audioContextRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
 
   const handleTimeUp = useCallback(() => {
-    if (mediaRecorderRef.current && phase === "recording") {
-      mediaRecorderRef.current.stop();
+    if (audioContextRef.current && phase === "recording") {
+      if (audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+
+      const totalLength = chunksRef.current.reduce((sum, c) => sum + c.length, 0);
+      const merged = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunksRef.current) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      chunksRef.current = [];
+
+      const wavBlob = encodeWAV(merged, 16000);
+      setIsDone(true);
+      onComplete({
+        componentNumber: 4,
+        audioBlob: wavBlob,
+        referenceText: passage.content,
+      });
       return;
     }
     if (!isDone) {
       setIsDone(true);
       onComplete({ componentNumber: 4 });
     }
-  }, [phase, isDone, onComplete]);
+  }, [phase, isDone, onComplete, passage.content]);
 
   const timer = useExamTimer(timeLimitSeconds, handleTimeUp);
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 16000 },
+      });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
+
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
       chunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        chunksRef.current.push(new Float32Array(inputData));
       };
 
-      mediaRecorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        timer.stop();
-        setIsDone(true);
-        onComplete({
-          componentNumber: 4,
-          audioBlob: blob,
-          referenceText: passage.content,
-        });
-      };
+      source.connect(processor);
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
 
-      mediaRecorder.start();
       setPhase("recording");
     } catch {
       setIsDone(true);
       timer.stop();
       onComplete({ componentNumber: 4 });
     }
-  }, [timer, onComplete, passage.content]);
+  }, [timer, onComplete]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && phase === "recording") {
-      mediaRecorderRef.current.stop();
+    if (audioContextRef.current && phase === "recording") {
+      if (audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+
+      const totalLength = chunksRef.current.reduce((sum, c) => sum + c.length, 0);
+      const merged = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunksRef.current) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      chunksRef.current = [];
+
+      const wavBlob = encodeWAV(merged, 16000);
+      timer.stop();
+      setIsDone(true);
+      onComplete({
+        componentNumber: 4,
+        audioBlob: wavBlob,
+        referenceText: passage.content,
+      });
     }
-  }, [phase]);
+  }, [phase, timer, onComplete, passage.content]);
 
   if (isDone) {
     return (
@@ -1281,13 +1443,48 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
   const [phase, setPhase] = useState<"choosing" | "ready" | "recording">("choosing");
   const [isDone, setIsDone] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  // PCM WAV recording refs (replaces MediaRecorder)
+  const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Float32Array[]>([]);
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current?.state !== "closed") {
+        audioContextRef.current?.close();
+      }
+      audioContextRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
 
   const handleTimeUp = useCallback(() => {
-    if (mediaRecorderRef.current && phase === "recording") {
-      mediaRecorderRef.current.stop();
+    if (audioContextRef.current && phase === "recording") {
+      // Time's up while recording — stop and collect audio
+      if (audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+
+      const totalLength = chunksRef.current.reduce((sum, c) => sum + c.length, 0);
+      const merged = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunksRef.current) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      chunksRef.current = [];
+
+      const wavBlob = encodeWAV(merged, 16000);
+      setIsDone(true);
+      onComplete({
+        componentNumber: 5,
+        audioBlob: wavBlob,
+        selectedTopic: selectedTopic ?? undefined,
+      });
       return;
     }
     if (!isDone) {
@@ -1305,29 +1502,29 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 16000 },
+      });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
+
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
       chunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        chunksRef.current.push(new Float32Array(inputData));
       };
 
-      mediaRecorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        timer.stop();
-        setIsDone(true);
-        onComplete({
-          componentNumber: 5,
-          audioBlob: blob,
-          selectedTopic: selectedTopic ?? undefined,
-        });
-      };
+      source.connect(processor);
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
 
-      mediaRecorder.start();
       setPhase("recording");
       setTimerStarted(true);
     } catch {
@@ -1338,10 +1535,32 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
   }, [timer, onComplete, selectedTopic]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && phase === "recording") {
-      mediaRecorderRef.current.stop();
+    if (audioContextRef.current && phase === "recording") {
+      if (audioContextRef.current.state !== "closed") {
+        audioContextRef.current.close();
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+
+      const totalLength = chunksRef.current.reduce((sum, c) => sum + c.length, 0);
+      const merged = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunksRef.current) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      chunksRef.current = [];
+
+      const wavBlob = encodeWAV(merged, 16000);
+      timer.stop();
+      setIsDone(true);
+      onComplete({
+        componentNumber: 5,
+        audioBlob: wavBlob,
+        selectedTopic: selectedTopic ?? undefined,
+      });
     }
-  }, [phase]);
+  }, [phase, timer, onComplete, selectedTopic]);
 
   if (isDone) {
     return (
