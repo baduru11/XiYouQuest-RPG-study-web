@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { XPBar } from "./xp-bar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, User, Users } from "lucide-react";
+import { ArrowLeft, LogOut, User, Users } from "lucide-react";
 
 interface NavbarProps {
   totalXP: number;
@@ -35,7 +36,9 @@ interface NavbarProps {
 
 export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }: NavbarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const showBackToHub = pathname !== "/dashboard";
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -47,12 +50,22 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
     <TooltipProvider delayDuration={0}>
     <nav className="border-b-3 border-border bg-card pixel-border">
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-6 lg:px-10">
-        <Link
-          href="/dashboard"
-          className="font-pixel text-base text-primary cursor-pointer hover:opacity-80 transition-opacity pixel-glow"
-        >
-          PSC Quest
-        </Link>
+        <div className="flex items-center gap-3">
+          {showBackToHub && (
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm" className="gap-1.5">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Hub</span>
+              </Button>
+            </Link>
+          )}
+          <Link
+            href="/dashboard"
+            className="font-pixel text-base text-primary cursor-pointer hover:opacity-80 transition-opacity pixel-glow"
+          >
+            PSC Quest
+          </Link>
+        </div>
 
         <div className="flex items-center gap-4">
           <XPBar totalXP={totalXP} />
