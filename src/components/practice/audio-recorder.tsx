@@ -90,10 +90,14 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
   useEffect(() => {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
       if (audioContextRef.current?.state !== "closed") {
         audioContextRef.current?.close();
       }
+      audioContextRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      analyserRef.current = null;
     };
   }, []);
 
