@@ -15,6 +15,7 @@ export const C6_WORDS_PER_GROUP = 5;
 
 // --- iFlytek ---
 export const ISE_TIMEOUT_MS = 90_000;
+export const ASR_TIMEOUT_MS = 120_000;
 
 // --- TTS cache ---
 export const TTS_CACHE_MAX_SIZE = 500;

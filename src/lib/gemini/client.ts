@@ -29,6 +29,101 @@ async function retryWithBackoff<T>(
   throw new Error("Unreachable");
 }
 
+// ---------- C5 Speaking Analysis ----------
+
+export interface GeminiC5Analysis {
+  vocabularyLevel: 1 | 2 | 3;
+  vocabularyNotes: string;
+  fluencyLevel: 1 | 2 | 3;
+  fluencyNotes: string;
+  contentRelevance: string;
+}
+
+const C5_ANALYSIS_SYSTEM_PROMPT = `You are a PSC (Putonghua Proficiency Test) examiner evaluating Component 5 (命题说话).
+
+Analyze the transcript and rate TWO dimensions using the official PSC rubric:
+
+## Vocabulary & Grammar (词汇语法):
+- Level 1: Standard Putonghua vocabulary and grammar throughout. No dialectal words or non-standard grammar.
+- Level 2: Some dialectal vocabulary or minor grammar errors (1-3 instances). Generally standard.
+- Level 3: Frequent dialectal vocabulary, obvious grammar errors, or very limited vocabulary range.
+
+## Fluency (自然流畅):
+- Level 1: Natural flow, smooth delivery, well-organized thoughts. Minimal filler words.
+- Level 2: Some hesitation, occasional filler words (嗯、那个、就是), but generally coherent.
+- Level 3: Frequent pauses, excessive filler words, disorganized or incoherent speech.
+
+Respond with ONLY a valid JSON object (no markdown, no code fences):
+{
+  "vocabularyLevel": 1|2|3,
+  "vocabularyNotes": "brief explanation in Chinese+English",
+  "fluencyLevel": 1|2|3,
+  "fluencyNotes": "brief explanation in Chinese+English",
+  "contentRelevance": "brief note on topic relevance"
+}`;
+
+function parseC5Analysis(text: string): GeminiC5Analysis {
+  // Try to extract JSON from the response
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("No JSON found in response");
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  // Validate and clamp levels
+  const vocabLevel = [1, 2, 3].includes(parsed.vocabularyLevel)
+    ? parsed.vocabularyLevel as 1 | 2 | 3
+    : 2;
+  const fluencyLevel = [1, 2, 3].includes(parsed.fluencyLevel)
+    ? parsed.fluencyLevel as 1 | 2 | 3
+    : 2;
+
+  return {
+    vocabularyLevel: vocabLevel,
+    vocabularyNotes: String(parsed.vocabularyNotes || "Standard vocabulary usage."),
+    fluencyLevel: fluencyLevel,
+    fluencyNotes: String(parsed.fluencyNotes || "Generally fluent delivery."),
+    contentRelevance: String(parsed.contentRelevance || "Content is relevant to the topic."),
+  };
+}
+
+export async function analyzeC5Speaking(params: {
+  transcript: string;
+  topic: string;
+}): Promise<GeminiC5Analysis> {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+  const userPrompt = `Topic: "${params.topic}"
+
+Transcript of the student's 3-minute prompted speaking:
+"""
+${params.transcript}
+"""
+
+Analyze this speaking sample according to the PSC C5 rubric.`;
+
+  try {
+    const result = await retryWithBackoff(() =>
+      model.generateContent({
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        systemInstruction: C5_ANALYSIS_SYSTEM_PROMPT,
+      })
+    );
+    return parseC5Analysis(result.response.text());
+  } catch (error) {
+    console.error("[Gemini] C5 analysis failed after retries:", error);
+    // Fallback to Level 2 defaults
+    return {
+      vocabularyLevel: 2,
+      vocabularyNotes: "Unable to analyze vocabulary — defaulting to Level 2.",
+      fluencyLevel: 2,
+      fluencyNotes: "Unable to analyze fluency — defaulting to Level 2.",
+      contentRelevance: "Unable to assess content relevance.",
+    };
+  }
+}
+
+// ---------- Character Feedback ----------
+
 export async function generateFeedback(params: {
   characterPrompt: string;
   component: number;
