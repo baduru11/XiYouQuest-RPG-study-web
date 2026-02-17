@@ -3,6 +3,32 @@ import { GEMINI_API_KEY } from "@/lib/env";
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
+function getFallbackMessage(isCorrect: boolean): string {
+  return isCorrect
+    ? "做得好！继续加油！ Nice work, keep it up!"
+    : "再试一次吧！Practice makes perfect!";
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries: number = MAX_RETRIES,
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === retries) throw error;
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt) + Math.random() * 1000;
+      console.warn(`[Gemini] Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("Unreachable");
+}
+
 export async function generateFeedback(params: {
   characterPrompt: string;
   component: number;
@@ -30,16 +56,16 @@ ${params.isCorrect ? "They got it right!" : "They got it wrong."}
 Give brief feedback.`;
 
   try {
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-      systemInstruction: systemPrompt,
-    });
+    const result = await retryWithBackoff(() =>
+      model.generateContent({
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        systemInstruction: systemPrompt,
+      })
+    );
     return result.response.text();
   } catch (error) {
-    console.error("[Gemini] Feedback generation failed:", error);
-    return params.isCorrect
-      ? "做得好！继续加油！ Nice work, keep it up!"
-      : "再试一次吧！Practice makes perfect!";
+    console.error("[Gemini] Feedback generation failed after retries:", error);
+    return getFallbackMessage(params.isCorrect);
   }
 }
 
