@@ -39,6 +39,9 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
   const pathname = usePathname();
   const [logoutOpen, setLogoutOpen] = useState(false);
   const showBackToHub = pathname !== "/dashboard";
+  const isComponentPage = /^\/component-\d+/.test(pathname);
+  const backHref = isComponentPage ? "/practice" : "/dashboard";
+  const backLabel = isComponentPage ? "Practice" : "Hub";
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -52,10 +55,10 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-6 lg:px-10">
         <div className="flex items-center gap-3">
           {showBackToHub && (
-            <Link href="/dashboard">
+            <Link href={backHref}>
               <Button variant="ghost" size="sm" className="gap-1.5">
                 <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Hub</span>
+                <span className="hidden sm:inline">{backLabel}</span>
               </Button>
             </Link>
           )}
