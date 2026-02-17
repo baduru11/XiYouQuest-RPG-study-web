@@ -408,6 +408,10 @@ export function PracticeSession({ questions, character, characterId, component }
   }, [currentWords, character.personalityPrompt, streak]);
 
   const handleSkip = useCallback(() => {
+    // Revoke cached audio URLs for this group to free memory
+    wordAudioCache.current.forEach(url => URL.revokeObjectURL(url));
+    wordAudioCache.current.clear();
+
     // Store empty result for skipped group
     setGroupResults(prev => [
       ...prev,
@@ -434,6 +438,10 @@ export function PracticeSession({ questions, character, characterId, component }
   }, [currentWords, currentGroupIndex, wordGroups.length]);
 
   const handleNext = useCallback(() => {
+    // Revoke cached audio URLs for this group to free memory
+    wordAudioCache.current.forEach(url => URL.revokeObjectURL(url));
+    wordAudioCache.current.clear();
+
     if (currentGroupIndex + 1 >= wordGroups.length) {
       setPhase("complete");
       setExpression("proud");
