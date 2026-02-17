@@ -513,9 +513,9 @@ export function PracticeSession({ questions, character, characterId, component, 
 
       {/* Current category indicator */}
       <div className="flex justify-center">
-        <Badge variant="secondary" className="text-sm px-3 py-1">
+        <span className="inline-flex items-center rounded-sm border-2 border-primary/30 bg-primary/10 px-4 py-1.5 font-pixel text-xs text-primary pixel-glow">
           {currentCategoryLabel}
-        </Badge>
+        </span>
       </div>
 
       {/* Main content area */}
