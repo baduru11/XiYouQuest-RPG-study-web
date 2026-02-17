@@ -84,6 +84,8 @@ const COMPONENT_LABELS: Record<string, string> = {
   "3": "C3",
   "4": "C4",
   "5": "C5",
+  "6": "C6",
+  "7": "C7",
 };
 
 const SCORE_BAR_CLASSES = [
@@ -92,6 +94,8 @@ const SCORE_BAR_CLASSES = [
   "h-2 flex-1 [&>[data-slot=progress-indicator]]:bg-pixel-amber",
   "h-2 flex-1 [&>[data-slot=progress-indicator]]:bg-pixel-gold",
   "h-2 flex-1 [&>[data-slot=progress-indicator]]:bg-pixel-red",
+  "h-2 flex-1 [&>[data-slot=progress-indicator]]:bg-purple-500",
+  "h-2 flex-1 [&>[data-slot=progress-indicator]]:bg-teal-500",
 ];
 
 export function SocialClient({

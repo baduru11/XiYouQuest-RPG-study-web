@@ -9,6 +9,8 @@ const COMPONENT_NAMES: Record<number, { name: string; chinese: string }> = {
   3: { name: "Judgment", chinese: "选择判断" },
   4: { name: "Passage Reading", chinese: "朗读短文" },
   5: { name: "Prompted Speaking", chinese: "命题说话" },
+  6: { name: "Cantonese Mistakes", chinese: "易错字词练习" },
+  7: { name: "Polyphonic Characters", chinese: "多音字练习" },
 };
 
 export default async function ProfilePage() {

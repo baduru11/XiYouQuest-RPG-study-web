@@ -18,7 +18,7 @@ export const friendRespondSchema = z.object({
 
 export const progressUpdateSchema = z.object({
   characterId: uuid,
-  component: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  component: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]),
   score: z.number().min(0).max(100),
   xpEarned: z.number().min(0),
   durationSeconds: z.number().min(0).optional().default(0),
@@ -31,7 +31,7 @@ export const progressUpdateSchema = z.object({
 
 export const aiFeedbackSchema = z.object({
   characterPrompt: z.string().min(1),
-  component: z.number().int().min(1).max(5),
+  component: z.number().int().min(1).max(7),
   questionText: z.string().min(1),
   userAnswer: z.string(),
   pronunciationScore: z.number().min(0).max(100).optional(),

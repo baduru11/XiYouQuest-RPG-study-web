@@ -341,7 +341,7 @@ export default function ProfileClient({
       <div>
         <h2 className="font-pixel text-sm text-foreground mb-3">Academic Performance</h2>
         <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5].map((comp) => {
+          {[1, 2, 3, 4, 5, 6, 7].map((comp) => {
             const p = progress.find((pr) => pr.component === comp);
             const compSessions = sessions.filter((s) => s.component === comp);
             const avgScore =
@@ -361,7 +361,7 @@ export default function ProfileClient({
                 <CardContent className="px-3 py-2">
                   <div className="flex items-center justify-between mb-1">
                     <p className="font-pixel text-sm text-primary">
-                      Quest {comp}
+                      {comp <= 5 ? `Quest ${comp}` : `Drill ${comp - 5}`}
                     </p>
                     {avgScore > 0 && (
                       <span
