@@ -18,11 +18,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const trimmedCode = code.trim();
+  if (trimmedCode.length < 3 || trimmedCode.length > 50) {
+    return NextResponse.json(
+      { error: "Friend code must be 3-50 characters" },
+      { status: 400 }
+    );
+  }
+
   try {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("id, display_name, avatar_url, current_level, friend_code")
-      .eq("friend_code", code.trim())
+      .eq("friend_code", trimmedCode)
       .neq("id", user.id)
       .single();
 

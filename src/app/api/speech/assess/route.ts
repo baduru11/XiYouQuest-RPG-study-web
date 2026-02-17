@@ -25,6 +25,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing audio or referenceText" }, { status: 400 });
     }
 
+    // Validate file size (25MB max)
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (audio.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "Audio file too large (max 25MB)" }, { status: 400 });
+    }
+
+    // Validate MIME type
+    const ALLOWED_TYPES = ["audio/wav", "audio/wave", "audio/x-wav", "audio/webm", "audio/ogg", "audio/mpeg"];
+    if (audio.type && !ALLOWED_TYPES.includes(audio.type)) {
+      return NextResponse.json({ error: "Invalid audio format" }, { status: 400 });
+    }
+
     const categoryParam = formData.get("category") as string;
     const category: IseCategory = VALID_CATEGORIES.has(categoryParam as IseCategory)
       ? (categoryParam as IseCategory)
