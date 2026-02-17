@@ -33,6 +33,7 @@ export function CharacterDisplay({
               src={imageUrl}
               alt={`${characterName} - ${currentExpression}`}
               fill
+              sizes="(max-width: 640px) 144px, 192px"
               className={`object-contain transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
               onLoad={() => setLoaded(true)}
               onError={() => setError(true)}
