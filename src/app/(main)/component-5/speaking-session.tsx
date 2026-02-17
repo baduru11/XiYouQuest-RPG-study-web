@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
+import { encodeWAV } from "@/lib/audio-utils";
 import { shuffle } from "@/lib/utils";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
@@ -43,18 +44,21 @@ interface SpeakingSessionProps {
 type SessionPhase =
   | "select"
   | "prepare"
+  | "countdown"
   | "recording"
   | "assessing"
   | "feedback"
   | "complete";
 
-interface SpeakingAnalysis {
-  pronunciationScore: number;
-  fluencyNotes: string;
-  vocabularyRange: string;
-  grammarNotes: string;
-  fillerWords: string;
-  structureCoherence: string;
+interface C5SpeakingAnalysis {
+  pronunciation: { score: number; deduction: number; level: number; label: string; notes: string };
+  vocabGrammar: { score: number; deduction: number; level: number; label: string; notes: string };
+  fluency: { score: number; deduction: number; level: number; label: string; notes: string };
+  timePenalty: number;
+  totalScore: number;
+  normalizedScore: number;
+  transcript: string;
+  errorCount: number;
   overallFeedback: string;
 }
 
@@ -63,18 +67,25 @@ export function SpeakingSession({ topics, character, characterId, component }: S
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
   const [phase, setPhase] = useState<SessionPhase>("select");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
-  const [dialogue, setDialogue] = useState("Choose a topic to speak about! You'll have 3 minutes.");
-  const [timeRemaining, setTimeRemaining] = useState(TOTAL_TIME);
+  const [dialogue, setDialogue] = useState("Choose a topic to speak about! Speak for at least 3 minutes.");
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const elapsedTimeRef = useRef(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [analysis, setAnalysis] = useState<SpeakingAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<C5SpeakingAnalysis | null>(null);
   const [totalXPEarned, setTotalXPEarned] = useState(0);
+  const [showTranscript, setShowTranscript] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [volume, setVolume] = useState(0);
 
   const [isPlayingCompanion, setIsPlayingCompanion] = useState(false);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // PCM WAV recording refs (replaces MediaRecorder)
+  const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Float32Array[]>([]);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasPlayedGreeting = useRef(false);
 
   // Pick 6 random topics on mount
@@ -83,7 +94,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     setDisplayTopics(shuffled.slice(0, 6));
   }, [topics]);
 
-  const playCompanionVoice = useCallback(async (text: string, companionExpression: ExpressionName) => {
+  const playCompanionVoice = useCallback(async (text: string, _companionExpression: ExpressionName) => {
     if (isPlayingCompanion) return;
     setIsPlayingCompanion(true);
     try {
@@ -123,6 +134,36 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Animate volume meter from analyser
+  const updateVolume = useCallback(() => {
+    if (!analyserRef.current) return;
+    const data = new Uint8Array(analyserRef.current.fftSize);
+    analyserRef.current.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    setVolume(Math.min(1, rms / 0.3));
+    animFrameRef.current = requestAnimationFrame(updateVolume);
+  }, []);
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+      if (audioContextRef.current?.state !== "closed") {
+        audioContextRef.current?.close();
+      }
+      audioContextRef.current = null;
+      analyserRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
   // Save progress when speaking assessment completes
   const hasSavedProgress = useRef(false);
   useEffect(() => {
@@ -130,7 +171,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     hasSavedProgress.current = true;
 
     const saveProgress = async () => {
-      const spokenTime = TOTAL_TIME - timeRemaining;
+      const spokenTime = elapsedTimeRef.current;
 
       try {
         await fetch("/api/progress/update", {
@@ -139,12 +180,12 @@ export function SpeakingSession({ topics, character, characterId, component }: S
           body: JSON.stringify({
             characterId,
             component,
-            score: analysis.pronunciationScore,
+            score: analysis.normalizedScore,
             xpEarned: totalXPEarned,
             durationSeconds: spokenTime,
             questionsAttempted: 1,
-            questionsCorrect: analysis.pronunciationScore >= 60 ? 1 : 0,
-            bestStreak: analysis.pronunciationScore >= 60 ? 1 : 0,
+            questionsCorrect: analysis.normalizedScore >= 60 ? 1 : 0,
+            bestStreak: analysis.normalizedScore >= 60 ? 1 : 0,
           }),
         });
       } catch (err) {
@@ -155,17 +196,14 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     saveProgress();
   }, [phase, analysis]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Timer logic
+  // Timer logic — counts up (stopwatch)
   useEffect(() => {
-    if (isRecording && timeRemaining > 0) {
+    if (isRecording) {
       timerRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            // Time's up - stop recording
-            stopRecording();
-            return 0;
-          }
-          return prev - 1;
+        setElapsedTime((prev) => {
+          const next = prev + 1;
+          elapsedTimeRef.current = next;
+          return next;
         });
       }, 1000);
 
@@ -175,7 +213,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
         }
       };
     }
-  }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isRecording]);
 
   // Format seconds to mm:ss
   function formatTime(seconds: number): string {
@@ -208,38 +246,76 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     setDialogue(`Great choice! "${topic}" - Review the speaking structure, then hit "Start Speaking" when ready.`);
   }, []);
 
-  // Start recording
+  // Start recording (PCM WAV via AudioContext) with 3-second countdown
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request mic access immediately so permission prompt happens during countdown
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 16000 },
+      });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
+
+      // Enter countdown phase
+      setPhase("countdown");
+      setExpression("encouraging");
+      setCountdown(3);
+      setDialogue("Get ready...");
+
+      // 3-second countdown
+      await new Promise<void>((resolve) => {
+        let remaining = 3;
+        const countdownInterval = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(countdownInterval);
+            resolve();
+          } else {
+            setCountdown(remaining);
+          }
+        }, 1000);
+      });
+
+      // Set up audio context and start recording
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+
+      // Analyser for volume visualization
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      source.connect(analyser);
+
+      // ScriptProcessor for PCM capture (4096 buffer, mono in, mono out)
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
       chunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        chunksRef.current.push(new Float32Array(inputData));
       };
 
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        stream.getTracks().forEach((track) => track.stop());
-        handleRecordingComplete(blob);
-      };
+      source.connect(processor);
+      // Connect to destination (muted) so ScriptProcessor fires events
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
 
-      mediaRecorder.start();
+      // Start volume animation
+      animFrameRef.current = requestAnimationFrame(updateVolume);
+
       setIsRecording(true);
       setPhase("recording");
-      setTimeRemaining(TOTAL_TIME);
+      setElapsedTime(0);
       setExpression("listening");
       setDialogue("I'm listening! Take your time, follow the structure, and speak naturally.");
     } catch {
       setExpression("surprised");
       setDialogue("I couldn't access your microphone. Please check your browser permissions.");
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [updateVolume]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
@@ -247,28 +323,57 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+
+    if (!isRecording) return;
+
+    // Stop volume animation
+    cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = 0;
+    setVolume(0);
+    analyserRef.current = null;
+
+    // Close audio context (stops processor)
+    if (audioContextRef.current?.state !== "closed") {
+      audioContextRef.current?.close();
     }
-  }, [isRecording]);
+
+    // Stop mic stream
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+
+    // Concatenate all chunks into a single Float32Array
+    const totalLength = chunksRef.current.reduce((sum, c) => sum + c.length, 0);
+    const merged = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunksRef.current) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    chunksRef.current = [];
+
+    // Encode as WAV
+    const wavBlob = encodeWAV(merged, 16000);
+
+    setIsRecording(false);
+    handleRecordingComplete(wavBlob);
+  }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle completed recording
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
     setPhase("assessing");
     setExpression("thinking");
-    setDialogue("Let me analyze your speaking... checking pronunciation, vocabulary, grammar, and structure.");
+    setDialogue("Let me analyze your speaking... transcribing, checking pronunciation, vocabulary, grammar, and fluency.");
 
-    const spokenTime = TOTAL_TIME - timeRemaining;
+    const spokenTime = elapsedTimeRef.current;
 
     try {
-      // Send audio to speech assessment API
+      // Send audio to C5 assessment API
       const formData = new FormData();
       formData.append("audio", audioBlob, "recording.wav");
-      formData.append("referenceText", selectedTopic ?? "");
-      formData.append("category", "read_chapter");
+      formData.append("topic", selectedTopic ?? "");
+      formData.append("spokenDurationSeconds", String(spokenTime));
 
-      const assessResponse = await fetch("/api/speech/assess", {
+      const assessResponse = await fetch("/api/speech/c5-assess", {
         method: "POST",
         body: formData,
       });
@@ -279,22 +384,19 @@ export function SpeakingSession({ topics, character, characterId, component }: S
         throw new Error(`Assessment failed (${assessResponse.status})`);
       }
 
-      const assessResult = await assessResponse.json();
-      const pronunciationScore = assessResult.pronunciationScore ?? 0;
+      const c5Result = await assessResponse.json();
 
-      // Calculate XP
-      const isGood = pronunciationScore >= 60;
+      // Calculate XP using normalized score
+      const isGood = c5Result.normalizedScore >= 60;
       const xpResult = calculateXP({
-        pronunciationScore,
+        pronunciationScore: c5Result.normalizedScore,
         isCorrect: isGood,
         currentStreak: isGood ? 1 : 0,
       });
       setTotalXPEarned(xpResult.totalXP);
 
-      // Get detailed AI analysis
-      setPhase("feedback");
-
-      let spokenFeedback = "";
+      // Get character AI feedback
+      let overallFeedback = "";
       try {
         const feedbackResponse = await fetch("/api/ai/feedback", {
           method: "POST",
@@ -302,97 +404,57 @@ export function SpeakingSession({ topics, character, characterId, component }: S
           body: JSON.stringify({
             characterPrompt: character.personalityPrompt,
             component: 5,
-            questionText: `Topic: "${selectedTopic}". Spoken for ${Math.floor(spokenTime / 60)}m ${spokenTime % 60}s out of 3 minutes.`,
-            userAnswer: "Prompted speaking attempt",
-            pronunciationScore,
+            questionText: `Topic: "${selectedTopic}". Score: ${c5Result.totalScore}/30. Spoken for ${Math.floor(spokenTime / 60)}m ${spokenTime % 60}s.`,
+            userAnswer: c5Result.transcript || "Prompted speaking attempt",
+            pronunciationScore: c5Result.normalizedScore,
             isCorrect: isGood,
           }),
         });
 
         if (feedbackResponse.ok) {
           const feedbackData = await feedbackResponse.json();
-          spokenFeedback = feedbackData.feedback;
-          setDialogue(spokenFeedback);
-
-          setAnalysis({
-            pronunciationScore,
-            fluencyNotes: pronunciationScore >= 80
-              ? "Good natural flow and pacing."
-              : pronunciationScore >= 60
-              ? "Decent flow, some hesitation noticed."
-              : "Noticeable pauses and hesitation. Practice speaking more continuously.",
-            vocabularyRange: pronunciationScore >= 80
-              ? "Good variety of vocabulary used."
-              : "Try to incorporate more varied vocabulary.",
-            grammarNotes: pronunciationScore >= 80
-              ? "Grammar structures used correctly."
-              : "Review some grammar patterns for accuracy.",
-            fillerWords: "Monitor for filler sounds like 嗯, 那个, 就是.",
-            structureCoherence: spokenTime >= 120
-              ? "Good structure and adequate speaking time."
-              : "Try to speak for the full 3 minutes using the template.",
-            overallFeedback: spokenFeedback,
-          });
-        } else {
-          setDefaultAnalysis(pronunciationScore, spokenTime);
+          overallFeedback = feedbackData.feedback;
         }
       } catch {
-        setDefaultAnalysis(pronunciationScore, spokenTime);
+        overallFeedback = isGood
+          ? "Good effort! Keep practicing to improve your score."
+          : "Keep practicing! Focus on pronunciation and speaking for the full duration.";
       }
 
-      // Set expression based on score and voice the feedback
-      const feedbackExpression: ExpressionName = pronunciationScore >= 90 ? "excited" : pronunciationScore >= 60 ? "happy" : "encouraging";
-      setExpression(feedbackExpression);
+      if (!overallFeedback) {
+        overallFeedback = isGood
+          ? "Good effort! Keep practicing to improve your score."
+          : "Keep practicing! Focus on pronunciation and speaking for the full duration.";
+      }
 
-      // Companion voice disabled
+      setDialogue(overallFeedback);
+      setAnalysis({ ...c5Result, overallFeedback });
+      setPhase("feedback");
+
+      // Set expression based on score
+      const feedbackExpression: ExpressionName =
+        c5Result.normalizedScore >= 90 ? "excited" :
+        c5Result.normalizedScore >= 60 ? "happy" : "encouraging";
+      setExpression(feedbackExpression);
     } catch {
       setPhase("feedback");
       setExpression("surprised");
       setDialogue("Something went wrong with the assessment. Let's try again!");
       setAnalysis(null);
     }
-  }, [selectedTopic, character.personalityPrompt, timeRemaining, playCompanionVoice]);
-
-  // Set default analysis when AI feedback fails
-  function setDefaultAnalysis(score: number, spokenTime: number) {
-    const isPerfect = score >= 90;
-    const isGood = score >= 60;
-
-    const fallbackMsg = isPerfect
-      ? "Excellent speaking! Great pronunciation, vocabulary, and structure."
-      : isGood
-      ? "Good effort! Continue practicing to improve fluency and vocabulary range."
-      : "Keep practicing! Focus on pronunciation accuracy and speaking for the full duration.";
-
-    setDialogue(fallbackMsg);
-    setAnalysis({
-      pronunciationScore: score,
-      fluencyNotes: isGood
-        ? "Reasonable flow. Keep working on natural pacing."
-        : "Focus on maintaining a steady speaking pace.",
-      vocabularyRange: isGood
-        ? "Adequate vocabulary. Try using more diverse expressions."
-        : "Practice expanding your vocabulary range.",
-      grammarNotes: isGood
-        ? "Grammar is generally correct."
-        : "Review grammar structures for better accuracy.",
-      fillerWords: "Be mindful of filler words like 嗯, 那个, 就是.",
-      structureCoherence: spokenTime >= 120
-        ? "Good speaking duration."
-        : `Spoke for ${Math.floor(spokenTime / 60)}m ${spokenTime % 60}s. Aim for the full 3 minutes.`,
-      overallFeedback: fallbackMsg,
-    });
-  }
+  }, [selectedTopic, character.personalityPrompt, playCompanionVoice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Back to topic selection
   const handleBackToSelection = useCallback(() => {
     setSelectedTopic(null);
     setPhase("select");
-    setTimeRemaining(TOTAL_TIME);
+    setElapsedTime(0);
     setAnalysis(null);
     setTotalXPEarned(0);
+    setShowTranscript(false);
     setExpression("neutral");
-    setDialogue("Choose a topic to speak about! You'll have 3 minutes.");
+    setDialogue("Choose a topic to speak about! Speak for at least 3 minutes.");
+    hasSavedProgress.current = false;
     const shuffled = shuffle(topics);
     setDisplayTopics(shuffled.slice(0, 6));
   }, [topics]);
@@ -459,9 +521,11 @@ export function SpeakingSession({ topics, character, characterId, component }: S
             <div className="flex flex-col gap-2">
               <Button onClick={() => {
                 setPhase("prepare");
-                setTimeRemaining(TOTAL_TIME);
+                setElapsedTime(0);
                 setAnalysis(null);
                 setTotalXPEarned(0);
+                setShowTranscript(false);
+                hasSavedProgress.current = false;
                 setExpression("encouraging");
                 setDialogue(`Let's try "${selectedTopic}" again! Remember to follow the structure.`);
               }} className="w-full">
@@ -484,26 +548,27 @@ export function SpeakingSession({ topics, character, characterId, component }: S
               Speaking Assessment: <span className="font-chinese text-base">{selectedTopic}</span>
             </h2>
 
-            {/* Overall score */}
             {analysis && (
               <>
+                {/* Total PSC score */}
                 <div className="text-center">
                   <p
                     className={`text-5xl font-bold ${
-                      analysis.pronunciationScore >= 90
+                      analysis.totalScore >= 25
                         ? "text-green-600"
-                        : analysis.pronunciationScore >= 60
+                        : analysis.totalScore >= 18
                         ? "text-yellow-600"
                         : "text-red-600"
                     }`}
                   >
-                    {analysis.pronunciationScore}/100
+                    {analysis.totalScore}/30
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Pronunciation Score
+                    PSC C5 Score (命题说话)
                   </p>
                 </div>
 
+                {/* XP and Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <p className="text-3xl font-bold text-yellow-600">+{totalXPEarned}</p>
@@ -511,41 +576,101 @@ export function SpeakingSession({ topics, character, characterId, component }: S
                   </div>
                   <div className="text-center">
                     <p className="text-3xl font-bold">
-                      {formatTime(TOTAL_TIME - timeRemaining)}
+                      {formatTime(elapsedTime)}
                     </p>
                     <p className="text-sm text-muted-foreground">Time Spoken</p>
                   </div>
                 </div>
 
-                <Progress value={analysis.pronunciationScore} className="h-3" />
+                {/* PSC-style score breakdown */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-bold">Score Breakdown:</h3>
 
-                {/* Detailed breakdown */}
-                <div className="space-y-3">
-                  <h3 className="text-sm font-bold">Detailed Analysis:</h3>
-
-                  <div className="rounded-lg border p-3 space-y-2">
-                    <div className="flex items-start gap-2">
-                      <Badge variant="outline" className="shrink-0">Fluency</Badge>
-                      <p className="text-sm text-muted-foreground">{analysis.fluencyNotes}</p>
+                  {/* Pronunciation */}
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">语音 Pronunciation</span>
+                        <Badge variant="secondary" className="text-xs">{analysis.pronunciation.label}</Badge>
+                      </div>
+                      <span className={`text-lg font-bold ${
+                        analysis.pronunciation.score >= 17 ? "text-green-600" :
+                        analysis.pronunciation.score >= 14 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {analysis.pronunciation.score}/20
+                      </span>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <Badge variant="outline" className="shrink-0">Vocabulary</Badge>
-                      <p className="text-sm text-muted-foreground">{analysis.vocabularyRange}</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Badge variant="outline" className="shrink-0">Grammar</Badge>
-                      <p className="text-sm text-muted-foreground">{analysis.grammarNotes}</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Badge variant="outline" className="shrink-0">Filler Words</Badge>
-                      <p className="text-sm text-muted-foreground">{analysis.fillerWords}</p>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Badge variant="outline" className="shrink-0">Structure</Badge>
-                      <p className="text-sm text-muted-foreground">{analysis.structureCoherence}</p>
-                    </div>
+                    <p className="text-xs text-muted-foreground">{analysis.pronunciation.notes}</p>
+                    <Progress value={(analysis.pronunciation.score / 20) * 100} className="h-1.5" />
                   </div>
+
+                  {/* Vocab/Grammar */}
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">词汇语法 Vocab & Grammar</span>
+                        <Badge variant="secondary" className="text-xs">{analysis.vocabGrammar.label}</Badge>
+                      </div>
+                      <span className={`text-lg font-bold ${
+                        analysis.vocabGrammar.score >= 4 ? "text-green-600" :
+                        analysis.vocabGrammar.score >= 3 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {analysis.vocabGrammar.score}/5
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{analysis.vocabGrammar.notes}</p>
+                    <Progress value={(analysis.vocabGrammar.score / 5) * 100} className="h-1.5" />
+                  </div>
+
+                  {/* Fluency */}
+                  <div className="rounded-lg border p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">自然流畅 Fluency</span>
+                        <Badge variant="secondary" className="text-xs">{analysis.fluency.label}</Badge>
+                      </div>
+                      <span className={`text-lg font-bold ${
+                        analysis.fluency.score >= 4 ? "text-green-600" :
+                        analysis.fluency.score >= 3 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {analysis.fluency.score}/5
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{analysis.fluency.notes}</p>
+                    <Progress value={(analysis.fluency.score / 5) * 100} className="h-1.5" />
+                  </div>
+
+                  {/* Time penalty */}
+                  {analysis.timePenalty > 0 && (
+                    <div className="rounded-lg border border-red-500/50 bg-red-50 dark:bg-red-950/20 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-red-600">时间扣分 Time Penalty</span>
+                        <span className="text-lg font-bold text-red-600">-{analysis.timePenalty}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Speak for the full 3 minutes to avoid time penalties.
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {/* Transcript (collapsible) */}
+                {analysis.transcript && (
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setShowTranscript(!showTranscript)}
+                      className="text-sm font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      Transcript ({analysis.errorCount} pronunciation {analysis.errorCount === 1 ? "error" : "errors"})
+                      <span className="text-muted-foreground">{showTranscript ? "▲" : "▼"}</span>
+                    </button>
+                    {showTranscript && (
+                      <div className="rounded-lg border bg-muted/30 p-3 max-h-[200px] overflow-y-auto">
+                        <p className="text-sm font-chinese leading-relaxed">{analysis.transcript}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -576,27 +701,61 @@ export function SpeakingSession({ topics, character, characterId, component }: S
           />
           <DialogueBox text={dialogue} characterName={character.name} />
 
-          {/* Timer display */}
+          {/* Countdown display */}
+          {phase === "countdown" && (
+            <div className="text-center space-y-2">
+              <p className="text-6xl font-bold font-mono text-primary animate-pulse">
+                {countdown}
+              </p>
+              <p className="text-sm text-muted-foreground">Get ready to speak...</p>
+            </div>
+          )}
+
+          {/* Stopwatch display */}
           {phase === "recording" && (
             <div className="text-center space-y-2">
               <p className={`text-4xl font-bold font-mono transition-colors ${
-                timeRemaining <= 10 ? "text-red-600 animate-pulse" : timeRemaining <= 30 ? "text-red-600" : timeRemaining <= 60 ? "text-yellow-600" : ""
+                elapsedTime >= TOTAL_TIME ? "text-green-600" : "text-orange-500"
               }`}>
-                {formatTime(timeRemaining)}
+                {formatTime(elapsedTime)}
               </p>
               <Progress
-                value={((TOTAL_TIME - timeRemaining) / TOTAL_TIME) * 100}
+                value={Math.min((elapsedTime / TOTAL_TIME) * 100, 100)}
                 className="h-2"
               />
-              <p className={`text-xs ${timeRemaining <= 10 ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                {timeRemaining <= 10
-                  ? "Almost done! Wrap up your conclusion."
-                  : timeRemaining <= 30
-                  ? "Wrapping up..."
-                  : timeRemaining <= 60
-                  ? "About 1 minute left"
-                  : "Keep going!"}
+              <p className={`text-xs font-medium ${
+                elapsedTime >= TOTAL_TIME ? "text-green-600" : "text-orange-500"
+              }`}>
+                {elapsedTime >= TOTAL_TIME
+                  ? "3 minutes reached! You can stop when ready."
+                  : `Speak for at least ${formatTime(TOTAL_TIME - elapsedTime)} more`}
               </p>
+            </div>
+          )}
+
+          {/* Volume visualization */}
+          {phase === "recording" && (
+            <div className="flex items-end justify-center gap-[3px] h-8">
+              {Array.from({ length: 20 }).map((_, i) => {
+                const barActive = (i + 1) / 20 <= volume;
+                const barColor = barActive
+                  ? volume > 0.7
+                    ? "#ef4444"
+                    : volume > 0.4
+                    ? "#eab308"
+                    : "#22c55e"
+                  : "#d1d5db";
+                return (
+                  <div
+                    key={i}
+                    className="w-1.5 rounded-full transition-all duration-75"
+                    style={{
+                      height: barActive ? `${Math.max(4, volume * 32)}px` : "4px",
+                      backgroundColor: barColor,
+                    }}
+                  />
+                );
+              })}
             </div>
           )}
 
