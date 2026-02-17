@@ -15,7 +15,7 @@ npm run start    # Start production server
 npm run lint     # ESLint
 ```
 
-No test framework is configured.
+npm run test     # Vitest unit tests
 
 ## Architecture
 
@@ -37,6 +37,7 @@ src/app/
 │   ├── component-5/            # Prompted speaking (命题说话)
 │   ├── component-6/            # Cantonese mistakes drill (易错字词练习) — pronunciation
 │   ├── component-7/            # Polyphonic characters quiz (多音字练习) — MCQ
+│   ├── leaderboard/            # Global and friends leaderboard
 │   ├── characters/             # Gallery, unlock shop, affection display
 │   ├── profile/                # User stats, practice history, level progress
 │   ├── social/                 # Friends list, friend requests, user search
@@ -48,6 +49,7 @@ src/app/
     ├── ai/feedback             # Gemini character-personalized feedback
     ├── auth/callback           # OAuth callback handler
     ├── progress/update         # XP, level, affection, streaks, daily bonus
+    ├── leaderboard             # Global and friends leaderboard (GET)
     └── social/                 # Friends system
         ├── search              # Search users by username
         ├── lookup              # Look up user by display name

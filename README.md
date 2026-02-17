@@ -170,7 +170,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 src/
 ├── app/
-│   ├── page.tsx                            # Public landing page
+│   ├── page.tsx                            # Auth redirect (→ /login or /dashboard)
 │   ├── layout.tsx                          # Root layout with fonts & theme
 │   ├── globals.css                         # Pixel-art theme + Tailwind
 │   ├── (auth)/login/                       # Email + Google OAuth login
@@ -178,7 +178,10 @@ src/
 │   │   ├── layout.tsx                      # Auth guard + navbar
 │   │   ├── dashboard/                      # Progress overview + component cards
 │   │   ├── characters/                     # Character gallery + unlock shop
+│   │   ├── practice/                       # Quest board — 5 component cards + supplementary drills
 │   │   ├── component-{1-5}/               # Individual practice pages
+│   │   ├── component-{6-7}/               # Supplementary drills (Cantonese mistakes, polyphonic chars)
+│   │   ├── leaderboard/                    # Global and friends leaderboard
 │   │   ├── profile/                        # User stats, practice history
 │   │   ├── social/                         # Friends list, requests, search
 │   │   └── mock-exam/                      # Full mock exam with PSC grading
@@ -200,7 +203,7 @@ src/
 │   ├── iflytek-speech/client.ts            # iFlytek ISE pronunciation scoring
 │   ├── voice/client.ts                     # iFlytek TTS (academic + companion + word group)
 │   ├── voice/pinyin-data.ts                # Pinyin lookup tables (1,583 lines)
-│   ├── gemini/client.ts                    # Gemini with retry logic
+│   ├── gemini/client.ts                    # Gemini with retry logic (3 retries, exponential backoff)
 │   ├── gamification/xp.ts                  # XP, levels, streaks, affection
 │   ├── character-images.ts                 # Local image fallback mapping
 │   └── pinyin.ts                           # Tone-number → tone-mark conversion
@@ -210,7 +213,7 @@ src/
 │   ├── practice.ts                         # Practice modes, scoring types
 │   └── gamification.ts                     # XP/level/affection constants
 ├── data/                                   # Question bank markdown files
-└── middleware.ts                            # Next.js route protection
+└── types/                                  # TypeScript type definitions
 ```
 
 ## API Routes
@@ -234,6 +237,7 @@ src/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/progress/update` | Record session, update XP, level, streaks, and character affection. |
+| GET | `/api/leaderboard` | Get global or friends-only leaderboard rankings. |
 
 ### Social
 
