@@ -550,12 +550,14 @@ export async function assessPronunciation(
       let offset = 0;
 
       const sendChunks = () => {
-        if (settled) return;
+        if (settled || ws.readyState !== WebSocket.OPEN) return;
 
         while (offset < pcmData.length) {
           // Yield when WebSocket send buffer is full to avoid overwhelming the connection
           if (ws.bufferedAmount > BUFFER_HIGH_WATER) {
-            setTimeout(sendChunks, 5);
+            if (ws.readyState === WebSocket.OPEN) {
+              setTimeout(sendChunks, 5);
+            }
             return;
           }
 
