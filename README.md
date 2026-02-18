@@ -37,6 +37,7 @@
 - [Speech Evaluation Engine](#speech-evaluation-engine)
 - [Text-to-Speech System](#text-to-speech-system)
 - [AI Feedback Pipeline](#ai-feedback-pipeline)
+- [Network Resilience](#network-resilience)
 - [Audio Recording Pipeline](#audio-recording-pipeline)
 - [Gamification System](#gamification-system)
 - [Authentication & Security](#authentication--security)
@@ -627,6 +628,50 @@ For Component 5, Gemini additionally performs content analysis:
 - **Input**: Topic + full ASR transcript
 - **Output**: JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes
 - This feeds into the `calculateC5Score()` formula alongside ISE pronunciation scores
+
+---
+
+## Network Resilience
+
+All client-side API calls use a `fetchWithRetry` wrapper (`src/lib/fetch-retry.ts`) that provides automatic retry with exponential backoff for transient failures.
+
+### Retry Behavior
+
+```
+Request fails (429 / 500 / 502 / 503 or network error)
+  │
+  ├── Attempt 1: wait ~1s   (1000ms × 2⁰ × jitter)
+  ├── Attempt 2: wait ~2s   (1000ms × 2¹ × jitter)
+  ├── Attempt 3: wait ~4s   (1000ms × 2² × jitter)
+  └── All retries exhausted → fall through to existing error handling
+```
+
+- **Retryable statuses**: 429 (Too Many Requests), 500, 502, 503
+- **Non-retryable**: 400, 401, 403, 404 (returned immediately)
+- Respects `Retry-After` header when present
+- Jitter factor (0.5–1.0×) prevents thundering herd on recovery
+
+### Coverage
+
+All 24 internal API fetch calls across 6 practice components are covered:
+
+| Component | Endpoints | Fallback on Exhaustion |
+|-----------|-----------|----------------------|
+| C1, C2, C6 | `/speech/assess`, `/tts/speak`, `/ai/feedback`, `/progress/update` | Browser TTS, hardcoded feedback |
+| C4 | `/speech/assess`, `/tts/speak` ×2, `/tts/companion`, `/ai/feedback`, `/progress/update` | Browser TTS, sentence-level fallback |
+| C5 | `/speech/c5-assess`, `/tts/companion`, `/ai/feedback`, `/progress/update` | Zero-score graceful degradation |
+| Mock Exam | `/speech/assess`, `/speech/c5-assess` | Zero-score per component |
+
+### Multi-Layer Resilience Stack
+
+```
+Layer 1 — Client: fetchWithRetry (3 retries, exponential backoff)
+Layer 2 — Server: Gemini retryWithBackoff (3 retries, exponential backoff)
+Layer 3 — Server: TTS in-memory LRU cache (500 entries, skips WebSocket on hit)
+Layer 4 — Client: Audio object URL cache (Map<word, ObjectURL> per session)
+Layer 5 — Client: Browser Web Speech API fallback for TTS failures
+Layer 6 — Client: Hardcoded feedback strings when AI is unreachable
+```
 
 ---
 
