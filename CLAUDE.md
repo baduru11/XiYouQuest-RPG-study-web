@@ -102,8 +102,7 @@ Pronunciation assessment uses iFlytek ISE (Intelligent Speech Evaluation) via We
 ### TTS System (`src/lib/voice/`)
 
 All TTS uses iFlytek's global open platform WebSocket API (`wss://tts-api-sg.xf-yun.com/v2/tts`) with HMAC-SHA256 auth:
-- **Academic** (`synthesizeAcademic`): Clear, consistent Putonghua via iFlytek WebSocket — used for reading vocab, passages, sentences
-- **Word Group** (`synthesizeWordGroup`): Synthesizes multiple words with normalized pauses (300-750ms) between them
+- **Academic** (`synthesizeAcademic`): Clear, consistent Putonghua via iFlytek WebSocket — used for reading individual words, passages, sentences
 
 15 iFlytek voices configured (default: `x_xiaoyan`). Audio: PCM 16kHz 16-bit mono, wrapped in WAV headers.
 

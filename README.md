@@ -551,30 +551,14 @@ All TTS uses **iFlytek's WebSocket API** with the same HMAC-SHA256 auth pattern.
 
 ### Synthesis Modes
 
-| Mode | Function | Use Case | Pause Handling |
-|------|----------|----------|----------------|
-| **Academic** | `synthesizeAcademic()` | Single words, passages, sentences | Natural |
-| **Word Group** | `synthesizeWordGroup()` | Multiple words in sequence | Normalized (300-750ms) |
-| **Companion** | Via `/api/tts/companion` | Character voice lines | Natural |
-
-### Word Group Normalization
-
-When synthesizing multiple words, raw TTS produces inconsistent pauses. The `normalizePauses()` algorithm:
-
-```
-1. Join words with Chinese comma → single TTS call → WAV
-2. Extract raw PCM from WAV
-3. RMS energy analysis (25ms windows, 10ms hops)
-4. Identify silent frames (energy < peak × 0.05)
-5. Build runs of silent/audio frames
-6. Replace inter-word gaps ≥ 50ms with exact target pause
-7. Trim leading/trailing silence
-8. Re-wrap in WAV header
-```
+| Mode | Function | Use Case |
+|------|----------|----------|
+| **Academic** | `synthesizeAcademic()` | Individual words, passages, sentences |
+| **Companion** | Via `/api/tts/companion` | Character voice lines |
 
 ### Server-Side Caching
 
-`/api/tts/speak` maintains an in-memory LRU cache (max 500 entries) keyed on `academic:voiceId:text` for single synthesis or `group:voiceId:words:pauseMs` for word groups. Cache hits skip the WebSocket call entirely. Responses include `Cache-Control: public, max-age=3600`.
+`/api/tts/speak` maintains an in-memory LRU cache (max 500 entries) keyed on `academic:voiceId:text`. Cache hits skip the WebSocket call entirely. Responses include `Cache-Control: public, max-age=3600`.
 
 ### Voice Library
 
@@ -667,7 +651,7 @@ All 24 internal API fetch calls across 6 practice components are covered:
 ```
 Layer 1 — Client: fetchWithRetry (3 retries, exponential backoff)
 Layer 2 — Server: Gemini retryWithBackoff (3 retries, exponential backoff)
-Layer 3 — Server: TTS in-memory LRU cache (500 entries, skips WebSocket on hit)
+Layer 3 — Server: TTS in-memory LRU cache (500 entries, keyed on voiceId:text)
 Layer 4 — Client: Audio object URL cache (Map<word, ObjectURL> per session)
 Layer 5 — Client: Browser Web Speech API fallback for TTS failures
 Layer 6 — Client: Hardcoded feedback strings when AI is unreachable
@@ -1040,7 +1024,7 @@ src/
 |--------|----------|-------|--------|
 | POST | `/api/speech/assess` | FormData: `audio` (WAV), `referenceText`, `category` | JSON: per-word scores, aggregates |
 | POST | `/api/speech/c5-assess` | FormData: `audio` (WAV), `topic`, `spokenDurationSeconds` | JSON: C5 score breakdown |
-| POST | `/api/tts/speak` | JSON: `{ voiceId, text }` or `{ voiceId, words[], pauseMs }` | `audio/wav` (cached) |
+| POST | `/api/tts/speak` | JSON: `{ voiceId, text }` | `audio/wav` (cached) |
 | POST | `/api/tts/companion` | JSON: `{ voiceId, text }` | `audio/wav` (no cache) |
 
 ### AI
