@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { encodeWAV } from "@/lib/audio-utils";
 import { shuffle } from "@/lib/utils";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -98,7 +99,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     if (isPlayingCompanion) return;
     setIsPlayingCompanion(true);
     try {
-      const response = await fetch("/api/tts/companion", {
+      const response = await fetchWithRetry("/api/tts/companion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -174,7 +175,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       const spokenTime = elapsedTimeRef.current;
 
       try {
-        await fetch("/api/progress/update", {
+        await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -373,7 +374,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       formData.append("topic", selectedTopic ?? "");
       formData.append("spokenDurationSeconds", String(spokenTime));
 
-      const assessResponse = await fetch("/api/speech/c5-assess", {
+      const assessResponse = await fetchWithRetry("/api/speech/c5-assess", {
         method: "POST",
         body: formData,
       });
@@ -398,7 +399,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       // Get character AI feedback
       let overallFeedback = "";
       try {
-        const feedbackResponse = await fetch("/api/ai/feedback", {
+        const feedbackResponse = await fetchWithRetry("/api/ai/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

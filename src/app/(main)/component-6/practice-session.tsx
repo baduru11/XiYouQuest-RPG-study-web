@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { lookupPinyinDisplay } from "@/lib/pinyin";
 import { C6_WORDS_PER_GROUP } from "@/lib/constants";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -130,7 +131,7 @@ export function PracticeSession({ questions, character, characterId, component, 
         : 0;
 
       try {
-        await fetch("/api/progress/update", {
+        await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -171,7 +172,7 @@ export function PracticeSession({ questions, character, characterId, component, 
     try {
       let audioUrl = wordAudioCache.current.get(word);
       if (!audioUrl) {
-        const response = await fetch("/api/tts/speak", {
+        const response = await fetchWithRetry("/api/tts/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ voiceId: character.voiceId, text: `${word}。` }),
@@ -205,7 +206,7 @@ export function PracticeSession({ questions, character, characterId, component, 
       formData.append("referenceText", referenceText);
       formData.append("category", "read_word");
 
-      const assessResponse = await fetch("/api/speech/assess", {
+      const assessResponse = await fetchWithRetry("/api/speech/assess", {
         method: "POST",
         body: formData,
       });
@@ -309,7 +310,7 @@ export function PracticeSession({ questions, character, characterId, component, 
 
       let spokenFeedback = "";
       try {
-        const feedbackResponse = await fetch("/api/ai/feedback", {
+        const feedbackResponse = await fetchWithRetry("/api/ai/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

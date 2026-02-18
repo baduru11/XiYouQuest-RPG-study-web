@@ -10,6 +10,7 @@ import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { encodeWAV } from "@/lib/audio-utils";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import type { QuizQuestion } from "@/types/practice";
 
 // ============================================================
@@ -316,7 +317,7 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
       formData.append("referenceText", referenceText);
       formData.append("category", category);
 
-      const response = await fetch("/api/speech/assess", {
+      const response = await fetchWithRetry("/api/speech/assess", {
         method: "POST",
         body: formData,
       });
@@ -426,7 +427,7 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
           formData.append("topic", raw.selectedTopic ?? "");
           formData.append("spokenDurationSeconds", "180"); // Full exam time
 
-          const c5Response = await fetch("/api/speech/c5-assess", {
+          const c5Response = await fetchWithRetry("/api/speech/c5-assess", {
             method: "POST",
             body: formData,
           });

@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -91,7 +92,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     if (isPlayingCompanion || isPlayingAudio) return;
     setIsPlayingCompanion(true);
     try {
-      const response = await fetch("/api/tts/companion", {
+      const response = await fetchWithRetry("/api/tts/companion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -146,7 +147,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
     const saveProgress = async () => {
       try {
-        await fetch("/api/progress/update", {
+        await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -184,7 +185,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     };
 
     try {
-      const response = await fetch("/api/tts/speak", {
+      const response = await fetchWithRetry("/api/tts/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -263,7 +264,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
     // Not in cache - fetch from server
     try {
-      const response = await fetch("/api/tts/speak", {
+      const response = await fetchWithRetry("/api/tts/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -318,7 +319,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
       formData.append("referenceText", selectedPassage.content);
       formData.append("category", "read_chapter");
 
-      const assessResponse = await fetch("/api/speech/assess", {
+      const assessResponse = await fetchWithRetry("/api/speech/assess", {
         method: "POST",
         body: formData,
       });
@@ -397,7 +398,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
       let spokenFeedback = "";
       try {
-        const feedbackResponse = await fetch("/api/ai/feedback", {
+        const feedbackResponse = await fetchWithRetry("/api/ai/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
