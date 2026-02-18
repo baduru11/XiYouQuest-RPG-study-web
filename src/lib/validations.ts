@@ -42,11 +42,7 @@ export const aiFeedbackSchema = z.object({
 
 export const ttsSpeakSchema = z.object({
   voiceId: z.string().min(1),
-  text: z.string().min(1).optional(),
-  words: z.array(z.string().min(1)).min(1).optional(),
-  pauseMs: z.number().int().min(0).max(5000).optional(),
-}).refine((data) => data.text || data.words, {
-  message: "Either text or words must be provided",
+  text: z.string().min(1),
 });
 
 export const ttsCompanionSchema = z.object({
