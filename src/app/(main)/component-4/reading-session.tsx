@@ -58,8 +58,9 @@ export function ReadingSession({ passages, character, characterId, component }: 
   const [phase, setPhase] = useState<SessionPhase>("select");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
   const [dialogue, setDialogue] = useState("Pick a passage to read! I'll help you practice.");
-  const [showPinyin, setShowPinyin] = useState(false);
+
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [isPlayingCompanion, setIsPlayingCompanion] = useState(false);
   const [playingSentenceIndex, setPlayingSentenceIndex] = useState<number | null>(null);
   const [overallScore, setOverallScore] = useState<number | null>(null);
@@ -133,7 +134,19 @@ export function ReadingSession({ passages, character, characterId, component }: 
       currentAudioRef.current = null;
     }
     setIsPlayingAudio(false);
+    setIsLoadingAudio(false);
     setPlayingSentenceIndex(null);
+  }, []);
+
+  // Stop audio on unmount (when navigating to another page)
+  useEffect(() => {
+    return () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      window.speechSynthesis.cancel();
+    };
   }, []);
 
   // Create background overlay on body (outside component stacking context)
@@ -194,14 +207,15 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
   // Play the entire passage as a model reading
   const playModelReading = useCallback(async () => {
-    if (!selectedPassage || isPlayingAudio) return;
-    setIsPlayingAudio(true);
+    if (!selectedPassage || isPlayingAudio || isLoadingAudio) return;
+    setIsLoadingAudio(true);
     setPhase("listening-model");
     setExpression("happy");
-    setDialogue("Listen carefully to how I read the passage...");
+    setDialogue("Loading the model reading...");
 
     const onFinished = () => {
       setIsPlayingAudio(false);
+      setIsLoadingAudio(false);
       setPhase("ready");
       setExpression("encouraging");
       setDialogue("Now it's your turn! Read the passage aloud. Take your time and keep a natural pace.");
@@ -221,7 +235,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
-        currentAudioRef.current = audio; // Store reference for stop button
+        currentAudioRef.current = audio;
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
           currentAudioRef.current = null;
@@ -233,18 +247,26 @@ export function ReadingSession({ passages, character, characterId, component }: 
           await speakWithBrowserTTS(selectedPassage.content);
           onFinished();
         };
+        setIsLoadingAudio(false);
+        setIsPlayingAudio(true);
+        setDialogue("Listen carefully to how I read the passage...");
         await audio.play();
       } else {
+        setIsLoadingAudio(false);
+        setIsPlayingAudio(true);
+        setDialogue("Listen carefully to how I read the passage...");
         await speakWithBrowserTTS(selectedPassage.content);
         onFinished();
       }
     } catch {
       try {
+        setIsLoadingAudio(false);
+        setIsPlayingAudio(true);
         await speakWithBrowserTTS(selectedPassage.content);
       } catch { /* ignore */ }
       onFinished();
     }
-  }, [selectedPassage, character.voiceId, isPlayingAudio, speakWithBrowserTTS]);
+  }, [selectedPassage, character.voiceId, isPlayingAudio, isLoadingAudio, speakWithBrowserTTS]);
 
   // Play a single sentence (with client-side caching)
   const playSentence = useCallback(async (sentence: string, index: number) => {
@@ -511,7 +533,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     setSentenceScores([]);
     setTotalXPEarned(0);
     setFeedbackText("");
-    setShowPinyin(false);
+
     setExpression("neutral");
     setDialogue("Pick a passage to read! I'll help you practice.");
 
@@ -700,7 +722,16 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
           {/* Action buttons */}
           <div className="flex flex-col gap-2">
-            {isPlayingAudio ? (
+            {isLoadingAudio ? (
+              <Button
+                disabled
+                variant="outline"
+                className="w-full"
+              >
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                Loading Audio...
+              </Button>
+            ) : isPlayingAudio ? (
               <Button
                 onClick={stopAudio}
                 variant="destructive"
@@ -743,18 +774,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
           <Card className="h-full">
             <CardContent className="py-6 space-y-4">
               {/* Passage header */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold font-chinese">{selectedPassage?.title}</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={showPinyin ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowPinyin(!showPinyin)}
-                  >
-                    {showPinyin ? "Hide Pinyin" : "Show Pinyin"}
-                  </Button>
-                </div>
-              </div>
+              <h2 className="text-xl font-bold font-chinese">{selectedPassage?.title}</h2>
 
               {/* Click hint / Stop button */}
               <div className="flex items-center justify-between gap-2">
@@ -794,12 +814,6 @@ export function ReadingSession({ passages, character, characterId, component }: 
                     <span className="text-lg leading-loose font-chinese">{sentence}</span>
                   </span>
                 ))}
-
-                {showPinyin && (
-                  <p className="mt-4 pt-4 border-t text-sm text-muted-foreground italic">
-                    Pinyin annotations will appear when available from the speech service.
-                  </p>
-                )}
               </div>
 
               {/* Assessing state */}
