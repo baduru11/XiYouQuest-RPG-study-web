@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NavbarClient } from "@/components/shared/navbar-client";
 import { ContentWrapper } from "@/components/shared/content-wrapper";
-import { MusicPlayer } from "@/components/shared/MusicPlayer";
 
 export default async function MainLayout({
   children,
@@ -31,7 +30,6 @@ export default async function MainLayout({
 
   return (
     <div className="min-h-screen">
-      <MusicPlayer src="/audio/main-theme.mp3" pathname="/dashboard" />
       <NavbarClient
         totalXP={profile?.total_xp ?? 0}
         displayName={profile?.display_name ?? null}
