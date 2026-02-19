@@ -57,8 +57,11 @@ export default async function PracticePage() {
   }
 
   return (
-    <div className="space-y-8">
-      <h1 className="font-pixel text-sm text-foreground">Quest Board</h1>
+    <div className="space-y-6">
+      <div className="flex items-baseline gap-3">
+        <h1 className="font-pixel text-sm text-foreground">Quest Board</h1>
+        <span className="font-chinese-display text-lg pixel-glow-gold">任务榜</span>
+      </div>
       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
         {COMPONENTS.map((comp) => {
           const p = progressMap.get(comp.number) as { questions_attempted: number } | undefined;
@@ -67,23 +70,23 @@ export default async function PracticePage() {
 
           return (
             <Link key={comp.number} href={comp.path} className="group">
-              <Card className="h-full hover:pixel-border-primary transition-all cursor-pointer">
-                <CardContent className="px-3 py-2">
+              <Card className="h-full py-4 gap-0 hover:pixel-border-primary transition-all cursor-pointer">
+                <CardContent className="px-5 py-2.5">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-2xl font-bold leading-none">
+                    <CardTitle className="text-xl font-bold leading-none">
                       Quest {comp.number}
                     </CardTitle>
-                    <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <p className="text-lg text-muted-foreground font-retro leading-none mt-1">{comp.name}</p>
-                  <p className="text-base text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
-                  <div className="flex items-center justify-between text-lg font-medium mt-2">
+                  <p className="text-base text-muted-foreground font-retro leading-none mt-0.5">{comp.name}</p>
+                  <p className="text-sm text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
+                  <div className="flex items-center justify-between text-base font-medium mt-1">
                     <span>{attempts} attempted</span>
                     {attempts > 0 && (
                       <span className={getAccuracyColor(avgScore)}>avg {avgScore}%</span>
                     )}
                   </div>
-                  <Button className="w-full text-base mt-2" size="sm">
+                  <Button className="w-full text-sm mt-1" size="sm">
                     Start Quest
                   </Button>
                 </CardContent>
@@ -94,7 +97,11 @@ export default async function PracticePage() {
       </div>
 
       {/* Supplementary Drills */}
-      <h2 className="font-pixel text-sm text-foreground">Supplementary Drills</h2>
+      <div className="chinese-divider" />
+      <div className="flex items-baseline gap-3">
+        <h2 className="font-pixel text-sm text-foreground">Supplementary Drills</h2>
+        <span className="font-chinese-display text-lg pixel-glow-gold">补充练习</span>
+      </div>
       <div className="grid gap-2 md:grid-cols-2">
         {SUPPLEMENTARY.map((comp) => {
           const p = progressMap.get(comp.number) as { questions_attempted: number } | undefined;
@@ -103,23 +110,23 @@ export default async function PracticePage() {
 
           return (
             <Link key={comp.number} href={comp.path} className="group">
-              <Card className="h-full hover:pixel-border-primary transition-all cursor-pointer">
-                <CardContent className="px-3 py-2">
+              <Card className="h-full py-4 gap-0 hover:pixel-border-primary transition-all cursor-pointer">
+                <CardContent className="px-5 py-2.5">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-2xl font-bold leading-none">
+                    <CardTitle className="text-xl font-bold leading-none">
                       Extra {comp.number - 5}
                     </CardTitle>
-                    <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
-                  <p className="text-lg text-muted-foreground font-retro leading-none mt-1">{comp.name}</p>
-                  <p className="text-base text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
-                  <div className="flex items-center justify-between text-lg font-medium mt-2">
+                  <p className="text-base text-muted-foreground font-retro leading-none mt-0.5">{comp.name}</p>
+                  <p className="text-sm text-muted-foreground leading-none mt-0.5">{comp.chinese}</p>
+                  <div className="flex items-center justify-between text-base font-medium mt-1">
                     <span>{attempts} attempted</span>
                     {attempts > 0 && (
                       <span className={getAccuracyColor(avgScore)}>avg {avgScore}%</span>
                     )}
                   </div>
-                  <Button className="w-full text-base mt-2" size="sm">
+                  <Button className="w-full text-sm mt-1" size="sm">
                     Start Drill
                   </Button>
                 </CardContent>

@@ -120,7 +120,7 @@ export function DashboardClient({
           backgroundAttachment: "fixed",
         }}
       >
-        <div className="pixel-border bg-card w-full max-w-md p-8 animate-fade-in-up mx-4">
+        <div className="pixel-border chinese-corner bg-card w-full max-w-md p-8 animate-fade-in-up mx-4">
           <div className="flex flex-col items-center gap-5">
             {/* Character */}
             <div className="relative h-36 w-36 pixel-border bg-muted overflow-hidden">
@@ -139,7 +139,7 @@ export function DashboardClient({
             </div>
 
             {/* Display name */}
-            <p className="font-pixel text-xl text-primary pixel-glow leading-relaxed">
+            <p className="font-chinese-display text-2xl text-primary pixel-glow leading-relaxed animate-ink-fade">
               {displayName || "Adventurer"}
             </p>
 
@@ -173,7 +173,7 @@ export function DashboardClient({
             </div>
 
             {/* Divider */}
-            <div className="w-full border-t border-border" />
+            <div className="w-full chinese-divider" />
 
             {/* Start button */}
             <button
@@ -182,6 +182,7 @@ export function DashboardClient({
             >
               <Play className="h-4 w-4" />
               Start Journey
+              <span className="font-chinese-display text-base opacity-80">开始冒险</span>
             </button>
           </div>
         </div>
@@ -250,7 +251,7 @@ export function DashboardClient({
       {/* Menu tiles */}
       {MENU_ITEMS.map((item) => (
         <Link key={item.href} href={item.href} className="group block">
-          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all">
+          <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all">
             <div className="flex items-center gap-5">
               <item.icon className="h-8 w-8 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
@@ -268,13 +269,13 @@ export function DashboardClient({
       {/* Profile / Social row */}
       <div className="grid grid-cols-2 gap-4">
         <Link href="/profile" className="group block">
-          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
+          <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
             <UserCircle className="h-8 w-8 text-primary shrink-0" />
             <p className="font-pixel text-sm text-foreground leading-relaxed">Profile</p>
           </div>
         </Link>
         <Link href="/social" className="group block">
-          <div className="pixel-border bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
+          <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
             <Users className="h-8 w-8 text-primary shrink-0" />
             <p className="font-pixel text-sm text-foreground leading-relaxed">Social</p>
             {pendingCount > 0 && (

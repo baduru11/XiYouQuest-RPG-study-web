@@ -49,7 +49,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md pixel-border bg-card p-6 space-y-6">
+    <div className="w-full max-w-md pixel-border chinese-corner bg-card p-6 space-y-6">
       <div className="text-center space-y-2">
         <h2 className="font-pixel text-base text-primary pixel-glow">
           {isSignUp ? "New Game" : "Continue"}
@@ -103,12 +103,10 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t-2 border-border" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-card px-2 font-pixel text-xs text-muted-foreground">Or</span>
+      <div className="relative py-2">
+        <div className="chinese-divider" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="bg-card px-3 font-pixel text-xs text-muted-foreground relative z-10">Or</span>
         </div>
       </div>
 

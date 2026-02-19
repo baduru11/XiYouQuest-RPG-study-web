@@ -51,7 +51,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
 
   return (
     <TooltipProvider delayDuration={0}>
-    <nav className="border-b-3 border-border bg-card pixel-border">
+    <nav className="border-b-3 border-border bg-card chinese-frame">
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-6 lg:px-10">
         <div className="flex items-center gap-3">
           {showBackToHub && (
@@ -67,6 +67,9 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
             className="font-pixel text-base text-primary cursor-pointer hover:opacity-80 transition-opacity pixel-glow"
           >
             PSC Quest
+            <span className="hidden sm:inline font-chinese-display text-sm ml-1 pixel-glow-gold">
+              普通话
+            </span>
           </Link>
         </div>
 
