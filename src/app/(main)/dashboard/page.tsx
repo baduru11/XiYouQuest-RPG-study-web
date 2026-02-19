@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { CHARACTER_IMAGES } from "@/lib/character-images";
+import { MusicPlayer } from "@/components/shared/MusicPlayer";
 
 const MENU_ITEMS = [
   {
@@ -66,6 +67,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 py-6">
+      <MusicPlayer src="/audio/Main Theme (Test 3).mp3" />
       {/* Greeting with character */}
       <div className="flex items-center gap-5 py-4">
         <div className="relative h-24 w-24 pixel-border bg-muted overflow-hidden shrink-0">
