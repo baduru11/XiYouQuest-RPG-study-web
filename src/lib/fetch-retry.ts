@@ -26,8 +26,9 @@ export async function fetchWithRetry(
 
       if (RETRYABLE_STATUSES.has(response.status) && attempt < maxRetries) {
         const retryAfter = response.headers.get("Retry-After");
-        const delay = retryAfter
-          ? parseInt(retryAfter, 10) * 1000
+        const retryAfterSec = retryAfter ? parseInt(retryAfter, 10) : NaN;
+        const delay = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+          ? retryAfterSec * 1000
           : baseDelayMs * 2 ** attempt * (0.5 + Math.random() * 0.5);
 
         console.warn(
