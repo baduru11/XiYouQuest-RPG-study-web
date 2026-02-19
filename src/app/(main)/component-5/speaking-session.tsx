@@ -79,6 +79,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
   const [volume, setVolume] = useState(0);
 
   const [isPlayingCompanion, setIsPlayingCompanion] = useState(false);
+  const companionAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // PCM WAV recording refs (replaces MediaRecorder)
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -94,6 +95,16 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     const shuffled = shuffle(topics);
     setDisplayTopics(shuffled.slice(0, 6));
   }, [topics]);
+
+  // Stop audio on unmount (when navigating to another page)
+  useEffect(() => {
+    return () => {
+      if (companionAudioRef.current) {
+        companionAudioRef.current.pause();
+        companionAudioRef.current = null;
+      }
+    };
+  }, []);
 
   const playCompanionVoice = useCallback(async (text: string, _companionExpression: ExpressionName) => {
     if (isPlayingCompanion) return;
@@ -111,12 +122,15 @@ export function SpeakingSession({ topics, character, characterId, component }: S
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
+        companionAudioRef.current = audio;
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
+          companionAudioRef.current = null;
           setIsPlayingCompanion(false);
         };
         audio.onerror = () => {
           URL.revokeObjectURL(audioUrl);
+          companionAudioRef.current = null;
           setIsPlayingCompanion(false);
         };
         await audio.play();

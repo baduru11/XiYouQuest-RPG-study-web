@@ -64,6 +64,7 @@ export function PracticeSession({ questions, character, characterId, component, 
   const sessionStartRef = useRef(Date.now());
   const [playingWordIndex, setPlayingWordIndex] = useState<number | null>(null);
   const playingRef = useRef(false);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const wordAudioCache = useRef<Map<string, string>>(new Map());
 
   // Split questions into groups of 5 (preserving category order)
@@ -156,10 +157,15 @@ export function PracticeSession({ questions, character, characterId, component, 
     saveProgress();
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cleanup cached audio object URLs on unmount
+  // Cleanup cached audio object URLs and stop playing audio on unmount
   useEffect(() => {
     const cache = wordAudioCache.current;
     return () => {
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+      window.speechSynthesis.cancel();
       cache.forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
@@ -183,11 +189,13 @@ export function PracticeSession({ questions, character, characterId, component, 
         wordAudioCache.current.set(word, audioUrl);
       }
       const audio = new Audio(audioUrl);
-      audio.onended = () => { playingRef.current = false; setPlayingWordIndex(null); };
-      audio.onerror = () => { playingRef.current = false; setPlayingWordIndex(null); };
+      currentAudioRef.current = audio;
+      audio.onended = () => { currentAudioRef.current = null; playingRef.current = false; setPlayingWordIndex(null); };
+      audio.onerror = () => { currentAudioRef.current = null; playingRef.current = false; setPlayingWordIndex(null); };
       await audio.play();
     } catch {
       await speakWithBrowserTTS(word);
+      currentAudioRef.current = null;
       playingRef.current = false;
       setPlayingWordIndex(null);
     }
