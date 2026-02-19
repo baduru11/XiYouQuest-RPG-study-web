@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import type { ExpressionName } from "@/types/character";
 import type { QuizQuestion, QuestionResult, ComponentNumber } from "@/types/practice";
 
@@ -65,7 +66,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
       const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
       try {
-        await fetch("/api/progress/update", {
+        await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -120,7 +121,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
       // For wrong answers, get AI feedback
       setIsLoadingFeedback(true);
       try {
-        const feedbackResponse = await fetch("/api/ai/feedback", {
+        const feedbackResponse = await fetchWithRetry("/api/ai/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
