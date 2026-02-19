@@ -1,8 +1,8 @@
 /** Local character image fallbacks when no DB expression images exist */
 const CHARACTER_IMAGES: Record<string, string> = {
-  Kaede: "/img/character/Kaede/kaede.png",
-  "Hao Ran (浩然)": "/img/character/HaoRan/haoran.png",
-  "Mei Lin (美琳)": "/img/character/MeiLin/meilin.png",
+  Kaede: "/img/character/Kaede/kaede.webp",
+  "Hao Ran (浩然)": "/img/character/HaoRan/haoran.webp",
+  "Mei Lin (美琳)": "/img/character/MeiLin/meilin.webp",
 };
 
 export function getCharacterImageFallback(
