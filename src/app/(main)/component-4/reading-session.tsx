@@ -527,6 +527,17 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
   // Go back to passage selection
   const handleBackToSelection = useCallback(() => {
+    // Stop any playing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+    window.speechSynthesis.cancel();
+    setIsPlayingAudio(false);
+    setIsLoadingAudio(false);
+    setPlayingSentenceIndex(null);
+
     setSelectedPassage(null);
     setPhase("select");
     setOverallScore(null);
