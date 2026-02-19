@@ -10,6 +10,7 @@
   --font-sans: var(--font-retro);
   --font-mono: var(--font-retro);
   --font-pixel: var(--font-pixel);
+  --font-chinese-display: var(--font-chinese-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -42,8 +43,8 @@
   --color-pixel-green: #15803D;
   --color-pixel-red: #DC2626;
   --color-pixel-blue: #2563EB;
-  --color-pixel-amber: #B45309;
-  --color-pixel-gold: #D97706;
+  --color-pixel-amber: #C8102E;
+  --color-pixel-gold: #C9A96E;
   --radius-sm: 0px;
   --radius-md: 0px;
   --radius-lg: 0px;
@@ -55,37 +56,37 @@
 
 :root {
   --radius: 0px;
-  --background: #FDF6E3;
-  --foreground: #3C2415;
-  --card: #F5EDDA;
-  --card-foreground: #3C2415;
-  --popover: #F5EDDA;
-  --popover-foreground: #3C2415;
-  --primary: #B45309;
-  --primary-foreground: #FDF6E3;
-  --secondary: #EDE0C8;
-  --secondary-foreground: #3C2415;
-  --muted: #EDE0C8;
+  --background: #FFF8E7;
+  --foreground: #1C1917;
+  --card: #FFF1D6;
+  --card-foreground: #1C1917;
+  --popover: #FFF1D6;
+  --popover-foreground: #1C1917;
+  --primary: #C8102E;
+  --primary-foreground: #FFF8E7;
+  --secondary: #F5E6CC;
+  --secondary-foreground: #1C1917;
+  --muted: #F5E6CC;
   --muted-foreground: #78716C;
-  --accent: #D4C4A8;
-  --accent-foreground: #3C2415;
+  --accent: #C9A96E;
+  --accent-foreground: #1C1917;
   --destructive: #DC2626;
-  --border: #C4A882;
-  --input: #C4A882;
-  --ring: #B45309;
-  --chart-1: #B45309;
+  --border: #8B4513;
+  --input: #8B4513;
+  --ring: #C8102E;
+  --chart-1: #C8102E;
   --chart-2: #15803D;
   --chart-3: #2563EB;
-  --chart-4: #D97706;
+  --chart-4: #C9A96E;
   --chart-5: #DC2626;
-  --sidebar: #F5EDDA;
-  --sidebar-foreground: #3C2415;
-  --sidebar-primary: #B45309;
-  --sidebar-primary-foreground: #FDF6E3;
-  --sidebar-accent: #D4C4A8;
-  --sidebar-accent-foreground: #3C2415;
-  --sidebar-border: #C4A882;
-  --sidebar-ring: #B45309;
+  --sidebar: #FFF1D6;
+  --sidebar-foreground: #1C1917;
+  --sidebar-primary: #C8102E;
+  --sidebar-primary-foreground: #FFF8E7;
+  --sidebar-accent: #C9A96E;
+  --sidebar-accent-foreground: #1C1917;
+  --sidebar-border: #8B4513;
+  --sidebar-ring: #C8102E;
 }
 
 @keyframes shimmer {
@@ -110,16 +111,27 @@
 
 @keyframes pixel-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(180, 83, 9, 0.4);
+    box-shadow: 0 0 0 0 rgba(200, 16, 46, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(180, 83, 9, 0);
+    box-shadow: 0 0 0 8px rgba(200, 16, 46, 0);
   }
 }
 
 @keyframes blink-cursor {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
+}
+
+@keyframes ink-fade {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
 }
 
 @layer base {
@@ -152,12 +164,16 @@
     font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", "SimHei", sans-serif;
   }
 
+  .font-chinese-display {
+    font-family: var(--font-chinese-display), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", serif;
+  }
+
   .animate-shimmer {
     background: linear-gradient(
       90deg,
-      #EDE0C8 25%,
-      #D4C4A8 50%,
-      #EDE0C8 75%
+      #F5E6CC 25%,
+      #C9A96E 50%,
+      #F5E6CC 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
@@ -175,18 +191,22 @@
     animation: blink-cursor 1s step-end infinite;
   }
 
+  .animate-ink-fade {
+    animation: ink-fade 0.8s ease-out both;
+  }
+
   .pixel-border {
-    border: 3px solid #8B7355;
+    border: 3px solid #8B4513;
     box-shadow:
-      3px 3px 0 0 #6B5640,
-      -1px -1px 0 0 #A0896C;
+      3px 3px 0 0 #5C2D0E,
+      -1px -1px 0 0 #A0522D;
   }
 
   .pixel-border-primary {
-    border: 3px solid #B45309;
+    border: 3px solid #C8102E;
     box-shadow:
-      3px 3px 0 0 #92400E,
-      -1px -1px 0 0 #D97706;
+      3px 3px 0 0 #8B0000,
+      -1px -1px 0 0 #E8313A;
   }
 
   .pixel-border-green {
@@ -198,8 +218,8 @@
 
   .pixel-glow {
     text-shadow:
-      0 0 4px #B45309,
-      0 0 8px rgba(180, 83, 9, 0.3);
+      0 0 4px #C8102E,
+      0 0 8px rgba(200, 16, 46, 0.3);
   }
 
   .pixel-glow-green {
@@ -208,35 +228,101 @@
       0 0 8px rgba(21, 128, 61, 0.3);
   }
 
+  .pixel-glow-gold {
+    color: #8B6914;
+    text-shadow:
+      0 0 4px #C9A96E,
+      0 0 8px rgba(201, 169, 110, 0.4);
+  }
+
   .pixel-btn {
-    box-shadow: 4px 4px 0 0 #6B5640;
+    box-shadow: 4px 4px 0 0 #5C2D0E;
     transition: all 100ms ease;
   }
   .pixel-btn:hover {
-    box-shadow: 2px 2px 0 0 #6B5640;
+    box-shadow: 2px 2px 0 0 #5C2D0E;
     transform: translate(2px, 2px);
   }
   .pixel-btn:active {
-    box-shadow: 0 0 0 0 #6B5640;
+    box-shadow: 0 0 0 0 #5C2D0E;
     transform: translate(4px, 4px);
+  }
+
+  /* Chinese decorative frame — double border (rosewood outer + gold inset) */
+  .chinese-frame {
+    border: 3px solid #8B4513;
+    box-shadow:
+      inset 0 0 0 2px #C9A96E,
+      3px 3px 0 0 #5C2D0E;
+  }
+
+  /* Chinese corner ornaments — L-shaped vermilion brackets */
+  .chinese-corner {
+    position: relative;
+  }
+  .chinese-corner::before,
+  .chinese-corner::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+  }
+  .chinese-corner::before {
+    top: 4px;
+    left: 4px;
+    border-top: 3px solid #C8102E;
+    border-left: 3px solid #C8102E;
+  }
+  .chinese-corner::after {
+    bottom: 4px;
+    right: 4px;
+    border-bottom: 3px solid #C8102E;
+    border-right: 3px solid #C8102E;
+  }
+
+  /* Chinese divider — gradient fade with center diamond */
+  .chinese-divider {
+    position: relative;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      #8B4513 20%,
+      #C8102E 50%,
+      #8B4513 80%,
+      transparent
+    );
+  }
+  .chinese-divider::after {
+    content: "\25C6";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card);
+    padding: 0 6px;
+    color: #C8102E;
+    font-size: 10px;
+    line-height: 1;
   }
 }
 
-/* Custom scrollbar - warm retro theme */
+/* Custom scrollbar — Chinese rosewood theme */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #EDE0C8;
-  border-left: 2px solid #C4A882;
+  background: #F5E6CC;
+  border-left: 2px solid #8B4513;
 }
 ::-webkit-scrollbar-thumb {
-  background: #B45309;
-  border: 2px solid #8B7355;
+  background: #C8102E;
+  border: 2px solid #8B4513;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #D97706;
+  background: #E8313A;
 }
 
 /* Accessibility: respect reduced motion */

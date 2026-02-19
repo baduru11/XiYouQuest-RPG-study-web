@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Press_Start_2P, VT323 } from "next/font/google";
+import { Press_Start_2P, VT323, ZCOOL_XiaoWei } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -16,6 +16,12 @@ const vt323 = VT323({
   subsets: ["latin"],
 });
 
+const zcoolXiaoWei = ZCOOL_XiaoWei({
+  weight: "400",
+  variable: "--font-chinese-display",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "PSC Study Companion",
   description: "Master the Putonghua Proficiency Test with AI-powered practice",
@@ -29,7 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${pressStart.variable} ${vt323.variable}`}
+        className={`${pressStart.variable} ${vt323.variable} ${zcoolXiaoWei.variable}`}
       >
         {children}
         <Analytics />
