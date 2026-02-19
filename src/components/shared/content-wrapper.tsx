@@ -9,8 +9,10 @@ export function ContentWrapper({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  const isPassageReading = pathname === "/component-4";
+
   return (
-    <div className="pixel-border bg-card/80 backdrop-blur-sm p-8">
+    <div className={`pixel-border backdrop-blur-sm p-8 ${isPassageReading ? "bg-card/50" : "bg-card/80"}`}>
       {children}
     </div>
   );

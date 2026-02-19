@@ -18,6 +18,7 @@ interface Passage {
   id: string;
   title: string;
   content: string;
+  passageNumber: number | null;
 }
 
 interface ReadingSessionProps {
@@ -66,6 +67,9 @@ export function ReadingSession({ passages, character, characterId, component }: 
   const [totalXPEarned, setTotalXPEarned] = useState(0);
   const [feedbackText, setFeedbackText] = useState("");
   const hasPlayedGreeting = useRef(false);
+
+  // Background overlay ref for passage images (DOM-managed on body)
+  const bgOverlayRef = useRef<HTMLDivElement | null>(null);
 
   // Client-side audio cache: Map<text, audioUrl>
   const audioCache = useRef(new Map<string, string>());
@@ -130,6 +134,25 @@ export function ReadingSession({ passages, character, characterId, component }: 
     }
     setIsPlayingAudio(false);
     setPlayingSentenceIndex(null);
+  }, []);
+
+  // Create background overlay on body (outside component stacking context)
+  useEffect(() => {
+    document.body.style.isolation = "isolate";
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position: fixed; inset: 0; z-index: -1;
+      background-size: cover; background-position: center; background-attachment: fixed;
+      opacity: 0; transition: opacity 0.6s ease-in-out; pointer-events: none;
+    `;
+    document.body.appendChild(overlay);
+    bgOverlayRef.current = overlay;
+
+    return () => {
+      overlay.remove();
+      bgOverlayRef.current = null;
+      document.body.style.isolation = "";
+    };
   }, []);
 
   // Greeting on mount (voice disabled)
@@ -466,6 +489,18 @@ export function ReadingSession({ passages, character, characterId, component }: 
     setPhase("ready");
     setExpression("neutral");
     setDialogue(`Great choice! "${passage.title}" - First listen to the model reading, then try reading it yourself.`);
+
+    // Fade in passage background image
+    if (passage.passageNumber && bgOverlayRef.current) {
+      const url = `/img/passage/${passage.passageNumber}.webp`;
+      const overlay = bgOverlayRef.current;
+      const img = new Image();
+      img.onload = () => {
+        overlay.style.backgroundImage = `url(${url})`;
+        requestAnimationFrame(() => { overlay.style.opacity = "1"; });
+      };
+      img.src = url;
+    }
   }, []);
 
   // Go back to passage selection
@@ -479,12 +514,18 @@ export function ReadingSession({ passages, character, characterId, component }: 
     setShowPinyin(false);
     setExpression("neutral");
     setDialogue("Pick a passage to read! I'll help you practice.");
+
+    // Fade out passage background
+    if (bgOverlayRef.current) {
+      bgOverlayRef.current.style.opacity = "0";
+    }
   }, []);
 
   // Passage selection screen
   if (phase === "select") {
     return (
       <div className="space-y-4">
+
         <div className="flex flex-col gap-4 md:flex-row">
           {/* Left side: Character (30%) */}
           <div className="space-y-3 md:w-[30%]">
@@ -502,15 +543,21 @@ export function ReadingSession({ passages, character, characterId, component }: 
               {passages.map((passage) => (
                 <Card
                   key={passage.id}
-                  className="cursor-pointer transition-all hover:border-primary hover:shadow-md h-fit"
+                  className="cursor-pointer transition-all hover:border-primary hover:shadow-md h-fit relative overflow-hidden"
                   onClick={() => handleSelectPassage(passage)}
                 >
-                  <CardContent className="pt-6">
-                    <h3 className="text-lg font-bold font-chinese mb-2">{passage.title}</h3>
-                    <p className="text-sm text-muted-foreground font-chinese line-clamp-3">
+                  {passage.passageNumber && (
+                    <div
+                      className="absolute inset-0 bg-cover bg-center opacity-25"
+                      style={{ backgroundImage: `url(/img/passage/${passage.passageNumber}.webp)` }}
+                    />
+                  )}
+                  <CardContent className="pt-6 relative">
+                    <h3 className="text-lg font-bold font-chinese mb-2 drop-shadow-md [text-shadow:_0_1px_3px_rgb(255_255_255_/_80%)]">{passage.title}</h3>
+                    <p className="text-sm font-medium text-foreground/80 font-chinese line-clamp-3 [text-shadow:_0_1px_2px_rgb(255_255_255_/_60%)]">
                       {passage.content}
                     </p>
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-2 text-xs font-medium text-foreground/70 [text-shadow:_0_1px_2px_rgb(255_255_255_/_60%)]">
                       {passage.content.length} characters
                     </p>
                   </CardContent>
@@ -529,6 +576,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
     return (
       <div className="space-y-4">
+
         <div className="flex flex-col gap-4 md:flex-row">
           {/* Left side: Character (30%) */}
           <div className="space-y-3 md:w-[30%]">
