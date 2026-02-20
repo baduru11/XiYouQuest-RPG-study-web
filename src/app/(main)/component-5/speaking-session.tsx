@@ -12,6 +12,7 @@ import { calculateXP } from "@/lib/gamification/xp";
 import { encodeWAV } from "@/lib/audio-utils";
 import { shuffle } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -64,6 +65,7 @@ interface C5SpeakingAnalysis {
 }
 
 export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
+  const { showAchievementToasts } = useAchievementToast();
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
   const [phase, setPhase] = useState<SessionPhase>("select");
@@ -189,7 +191,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       const spokenTime = elapsedTimeRef.current;
 
       try {
-        await fetchWithRetry("/api/progress/update", {
+        const res = await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -203,6 +205,12 @@ export function SpeakingSession({ topics, character, characterId, component }: S
             bestStreak: analysis.normalizedScore >= 60 ? 1 : 0,
           }),
         });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.newAchievements?.length > 0) {
+            showAchievementToasts(data.newAchievements);
+          }
+        }
       } catch (err) {
         console.error("Failed to save progress:", err);
       }

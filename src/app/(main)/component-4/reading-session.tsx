@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { fetchWithRetry } from "@/lib/fetch-retry";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -54,6 +55,7 @@ function splitIntoSentences(content: string): string[] {
 }
 
 export function ReadingSession({ passages, character, characterId, component }: ReadingSessionProps) {
+  const { showAchievementToasts } = useAchievementToast();
   const [selectedPassage, setSelectedPassage] = useState<Passage | null>(null);
   const [phase, setPhase] = useState<SessionPhase>("select");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
@@ -183,7 +185,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
     const saveProgress = async () => {
       try {
-        await fetchWithRetry("/api/progress/update", {
+        const res = await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -197,6 +199,12 @@ export function ReadingSession({ passages, character, characterId, component }: 
             bestStreak: overallScore >= 60 ? 1 : 0,
           }),
         });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.newAchievements?.length > 0) {
+            showAchievementToasts(data.newAchievements);
+          }
+        }
       } catch (err) {
         console.error("Failed to save progress:", err);
       }

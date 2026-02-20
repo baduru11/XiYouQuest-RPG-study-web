@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { QuizQuestion, QuestionResult, ComponentNumber } from "@/types/practice";
 
@@ -28,6 +29,7 @@ interface QuizSessionProps {
 type SessionPhase = "answering" | "result" | "complete";
 
 export function QuizSession({ questions, character, characterId, component }: QuizSessionProps) {
+  const { showAchievementToasts } = useAchievementToast();
   // Randomize answer positions on client side
   const randomizedQuestions = useMemo(() => {
     return questions.map(randomizeAnswerPositions);
@@ -66,7 +68,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
       const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
       try {
-        await fetchWithRetry("/api/progress/update", {
+        const res = await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -80,12 +82,19 @@ export function QuizSession({ questions, character, characterId, component }: Qu
             bestStreak: streakRef.current,
           }),
         });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.newAchievements?.length > 0) {
+            showAchievementToasts(data.newAchievements);
+          }
+        }
       } catch (err) {
         console.error("Failed to save progress:", err);
       }
     };
 
     saveProgress();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, characterId, component]);
 
   const handleAnswer = useCallback(async (answerIndex: number) => {

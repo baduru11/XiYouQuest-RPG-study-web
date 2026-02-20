@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { lookupPinyinDisplay } from "@/lib/pinyin";
 import { fetchWithRetry } from "@/lib/fetch-retry";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -73,6 +74,7 @@ function detectTrickyElements(word: string): string[] {
 }
 
 export function PracticeSession({ questions, character, characterId, component }: PracticeSessionProps) {
+  const { showAchievementToasts } = useAchievementToast();
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [phase, setPhase] = useState<SessionPhase>("ready");
@@ -139,7 +141,7 @@ export function PracticeSession({ questions, character, characterId, component }
         : 0;
 
       try {
-        await fetchWithRetry("/api/progress/update", {
+        const res = await fetchWithRetry("/api/progress/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -156,6 +158,12 @@ export function PracticeSession({ questions, character, characterId, component }
             bestStreak: maxStreak,
           }),
         });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.newAchievements?.length > 0) {
+            showAchievementToasts(data.newAchievements);
+          }
+        }
       } catch (err) {
         console.error("Failed to save progress:", err);
       }

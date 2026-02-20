@@ -11,6 +11,7 @@ import { randomizeAnswerPositions } from "@/lib/utils";
 import { encodeWAV } from "@/lib/audio-utils";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
 import { fetchWithRetry } from "@/lib/fetch-retry";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { QuizQuestion } from "@/types/practice";
 
 // ============================================================
@@ -286,6 +287,7 @@ interface ExamRunnerProps {
 }
 
 export function ExamRunner({ characters, words, quizQuestions, passage, topics }: ExamRunnerProps) {
+  const { showAchievementToasts } = useAchievementToast();
   // Randomize answer positions on client side
   const activeQuizQuestions = useMemo(() => {
     const questions = quizQuestions ?? EXAM_QUIZ_QUESTIONS;
@@ -300,6 +302,7 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
   const [componentResults, setComponentResults] = useState<ComponentResult[]>([]);
   const [assessmentProgress, setAssessmentProgress] = useState(0);
   const [examStartTime] = useState<number>(Date.now());
+  const [mockExamAchChecked, setMockExamAchChecked] = useState(false);
 
   // ---- Assess all components after exam ----
   const runAllAssessments = useCallback(async (allRawData: ComponentRawData[]) => {
@@ -502,6 +505,21 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
       setExamPhase("transition");
     }
   }, [rawDataList, currentComponentIndex, runAllAssessments]);
+
+  // ---- Check mock exam achievements when results phase begins ----
+  useEffect(() => {
+    if (examPhase === "results" && !mockExamAchChecked) {
+      setMockExamAchChecked(true);
+      fetch("/api/achievements/mock-exam", { method: "POST" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.newAchievements?.length > 0) {
+            showAchievementToasts(data.newAchievements);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [examPhase, mockExamAchChecked, showAchievementToasts]);
 
   // ---- Start Screen ----
   if (examPhase === "start") {
