@@ -1,7 +1,17 @@
-<h1 align="center">XiYouQuest — 普通话水平测试 Study Companion</h1>
+<h1 align="center">
+  <br>
+  <img src="public/img/background/Logo.webp" alt="XiYouQuest" width="120">
+  <br>
+  XiYouQuest — 西游Quest
+  <br>
+</h1>
+
+<h3 align="center">
+  AI-Powered Putonghua Proficiency Test Companion
+</h3>
 
 <p align="center">
-  <strong>AI-powered Putonghua Proficiency Test prep with anime companions, real-time speech scoring, and pixel-art gamification.</strong>
+  <em>Master the PSC exam through pronunciation battles, AI feedback, and a Journey to the West RPG adventure.</em>
 </p>
 
 <p align="center">
@@ -12,6 +22,7 @@
   <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss" alt="Tailwind" />
   <img src="https://img.shields.io/badge/iFlytek-ISE_+_TTS-FF6B35" alt="iFlytek" />
   <img src="https://img.shields.io/badge/Gemini-2.0_Flash-4285F4?logo=google" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Vercel-Deployed-000?logo=vercel" alt="Vercel" />
 </p>
 
 <p align="center">
@@ -23,26 +34,27 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features at a Glance](#features-at-a-glance)
-- [Technical Architecture](#technical-architecture)
-- [How It Works — Deep Dive](#how-it-works--deep-dive)
-  - [Component 1: Monosyllabic Characters](#component-1-monosyllabic-characters-读单音节字词)
-  - [Component 2: Multisyllabic Words](#component-2-multisyllabic-words-读多音节词语)
-  - [Component 3: Vocabulary & Grammar Judgment](#component-3-vocabulary--grammar-judgment-选择判断)
-  - [Component 4: Passage Reading](#component-4-passage-reading-朗读短文)
-  - [Component 5: Prompted Speaking](#component-5-prompted-speaking-命题说话)
-  - [Component 6: Cantonese Mistakes Drill](#component-6-cantonese-mistakes-drill-易错字词练习)
-  - [Component 7: Polyphonic Characters Quiz](#component-7-polyphonic-characters-quiz-多音字练习)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Practice Components](#practice-components)
+  - [C1: Monosyllabic Characters](#c1-monosyllabic-characters-读单音节字词)
+  - [C2: Multisyllabic Words](#c2-multisyllabic-words-读多音节词语)
+  - [C3: Vocabulary & Grammar](#c3-vocabulary--grammar-judgment-选择判断)
+  - [C4: Passage Reading](#c4-passage-reading-朗读短文)
+  - [C5: Prompted Speaking](#c5-prompted-speaking-命题说话)
+  - [C6: Cantonese Mistakes Drill](#c6-cantonese-mistakes-drill-易错字词练习)
+  - [C7: Polyphonic Characters Quiz](#c7-polyphonic-characters-quiz-多音字练习)
   - [Mock Exam](#mock-exam-full-psc-simulation)
+- [Main Quest RPG](#main-quest-rpg)
+- [Achievements](#achievements)
 - [Speech Evaluation Engine](#speech-evaluation-engine)
 - [Text-to-Speech System](#text-to-speech-system)
 - [AI Feedback Pipeline](#ai-feedback-pipeline)
-- [Network Resilience](#network-resilience)
-- [Audio Recording Pipeline](#audio-recording-pipeline)
 - [Gamification System](#gamification-system)
-- [Authentication & Security](#authentication--security)
 - [Social & Leaderboard](#social--leaderboard)
 - [Character Companion System](#character-companion-system)
+- [Authentication & Security](#authentication--security)
+- [Network Resilience](#network-resilience)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
@@ -54,49 +66,50 @@
 
 ## Overview
 
-XiYouQuest is a full-stack web application that transforms Putonghua Proficiency Test (PSC / 普通话水平测试) preparation into a gamified, AI-driven experience. Users practice all 5 official PSC components — plus 2 supplementary drills — with real-time pronunciation scoring from iFlytek's Intelligent Speech Evaluation engine, personalized AI feedback from Google Gemini, and a pixel-art retro aesthetic inspired by classic RPG quest boards.
+XiYouQuest transforms Putonghua Proficiency Test (PSC / 普通话水平测试) preparation into a gamified, AI-driven adventure. Inspired by the classic Chinese novel *Journey to the West*, players travel alongside Sun Wukong and companions through a 7-stage RPG campaign — defeating bosses with their pronunciation skills while mastering all 5 official PSC exam components.
 
 Every practice session flows through a multi-service pipeline:
 
 ```
-🎙️ Record → 📦 WAV Encode → 🌐 iFlytek ISE WebSocket → 📊 XML Parse → 🤖 Gemini Feedback → 🎮 XP Award
+🎙️ Record → 📦 WAV Encode → 🌐 iFlytek ISE → 📊 XML Parse → 🤖 Gemini Feedback → 🎮 XP Award → 🏆 Achievement Check
 ```
 
 ---
 
-## Features at a Glance
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| **All 5 PSC Components** | Complete coverage of the official exam format with faithful scoring |
-| **2 Supplementary Drills** | Cantonese trouble sounds (C6) and polyphonic character quiz (C7) |
-| **Real-time Speech Scoring** | Phone-level accuracy, tone analysis, fluency metrics via iFlytek ISE |
-| **AI Companions** | Anime characters with 10 expressions that react to your performance |
-| **Gemini Feedback** | Personality-driven, context-aware study tips after every attempt |
-| **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping |
-| **TTS Playback** | Native Putonghua model audio for every word, sentence, and passage |
-| **XP & Levels** | 10-tier progression from Beginner to PSC God with streak multipliers |
-| **Character Affection** | Build bonds with companions across 5 affection levels |
-| **Social System** | Friends, leaderboards, and Discord-linked friend suggestions |
-| **Pixel-Art UI** | Press Start 2P fonts, pixel borders, retro animations, warm palette |
+| **7 Practice Components** | All 5 official PSC components + 2 supplementary drills (Cantonese mistakes, polyphonic characters) |
+| **Main Quest RPG** | 7-stage Journey to the West campaign with turn-based pronunciation battles against mythical bosses |
+| **Real-time Speech Scoring** | Phone-level accuracy, tone analysis, fluency metrics via iFlytek Intelligent Speech Evaluation |
+| **AI Companions** | 4 Journey to the West characters with unique personalities, expressions, and voice lines |
+| **Gemini Feedback** | Character-personalized, context-aware study tips powered by Google Gemini 2.0 Flash |
+| **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping (一级甲等 → 三级乙等) |
+| **TTS Playback** | Native Putonghua model audio for every word, sentence, and passage via iFlytek TTS |
+| **31 Achievements** | 4-tier achievement system (Common/Uncommon/Rare/Epic) with toast notifications and friend activity feed |
+| **XP & Levels** | 10-tier progression from Beginner to PSC God with streak multipliers and daily bonuses |
+| **Character Affection** | Build bonds with companions across 5 affection levels by practicing together |
+| **Social System** | Friends, friend codes (PSC-XXXX), leaderboards, Discord friend suggestions |
+| **Pixel-Art UI** | Press Start 2P fonts, vermilion Chinese-ink motifs, pixel borders, retro battle animations |
 
 ---
 
-## Technical Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          BROWSER (Client)                          │
 │                                                                     │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────┐  ┌───────────────┐  │
-│  │ Practice  │  │ AudioRecorder│  │ Character │  │   Quiz/Exam   │  │
-│  │ Session   │  │ (PCM 16kHz)  │  │ Display   │  │   Sessions    │  │
+│  │ Practice  │  │ AudioRecorder│  │ Quest RPG │  │   Quiz/Exam   │  │
+│  │ Session   │  │ (PCM 16kHz)  │  │ Battles   │  │   Sessions    │  │
 │  └─────┬─────┘  └──────┬───────┘  └─────┬─────┘  └──────┬────────┘  │
 │        │               │                │               │           │
 │        └───────────────┼────────────────┼───────────────┘           │
-│                        │ WAV Blob       │ Expression                │
+│                        │ WAV Blob       │ Battle State              │
 │                        ▼                ▼                            │
-├─────────────────── Next.js API Routes ──────────────────────────────┤
+├─────────────────── Next.js 16 API Routes ─────────────────────────┤
 │                                                                     │
 │  ┌──────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
 │  │ /speech/     │ │ /tts/       │ │ /ai/        │ │ /progress/  │  │
@@ -104,106 +117,52 @@ Every practice session flows through a multi-service pipeline:
 │  │  c5-assess   │ │  companion  │ │             │ │             │  │
 │  └──────┬───────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘  │
 │         │                │               │               │          │
+│  ┌──────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │ /quest/      │ │ /achieve-   │ │ /social/    │ │ /leader-    │  │
+│  │  progress    │ │  ments/     │ │  9 endpoints│ │  board      │  │
+│  └──────┬───────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘  │
+│         │                │               │               │          │
 ├─────────┼────────────────┼───────────────┼───────────────┼──────────┤
 │         ▼                ▼               ▼               ▼          │
 │  ┌─────────────┐  ┌─────────────┐ ┌───────────┐  ┌────────────┐   │
 │  │ iFlytek ISE │  │ iFlytek TTS │ │  Google   │  │  Supabase  │   │
-│  │  WebSocket  │  │  WebSocket  │ │  Gemini   │  │ PostgreSQL │   │
-│  │ (wss://)    │  │ (wss://)    │ │ 2.0 Flash │  │   + RLS    │   │
+│  │  + IST      │  │  WebSocket  │ │  Gemini   │  │ PostgreSQL │   │
+│  │ (wss://)    │  │ (wss://)    │ │ 2.0 Flash │  │  + RLS     │   │
 │  └─────────────┘  └─────────────┘ └───────────┘  └────────────┘   │
 │                                                                     │
-│         HMAC-SHA256 Auth        Retry + Backoff    Row Level Sec.  │
+│       HMAC-SHA256 Auth         Retry + Backoff    Row Level Sec.   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## How It Works — Deep Dive
+## Practice Components
 
-### Component 1: Monosyllabic Characters (读单音节字词)
+### C1: Monosyllabic Characters (读单音节字词)
 
 Practice individual Chinese character pronunciation with per-character tone and accuracy analysis.
 
-**Workflow:**
-
 ```
-┌─────────────────────────── Server (page.tsx) ────────────────────────────┐
-│                                                                          │
-│  Promise.all([                                                           │
-│    loadSelectedCharacter(supabase, userId),    ← companion + expressions │
-│    supabase.from("question_banks")             ← up to 50 characters     │
-│      .select("content").eq("component", 1)                               │
-│  ])                                                                      │
-│  shuffle(questions) → pass to PracticeSession (dynamic import)           │
-└──────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────── Client (PracticeSession) ─────────────────────────┐
-│                                                                          │
-│  Split 50 chars into groups of 10 → display as clickable grid            │
-│                                                                          │
-│  For each group:                                                         │
-│                                                                          │
-│  1. 👆 Tap any character → POST /api/tts/speak                           │
-│       → iFlytek TTS WebSocket → WAV audio plays                         │
-│       → cached in Map<word, ObjectURL> for instant replay                │
-│                                                                          │
-│  2. 🎙️ Press "Start Recording"                                           │
-│       → getUserMedia({ audio: 16kHz mono })                              │
-│       → AudioContext + ScriptProcessor captures Float32 chunks           │
-│       → AnalyserNode drives real-time volume bars                        │
-│                                                                          │
-│  3. ⏹️ Press "Stop Recording"                                             │
-│       → Chunks merged → encodeWAV(16kHz, 16-bit, mono) → Blob           │
-│                                                                          │
-│  4. 📡 POST /api/speech/assess                                            │
-│       FormData: { audio: WAV, referenceText: "字 字 字...",               │
-│                   category: "read_syllable" }                            │
-│                                                                          │
-│       Server pipeline:                                                   │
-│       ├── Auth check (Supabase session)                                  │
-│       ├── Validate: size < 25MB, MIME allowlist (wav/webm/ogg/mpeg)       │
-│       └── assessPronunciation() →                                        │
-│           ├── Build WSS URL with HMAC-SHA256 signature                   │
-│           ├── SSB frame: params + UTF-8 BOM + newline-separated chars    │
-│           ├── AUW frames: strip WAV header, send 10KB PCM chunks         │
-│           │   with backpressure (pause if buffered > 64KB)               │
-│           ├── Receive base64 XML result                                  │
-│           └── parseIseXml("read_syllable"):                              │
-│               ├── Extract <word> → <syll rec_node_type="paper">          │
-│               ├── dp_message bits: 128=mispron, 16=omission,             │
-│               │   32=insertion, 64=repetition                            │
-│               ├── <phone is_yun="1"> → tone error analysis               │
-│               │   perr_msg: 1=vowel, 2=tone, 3=both                     │
-│               └── Return: words[], total_score, phone_score,             │
-│                   tone_score, fluency_score, integrity_score             │
-│                                                                          │
-│  5. 🎯 Score matching (forward-sequential algorithm):                     │
-│       Filter out insertions/omissions → match ISE words to expected      │
-│       characters in order → per-word accuracy + tone scores              │
-│                                                                          │
-│  6. 🤖 POST /api/ai/feedback                                              │
-│       { characterPrompt, component: 1, questionText,                     │
-│         pronunciationScore, isCorrect }                                  │
-│       → Gemini 2.0 Flash generates personality-driven feedback           │
-│       → retryWithBackoff: 3 retries, 1s/2s/4s + jitter                  │
-│                                                                          │
-│  7. ✨ calculateXP(avgScore, streak):                                      │
-│       ≥90 → 10 XP (perfect) │ ≥60 → 5 XP (good) │ <60 → 2 XP          │
-│       × streak multiplier (≥5 streak → 1.5x, ≥10 → 2.0x)               │
-│                                                                          │
-│  8. 📊 Display: per-word score cards + tone indicators + companion        │
-│       dialogue with reactive expression (happy/proud/encouraging)        │
-│                                                                          │
-│  After final group → POST /api/progress/update                           │
-│  → INSERT practice_session → upsert user_progress                        │
-│  → update XP, level, login streak, character affection                   │
-└──────────────────────────────────────────────────────────────────────────┘
+Server: fetch 50 chars from question_banks → shuffle → pass to PracticeSession
+
+Client (PracticeSession):
+  Split into groups of 10 → display as clickable grid
+
+  For each group:
+  1. 👆 Tap character → POST /api/tts/speak → iFlytek TTS → WAV cached
+  2. 🎙️ Record → getUserMedia(16kHz) → ScriptProcessor → Float32 chunks
+  3. ⏹️ Stop → encodeWAV(16kHz, 16-bit, mono) → Blob
+  4. 📡 POST /api/speech/assess { category: "read_syllable" }
+     → iFlytek ISE WebSocket → SSB + AUW frames → base64 XML
+     → Parse per-word accuracy, tone, dp_message, perr_msg
+  5. 🎯 Score matching: filter insertions/omissions → sequential word match
+  6. 🤖 POST /api/ai/feedback → Gemini personality-driven feedback
+  7. ✨ XP: ≥90→10, ≥60→5, <60→2 × streak multiplier
+
+  After final group → POST /api/progress/update → achievement check
 ```
 
----
-
-### Component 2: Multisyllabic Words (读多音节词语)
+### C2: Multisyllabic Words (读多音节词语)
 
 Same architecture as C1 with key differences:
 
@@ -213,17 +172,10 @@ Same architecture as C1 with key differences:
 | ISE Category | `read_syllable` | `read_word` |
 | XML Parsing | Per-syllable scores | `<word total_score>` with syllable breakdown |
 | Tone Analysis | Single tone per character | Multi-tone per word (weighted average) |
-| Pinyin Display | Single pinyin per char | Full compound pinyin with tone marks |
 
-The recording, WebSocket, scoring, and feedback pipelines are identical.
+### C3: Vocabulary & Grammar Judgment (选择判断)
 
----
-
-### Component 3: Vocabulary & Grammar Judgment (选择判断)
-
-A multiple-choice quiz testing vocabulary accuracy and grammatical judgment — no audio recording.
-
-**Three Question Types:**
+Multiple-choice quiz testing vocabulary accuracy and grammatical judgment — no audio recording.
 
 | Type | Format | Example |
 |------|--------|---------|
@@ -231,174 +183,43 @@ A multiple-choice quiz testing vocabulary accuracy and grammatical judgment — 
 | **measure-word** (量词搭配) | Choose the correct measure word | 一___书 → 本/个/条/只 |
 | **sentence-order** (语序判断) | Select the grammatically correct sentence | Reordered sentence options |
 
-**Workflow:**
+5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct → 10 XP + static explanation. Wrong → 2 XP + Gemini-generated explanation.
 
-```
-Server: fetch 100 questions → parse metadata JSON → shuffle
-        → split into batches: 5 word-choice + 5 measure-word + 5 sentence-order
-
-Client (QuizSession):
-  randomizeAnswerPositions() via useMemo (prevents answer-order bias)
-
-  For each question:
-  ┌─────────────────────────────────────────────┐
-  │  Display question + options                  │
-  │  User clicks an answer                       │
-  │                                              │
-  │  ✅ Correct:                                  │
-  │    → 10 XP + streak increment                │
-  │    → Character shows happy/proud expression  │
-  │    → Display static explanation              │
-  │                                              │
-  │  ❌ Wrong:                                    │
-  │    → 2 XP + streak reset                     │
-  │    → POST /api/ai/feedback with wrong answer │
-  │    → Gemini explains the correct choice      │
-  │    → Character shows encouraging expression  │
-  └─────────────────────────────────────────────┘
-
-  After all 15 questions → POST /api/progress/update
-```
-
----
-
-### Component 4: Passage Reading (朗读短文)
+### C4: Passage Reading (朗读短文)
 
 Read a full Chinese passage aloud with sentence-by-sentence scoring.
 
-**Workflow:**
-
 ```
-Server: fetch passages from question_banks (component=4) with title metadata
-
-Client (ReadingSession):
-  Phase 1 — SELECT: Choose a passage from the grid
-
-  Phase 2 — READY: Passage displayed with interactive sentences
-    ┌───────────────────────────────────────────────────┐
-    │  "Listen to Model" button:                         │
-    │    POST /api/tts/speak { text: fullPassage }       │
-    │    → synthesizeAcademic() → iFlytek TTS WebSocket  │
-    │    → WAV played; cached for replay                 │
-    │                                                    │
-    │  Click any sentence → per-sentence TTS playback    │
-    │    → audioCache Map<"voiceId:sentence", ObjectURL>  │
-    └───────────────────────────────────────────────────┘
-
-  Phase 3 — RECORD: AudioRecorder captures full passage reading
-
-  Phase 4 — ASSESS:
-    POST /api/speech/assess { category: "read_chapter" }
-
-    ISE processes read_chapter differently:
-    ├── formatText() splits passage by Chinese punctuation (。！？；)
-    ├── XML: <read_chapter_item> → <sentence total_score> → <word> → <syll>
-    ├── Returns sentence-level scores + word-level detail
-    └── Fallback: if sentence matching fails, aggregate word scores
-        by character-count boundaries
-
-  Phase 5 — FEEDBACK:
-    Overall score + color-coded sentence breakdown
-    (green ≥80, yellow ≥60, red <60)
-    → Gemini passage-specific feedback → companion dialogue
-    → POST /api/progress/update
+Phase 1 — SELECT: Choose passage from grid (30 passages with images)
+Phase 2 — READY: Interactive passage with per-sentence TTS playback
+Phase 3 — RECORD: Full passage recording via AudioRecorder
+Phase 4 — ASSESS: ISE read_chapter → sentence-level scores + word detail
+Phase 5 — FEEDBACK: Color-coded sentences (green ≥80, yellow ≥60, red <60)
+         → Gemini feedback → companion dialogue → progress update
 ```
 
----
+### C5: Prompted Speaking (命题说话)
 
-### Component 5: Prompted Speaking (命题说话)
-
-The most complex component — a 3-minute timed free-speaking exercise assessed by a 3-step pipeline combining ASR, ISE, and Gemini.
-
-**Workflow:**
+The most complex component — a 3-minute timed free-speaking exercise assessed by a 3-step pipeline.
 
 ```
-Server: fetch 100 topics from question_banks (component=5) → shuffle → pick 6
+Step 1: ASR Transcription (iFlytek IST WebSocket)
+  → PCM chunks → real-time segment assembly → raw transcript
 
-Client (SpeakingSession):
-  ┌─── Phase: SELECT ────────────────────────────────────────────────┐
-  │  6 topic cards displayed (e.g., "我的家乡", "谈谈你的爱好")        │
-  │  Universal template always visible:                               │
-  │    开头 (10-15s): 我想谈谈……                                      │
-  │    主体 (~2m20s): 3 main points with examples                    │
-  │    结尾 (10-15s): 总之……                                          │
-  └──────────────────────────────────────────────────────────────────┘
-                              │ User picks topic
-                              ▼
-  ┌─── Phase: PREPARE → COUNTDOWN (3s) → RECORDING ─────────────────┐
-  │                                                                   │
-  │  Custom audio capture (NOT AudioRecorder component):              │
-  │    getUserMedia → AudioContext(16kHz)                              │
-  │    → ScriptProcessor(4096) captures Float32 chunks                │
-  │    → AnalyserNode(fftSize=256) drives volume visualization        │
-  │    → Stopwatch counts up toward 3:00                              │
-  │                                                                   │
-  │  On stop: chunks merged → encodeWAV() → WAV blob                 │
-  └──────────────────────────────────────────────────────────────────┘
-                              │ WAV + topic + durationSeconds
-                              ▼
-  ┌─── Phase: ASSESSING ─── POST /api/speech/c5-assess ──────────────┐
-  │                                                                   │
-  │  ┌── Step 1: ASR Transcription (iFlytek IST) ──────────────────┐ │
-  │  │  WebSocket: wss://ist-api-sg.xf-yun.com/v2/ist              │ │
-  │  │  HMAC-SHA256 auth → send PCM in 10KB chunks                 │ │
-  │  │  Responses: pgs="rpl" replaces segment, "apd" appends       │ │
-  │  │  Final: concatenate all segments → raw transcript string     │ │
-  │  └──────────────────────────────────────────────────────────────┘ │
-  │                              │                                    │
-  │  ┌── Step 2: Parallel Assessment ── Promise.all ───────────────┐ │
-  │  │                                                              │ │
-  │  │  ┌─ 2a. ISE Pronunciation ─────────────────────────────┐    │ │
-  │  │  │  If PCM ≤ 90s: single assessPronunciation()          │    │ │
-  │  │  │  If PCM > 90s: split into chunks, assess in parallel │    │ │
-  │  │  │  → merge word arrays, weighted-average top scores    │    │ │
-  │  │  │  Category: read_chapter                              │    │ │
-  │  │  └─────────────────────────────────────────────────────┘    │ │
-  │  │                                                              │ │
-  │  │  ┌─ 2b. Gemini Content Analysis ───────────────────────┐    │ │
-  │  │  │  System: PSC examiner role                           │    │ │
-  │  │  │  Input: topic + full transcript                      │    │ │
-  │  │  │  Output JSON:                                        │    │ │
-  │  │  │    { vocabularyLevel: 1-3,                           │    │ │
-  │  │  │      fluencyLevel: 1-3,                              │    │ │
-  │  │  │      contentRelevance: string,                       │    │ │
-  │  │  │      vocabularyNotes, fluencyNotes }                 │    │ │
-  │  │  └─────────────────────────────────────────────────────┘    │ │
-  │  └──────────────────────────────────────────────────────────────┘ │
-  │                              │                                    │
-  │  ┌── Step 3: calculateC5Score() ───────────────────────────────┐ │
-  │  │                                                              │ │
-  │  │  Pronunciation (20 pts):                                    │ │
-  │  │    Count error words → determine level (一档 through 六档)    │ │
-  │  │    Detect dialect: avgToneScore < 60 → dialect penalty       │ │
-  │  │    Interpolate deduction within level using ISE score        │ │
-  │  │                                                              │ │
-  │  │  Vocabulary/Grammar (5 pts):                                │ │
-  │  │    Gemini level 1→0, 2→1, 3→3 deduction                    │ │
-  │  │                                                              │ │
-  │  │  Fluency (5 pts — 3-tier fallback):                           │ │
-  │  │    ISE fluencyScore → ISE pronunciationScore (if fluency=0) │ │
-  │  │    → Gemini fluencyLevel (last resort) → 0-5 scale          │ │
-  │  │                                                              │ │
-  │  │  Time penalty: min(30, 180 - seconds) if under 3 min        │ │
-  │  │                                                              │ │
-  │  │  Total = (20-pron) + (5-vocab) + (5-fluency) - timePenalty  │ │
-  │  │  Normalized = round(total / 30 × 100) → 0-100              │ │
-  │  └──────────────────────────────────────────────────────────────┘ │
-  └──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-  Phase: FEEDBACK → XP + companion dialogue + detailed breakdown
-  → POST /api/progress/update
+Step 2: Parallel Assessment (Promise.all)
+  ├── ISE Pronunciation (read_chapter, auto-chunked if >90s)
+  └── Gemini Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
+
+Step 3: calculateC5Score() — Official PSC rubric (30 pts → normalized 0-100)
+  ├── Pronunciation (20 pts): error count + dialect detection
+  ├── Vocabulary/Grammar (5 pts): Gemini level 1-3
+  ├── Fluency (5 pts): 3-tier ISE/Gemini fallback
+  └── Time penalty: -1/sec under 3 minutes
 ```
 
----
+### C6: Cantonese Mistakes Drill (易错字词练习)
 
-### Component 6: Cantonese Mistakes Drill (易错字词练习)
-
-A supplementary pronunciation drill targeting common Cantonese-speaker errors in Putonghua.
-
-**3 Categories (always sequential):**
+Supplementary pronunciation drill for common Cantonese-speaker errors:
 
 | Category | Chinese | What it Drills |
 |----------|---------|----------------|
@@ -406,163 +227,175 @@ A supplementary pronunciation drill targeting common Cantonese-speaker errors in
 | **nng** | 前后鼻音 | -n vs -ng final confusion |
 | **ln** | 边鼻音 | l vs n initial confusion |
 
-**Structure:** 2 groups × 5 words × 3 categories = 30 words across 6 rounds.
+2 groups x 5 words x 3 categories = 30 words across 6 rounds. Uses ISE `read_word` category.
 
-Uses the same `PracticeSession` engine as C1/C2 but with ISE category `read_word`, groups of 5, and `component=6` for separate stat tracking. Category boundaries are displayed as pixel-styled badges above each group.
+### C7: Polyphonic Characters Quiz (多音字练习)
 
----
-
-### Component 7: Polyphonic Characters Quiz (多音字练习)
-
-A supplementary MCQ quiz testing knowledge of polyphonic characters (多音字) — characters with multiple valid pronunciations depending on context.
-
-**How it Works:**
-- Reuses the C3 `QuizSession` component directly (same import)
-- Questions show Chinese sentences with the polyphonic character **highlighted** in bold underline
-- Options are pinyin readings (e.g., "háng" vs "xíng" for 行)
-- `renderPrompt()` parses `**X**` markdown markers into styled `<span>` elements
-- 15 questions per session, randomly shuffled
-
----
+Supplementary MCQ testing polyphonic characters (多音字) — characters with multiple valid pronunciations. Reuses C3 `QuizSession`. Questions show sentences with the target character **highlighted**; options are pinyin readings. 15 questions per session.
 
 ### Mock Exam: Full PSC Simulation
 
-A timed, sequential assessment of all 5 official components with PSC grade mapping.
+Timed, sequential assessment of all 5 official components:
 
-**Exam Configuration:**
-
-| Component | Time Limit | Weight | Assessment Method |
-|-----------|-----------|--------|-------------------|
+| Component | Time Limit | Weight | Method |
+|-----------|-----------|--------|--------|
 | C1 Monosyllabic | 3:30 | 10% | ISE `read_syllable` |
 | C2 Multisyllabic | 2:30 | 20% | ISE `read_word` |
 | C3 Judgment | 3:00 | 10% | Local quiz scoring |
 | C4 Passage | 4:00 | 30% | ISE `read_chapter` |
 | C5 Speaking | 3:00 | 30% | 3-step C5 pipeline |
 
-**State Machine:**
-
-```
-"start" → click "Begin"
-  → "component" (index 0: C1)
-    → timer countdown + recording/answering
-    → "transition" screen (no scores revealed)
-  → "component" (index 1: C2)
-    → ... repeat for each component ...
-  → "component" (index 4: C5)
-    → "assessing" — ALL components assessed IN PARALLEL via Promise.all()
-    → progress bar shows assessment completion %
-  → "results" — full breakdown with PSC grade
-
-weightedTotal = Σ(componentScore × weight)
-```
-
 **PSC Grade Mapping:**
 
 | Score | Grade | Chinese |
 |-------|-------|---------|
 | 97+ | First Class, Grade A | 一级甲等 |
-| 92–96 | First Class, Grade B | 一级乙等 |
-| 87–91 | Second Class, Grade A | 二级甲等 |
-| 80–86 | Second Class, Grade B | 二级乙等 |
-| 70–79 | Third Class, Grade A | 三级甲等 |
-| 60–69 | Third Class, Grade B | 三级乙等 |
+| 92-96 | First Class, Grade B | 一级乙等 |
+| 87-91 | Second Class, Grade A | 二级甲等 |
+| 80-86 | Second Class, Grade B | 二级乙等 |
+| 70-79 | Third Class, Grade A | 三级甲等 |
+| 60-69 | Third Class, Grade B | 三级乙等 |
 | <60 | Below Standard | 不达标 |
+
+---
+
+## Main Quest RPG
+
+A 7-stage story campaign themed after Journey to the West (西游记), where players defeat mythical bosses through pronunciation accuracy.
+
+### The Journey
+
+| Stage | Name | Boss | Character Unlock |
+|-------|------|------|-----------------|
+| 1 | Prologue (序章) | Demon King of Turmoil (混乱魔王) | — (Sun Wukong is default) |
+| 2 | River of Shattered Tone (碎调之河) | Water Spirit (水灵) | Tang Sanzang (三藏) |
+| 3 | Desert of Illusion (幻影沙漠) | Lady of Bleached Bones (白骨夫人) | Sha Wujing (沙悟净) |
+| 4 | Moonlit Mountain (月影山) | Moonfang Wolf Demon (月牙狼魔) | — |
+| 5 | Misty Bamboo Forest (迷雾竹林) | Bull Demon King (牛魔王) | — |
+| 6 | Plains of Fading Echoes (余音平原) | Heavenly Guardian (天庭守护者) | Zhu Bajie (猪八戒) |
+| 7 | Western Palace (西天宫殿) | Twisted Sun Wukong (扭曲悟空) | — |
+
+### Battle System
+
+```
+┌─── Turn Structure ─────────────────────────────────────────────┐
+│                                                                 │
+│  PLAYER TURN                                                    │
+│    ├── Menu: Attack / Skip                                      │
+│    ├── Record pronunciation (word group, max 5 per recording)   │
+│    ├── ISE assess → score ≥ 80 = HIT (boss takes damage)       │
+│    └── Score < 80 = MISS (no damage)                            │
+│                                                                 │
+│  ENEMY TURN                                                     │
+│    ├── Boss narration (3 thematic lines per stage, random)      │
+│    ├── MCQ question with countdown timer                        │
+│    │     Stages 1-4: 15 seconds                                 │
+│    │     Stages 5-7: 12 seconds                                 │
+│    ├── Correct = "BLOCKED!" (no damage)                         │
+│    └── Wrong/timeout = player loses 1 HP                        │
+│                                                                 │
+│  Repeat until boss HP = 0 (victory) or player HP = 0 (defeat)  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Player HP:** Base 3 + 2 per unlocked companion (max 9 with all 3 companions)
+**Boss HP:** 100 (visual), damaged by `ceil(100 / totalRecordingGroups)` per hit
+**XP Reward:** `mcqCorrect * 5 + round(avgPronScore / 10) * totalRecordings + stage * 10`
+
+### Visual Components
+
+- **Stage Select**: SVG world map with animated paths, locked/cleared/available node states
+- **Battle Arena**: Full-screen backgrounds, party sprite lineup, boss with float animation
+- **Attack Animation**: Wukong 3-frame dash toward boss with trail glow effects
+- **Damage Numbers**: Floating damage text with fade-out animation
+- **Turn Banners**: Cinematic "PLAYER TURN" / "ENEMY TURN" slide-in banners
+
+---
+
+## Achievements
+
+31 achievements across 4 tiers, tracked via event-driven checks at 6 trigger points.
+
+### Tiers
+
+| Tier | Color | Count | Examples |
+|------|-------|-------|---------|
+| Common | Bronze | 4 | First Steps, Honorable Defeat, Fellow Traveler, Trial by Fire |
+| Uncommon | Silver | 11 | Stage 1-7 Cleared, Character Apprentice (5 sessions) x4 |
+| Rare | Gold | 11 | Stage 1-7 Flawless (no damage), Character Adept (10 sessions) x4 |
+| Epic | Purple | 5 | Journey Complete (all 7 stages), Character Master (20 sessions) x4 |
+
+### Trigger Points
+
+| Event | Where | Achievements Checked |
+|-------|-------|---------------------|
+| `account_created` | OAuth callback | First Steps |
+| `quest_clear` | Quest progress API | Stage cleared, flawless, all stages, character unlocks |
+| `quest_fail` | Quest progress API | Honorable Defeat |
+| `session_complete` | Progress update API | Character bond milestones (5/10/20 sessions) |
+| `friend_added` | Social respond API | Fellow Traveler |
+| `mock_exam_complete` | Mock exam API | Trial by Fire |
+
+### Achievement Page
+
+- Completion summary bar: `X / 31 (Y%)`
+- Per-tier breakdown with colored badges
+- Filterable grid (All / Common / Uncommon / Rare / Epic)
+- Locked achievements shown dimmed with descriptions still visible
+- Friend activity feed showing last 20 achievement unlocks across your network
 
 ---
 
 ## Speech Evaluation Engine
 
-All pronunciation assessment is powered by **iFlytek ISE** (Intelligent Speech Evaluation) via a server-side WebSocket connection.
+All pronunciation assessment is powered by **iFlytek ISE** (Intelligent Speech Evaluation) via server-side WebSocket.
 
 ### WebSocket Protocol
 
 ```
-┌──────────┐                    ┌─────────────────────────┐
-│  Client   │                    │  iFlytek ISE Server      │
-│  (API     │                    │  wss://ise-api-sg.       │
-│   Route)  │                    │  xf-yun.com/v2/ise       │
-└─────┬─────┘                    └────────────┬─────────────┘
-      │                                       │
-      │ ── HMAC-SHA256 signed URL ──────────► │
-      │                                       │
-      │ ── SSB Frame ──────────────────────► │
-      │    { cmd: "ssb",                      │
-      │      category: "read_syllable",       │
-      │      text: "\uFEFF字1\n字2\n...",      │
-      │      extra: "multi_dimension;          │
-      │              syll_phone_err_msg" }     │
-      │                                       │
-      │ ── AUW Frame 1 (10KB PCM) ─────────► │
-      │    { cmd: "auw", aus: 1, status: 1 }  │
-      │                                       │
-      │ ── AUW Frame 2 (10KB PCM) ─────────► │
-      │    { cmd: "auw", aus: 2, status: 1 }  │
-      │         ... (backpressure check) ...   │
-      │                                       │
-      │ ── AUW Frame N (final) ────────────► │
-      │    { cmd: "auw", aus: 4, status: 2 }  │
-      │                                       │
-      │ ◄──────────── Result chunks ────────── │
-      │    { data: { data: "base64...",        │
-      │              status: 2 } }             │
-      │                                       │
-      │    Decode → XML with per-word scores   │
-      ▼                                       ▼
+Client (API Route)                    iFlytek ISE Server
+       │                              wss://ise-api-sg.xf-yun.com/v2/ise
+       │                                       │
+       │ ── HMAC-SHA256 signed URL ──────────► │
+       │ ── SSB: params + UTF-8 BOM text ───► │
+       │ ── AUW: 10KB PCM chunks ────────────► │
+       │    (backpressure: pause if >64KB)      │
+       │ ── AUW final (status: 2) ───────────► │
+       │ ◄── base64 XML result ──────────────── │
 ```
 
-### Authentication
+### ISE Categories
 
-```
-signature_origin = "host: ise-api-sg.xf-yun.com\ndate: {UTC}\nGET /v2/ise HTTP/1.1"
-signature = Base64(HMAC-SHA256(API_SECRET, signature_origin))
-authorization = Base64("api_key={KEY}, algorithm=hmac-sha256, headers=host date request-line, signature={sig}")
-URL = wss://...?authorization={auth}&date={date}&host={host}
-```
+| Category | Used By | Score Attributes |
+|----------|---------|-----------------|
+| `read_syllable` | C1 | total, phone, fluency, tone, integrity |
+| `read_word` | C2, C6 | total, phone, fluency, tone, integrity |
+| `read_chapter` | C4, C5 | total, phone, fluency, tone, integrity |
 
-### ISE Categories & XML Structure
+### Error Detection
 
-| Category | Used By | XML Root | Score Attributes |
-|----------|---------|----------|-----------------|
-| `read_syllable` | C1 | `<read_syllable>` | total, phone, fluency, tone, integrity |
-| `read_word` | C2, C6 | `<read_word>` | total, phone, fluency, tone, integrity |
-| `read_chapter` | C4, C5 | `<read_chapter>` | total, phone, fluency, tone, integrity |
-| `read_sentence` | (available) | `<read_sentence>` | total, phone, fluency, tone, integrity |
-
-### Error Detection (Per-Phone)
-
-| Bit | dp_message | Meaning |
-|-----|-----------|---------|
-| 128 | Mispronunciation | Wrong sound produced |
-| 64 | Repetition | Sound repeated |
-| 32 | Insertion | Extra sound added |
-| 16 | Omission | Sound missing |
-
-| Bit | perr_msg | Meaning |
-|-----|---------|---------|
-| 1 | Vowel error | Incorrect vowel |
-| 2 | Tone error | Wrong tone |
-| 3 | Both | Vowel + tone error |
+| dp_message Bit | Meaning | perr_msg Bit | Meaning |
+|----------------|---------|-------------|---------|
+| 128 | Mispronunciation | 1 | Vowel error |
+| 64 | Repetition | 2 | Tone error |
+| 32 | Insertion | 3 | Vowel + tone |
+| 16 | Omission | | |
 
 ---
 
 ## Text-to-Speech System
 
-All TTS uses **iFlytek's WebSocket API** with the same HMAC-SHA256 auth pattern.
-
-### Synthesis Modes
+All TTS uses **iFlytek's WebSocket API** (`wss://tts-api-sg.xf-yun.com/v2/tts`) with HMAC-SHA256 auth.
 
 | Mode | Function | Use Case |
 |------|----------|----------|
 | **Academic** | `synthesizeAcademic()` | Individual words, passages, sentences |
-| **Companion** | Via `/api/tts/companion` | Character voice lines |
+| **Companion** | Via `/api/tts/companion` | Character voice lines during dialogue |
 
-### Server-Side Caching
-
-`/api/tts/speak` maintains an in-memory LRU cache (max 500 entries) keyed on `academic:voiceId:text`. Cache hits skip the WebSocket call entirely. Responses include `Cache-Control: public, max-age=3600`.
-
-### Voice Library
-
-15 iFlytek voices configured, including `x_xiaoyan` (default female), `x_xiaofeng` (male), and 13 others. Each companion character maps to a specific voice ID.
+- **15 iFlytek voices** configured (default: `x_xiaoyan`)
+- **Server-side LRU cache**: 500 entries, keyed on `academic:voiceId:text`
+- **Output**: PCM 16kHz 16-bit mono, wrapped in WAV headers
+- **Client-side**: Audio ObjectURL cache per session for instant replay
 
 ---
 
@@ -570,128 +403,24 @@ All TTS uses **iFlytek's WebSocket API** with the same HMAC-SHA256 auth pattern.
 
 **Google Gemini 2.0 Flash** generates contextual, personality-driven feedback for every practice attempt.
 
-### How It Works
-
 ```
-┌─ Input ────────────────────────────────────────────────┐
-│  characterPrompt: "You are Kaede, a cheerful anime     │
-│    girl who loves helping students practice Putonghua"  │
-│  component: 1                                          │
-│  questionText: "书 读 写 听 说"                          │
-│  pronunciationScore: 78                                │
-│  isCorrect: true                                       │
-└────────────────────────┬───────────────────────────────┘
+Input:
+  characterPrompt + component + questionText + score + isCorrect
                          │
                          ▼
-┌─ Gemini System Prompt ─────────────────────────────────┐
-│  "{personalityPrompt}                                   │
-│   You are helping a student practice for the PSC        │
-│   (Component 1). Respond in Chinese+English mix.        │
-│   Under 3 sentences. Include personality."              │
-└────────────────────────┬───────────────────────────────┘
+  Gemini System Prompt:
+    "{personality} helping a PSC student (Component X).
+     Chinese+English mix. Under 3 sentences."
                          │
                          ▼
-┌─ Retry Logic ──────────────────────────────────────────┐
-│  retryWithBackoff(generateFeedback, maxRetries=3)       │
-│                                                         │
-│  Attempt 0: immediate                                   │
-│  Attempt 1: ~1-2s delay (1000ms × 2⁰ + jitter)         │
-│  Attempt 2: ~2-3s delay (1000ms × 2¹ + jitter)         │
-│  Attempt 3: ~4-5s delay (1000ms × 2² + jitter)         │
-│                                                         │
-│  All retries exhausted → fallback message:              │
-│    isCorrect: "做得好！继续加油！ Nice work, keep it up!" │
-│    !isCorrect: "再试一次吧！Practice makes perfect!"     │
-└────────────────────────────────────────────────────────┘
+  retryWithBackoff(maxRetries=3, delays: 1s/2s/4s + jitter)
+                         │
+                         ▼
+  Success → personality-driven feedback
+  Exhausted → fallback: "做得好！继续加油！" or "再试一次吧！"
 ```
 
-### C5 Speaking Analysis
-
-For Component 5, Gemini additionally performs content analysis:
-- **System prompt**: PSC examiner role with rubric
-- **Input**: Topic + full ASR transcript
-- **Output**: JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes
-- This feeds into the `calculateC5Score()` formula alongside ISE pronunciation scores
-
----
-
-## Network Resilience
-
-All client-side API calls use a `fetchWithRetry` wrapper (`src/lib/fetch-retry.ts`) that provides automatic retry with exponential backoff for transient failures.
-
-### Retry Behavior
-
-```
-Request fails (429 / 500 / 502 / 503 or network error)
-  │
-  ├── Attempt 1: wait ~1s   (1000ms × 2⁰ × jitter)
-  ├── Attempt 2: wait ~2s   (1000ms × 2¹ × jitter)
-  ├── Attempt 3: wait ~4s   (1000ms × 2² × jitter)
-  └── All retries exhausted → fall through to existing error handling
-```
-
-- **Retryable statuses**: 429 (Too Many Requests), 500, 502, 503
-- **Non-retryable**: 400, 401, 403, 404 (returned immediately)
-- Respects `Retry-After` header when present
-- Jitter factor (0.5–1.0×) prevents thundering herd on recovery
-
-### Coverage
-
-All 24 internal API fetch calls across 6 practice components are covered:
-
-| Component | Endpoints | Fallback on Exhaustion |
-|-----------|-----------|----------------------|
-| C1, C2, C6 | `/speech/assess`, `/tts/speak`, `/ai/feedback`, `/progress/update` | Browser TTS, hardcoded feedback |
-| C4 | `/speech/assess`, `/tts/speak` ×2, `/tts/companion`, `/ai/feedback`, `/progress/update` | Browser TTS, sentence-level fallback |
-| C5 | `/speech/c5-assess`, `/tts/companion`, `/ai/feedback`, `/progress/update` | Zero-score graceful degradation |
-| Mock Exam | `/speech/assess`, `/speech/c5-assess` | Zero-score per component |
-
-### Multi-Layer Resilience Stack
-
-```
-Layer 1 — Client: fetchWithRetry (3 retries, exponential backoff)
-Layer 2 — Server: Gemini retryWithBackoff (3 retries, exponential backoff)
-Layer 3 — Server: TTS in-memory LRU cache (500 entries, keyed on voiceId:text)
-Layer 4 — Client: Audio object URL cache (Map<word, ObjectURL> per session)
-Layer 5 — Client: Browser Web Speech API fallback for TTS failures
-Layer 6 — Client: Hardcoded feedback strings when AI is unreachable
-```
-
----
-
-## Audio Recording Pipeline
-
-All audio capture follows the same client-side pattern using the Web Audio API:
-
-```
-┌─ Browser ─────────────────────────────────────────────────────────┐
-│                                                                    │
-│  navigator.mediaDevices.getUserMedia({ audio: 16kHz, mono })       │
-│                              │                                     │
-│                              ▼                                     │
-│                    MediaStreamSource                               │
-│                         │    │                                     │
-│              ┌──────────┘    └──────────┐                          │
-│              ▼                          ▼                          │
-│     ScriptProcessor(4096)       AnalyserNode(fft=256)             │
-│     copies Float32 chunks       getByteTimeDomainData()           │
-│     to array on each            → RMS calculation                 │
-│     audioprocess event          → normalized 0-1 volume           │
-│              │                  → 20-bar visualization            │
-│              ▼                    (green/yellow/red)              │
-│     GainNode(value=0)                                             │
-│              │                                                     │
-│              ▼                                                     │
-│     AudioDestination (silent — prevents feedback loop)            │
-│                                                                    │
-│  On stop:                                                          │
-│     merge all Float32 chunks → single array                       │
-│     encodeWAV(merged, sampleRate=16000):                          │
-│       44-byte RIFF header (PCM, mono, 16kHz, 16-bit)             │
-│       Float32 → Int16 conversion (clamped, little-endian)         │
-│     → Blob { type: "audio/wav" }                                  │
-└────────────────────────────────────────────────────────────────────┘
-```
+**C5 Content Analysis:** For prompted speaking, Gemini additionally returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
 
 ---
 
@@ -701,31 +430,32 @@ All audio capture follows the same client-side pattern using the Web Audio API:
 
 | Action | Base XP | Condition |
 |--------|---------|-----------|
-| Perfect pronunciation | 10 | Score ≥ 90 |
-| Good pronunciation | 5 | Score 60–89 |
+| Perfect pronunciation | 10 | Score >= 90 |
+| Good pronunciation | 5 | Score 60-89 |
 | Attempted | 2 | Score < 60 |
 | Quiz correct | 10 | — |
 | Quiz wrong | 2 | — |
 | Daily login bonus | 25 | First session of the day |
 
-**Streak Multipliers:** 5+ consecutive correct → 1.5x, 10+ → 2.0x
+**Streak Multipliers:** 5+ consecutive days = 1.5x, 10+ = 2.0x
+**Session Cap:** 2,000 XP max per session (server-enforced)
 
-### Level Progression (10 Tiers)
+### Level Progression
 
 ```
-Lv.1  Beginner       0 XP     ░░░░░░░░░░
-Lv.2  Learner      100 XP     █░░░░░░░░░
-Lv.3  Student      300 XP     ██░░░░░░░░
-Lv.4  Practitioner 600 XP     ███░░░░░░░
-Lv.5  Scholar    1,000 XP     ████░░░░░░
-Lv.6  Expert     1,500 XP     █████░░░░░
-Lv.7  Master     2,500 XP     ██████░░░░
-Lv.8  Grandmaster 4,000 XP    ████████░░
-Lv.9  Legend     6,000 XP     █████████░
-Lv.10 PSC God   10,000 XP     ██████████
+Lv.1  Beginner           0 XP     ░░░░░░░░░░
+Lv.2  Learner          100 XP     █░░░░░░░░░
+Lv.3  Student          300 XP     ██░░░░░░░░
+Lv.4  Practitioner     600 XP     ███░░░░░░░
+Lv.5  Scholar        1,000 XP     ████░░░░░░
+Lv.6  Expert         1,500 XP     █████░░░░░
+Lv.7  Master         2,500 XP     ██████░░░░
+Lv.8  Grandmaster    4,000 XP     ████████░░
+Lv.9  Legend         6,000 XP     █████████░
+Lv.10 PSC God       10,000 XP     ██████████
 ```
 
-### Character Affection (5 Levels per Companion)
+### Character Affection
 
 | Level | Title | XP Required |
 |-------|-------|------------|
@@ -735,135 +465,119 @@ Lv.10 PSC God   10,000 XP     ██████████
 | 4 | Best Friend | 1,000 |
 | 5 | Soulmate | 2,000 |
 
-Affection grows by practicing with a specific companion selected. Higher affection unlocks cosmetic skins.
+Affection grows by practicing with a specific companion. Higher affection unlocks cosmetic skins.
 
-### Server-Side Anti-Cheat
+---
 
-All progress updates go through `/api/progress/update` which enforces:
-- `MAX_XP_PER_SESSION = 2000` (clamped)
-- Input validation via Zod schema
-- Atomic upserts via Supabase RPC
-- Server-side streak and daily bonus calculation (no client trust)
+## Social & Leaderboard
+
+### Friend System
+
+```
+Search by name (/api/social/search)
+  or Friend code lookup (/api/social/lookup) — format: PSC-XXXX
+    └→ Send Request (/api/social/request)
+         └→ Pending notification (badge in navbar)
+              └→ Accept/Reject (/api/social/respond)
+                   └→ Friends list with live stats (/api/social/friends)
+```
+
+**Friend Stats:** Per-friend cards show XP comparison (arrow up/down), streak, sessions, average score per component (C1-C7 progress bars), active companion, achievement count.
+
+**Discord Suggestions:** If authenticated via Discord OAuth (`relationships.read` scope), the app can suggest friends by cross-referencing Discord relationships with registered users.
+
+### Leaderboard
+
+| Tab | Metric | Scope |
+|-----|--------|-------|
+| XP | Total experience points | Global (top 20) or Friends |
+| Accuracy | % correct across all components | Global or Friends |
+| Streak | Consecutive login days | Global or Friends |
+
+Top 3 displayed in podium layout `[2nd, 1st, 3rd]` with crown and trophy icons. If the user isn't in the global top 20, their rank is shown below.
+
+---
+
+## Character Companion System
+
+Four Journey to the West (西游记) companions, unlocked through quest progression:
+
+| Character | Name | Quest Unlock | Role |
+|-----------|------|-------------|------|
+| Sun Wukong | 孙悟空 | Default | The Monkey King — bold, confident, encouraging |
+| Tang Sanzang | 三藏 | Stage 2 | The Monk — patient, scholarly, gentle guidance |
+| Sha Wujing | 沙悟净 | Stage 3 | The Sand Monk — calm, supportive, methodical |
+| Zhu Bajie | 猪八戒 | Stage 6 | The Pig — humorous, warm, celebrates small wins |
+
+Each character has:
+- **Unique personality prompt** for Gemini AI feedback personalization
+- **Expression images** (neutral, happy, proud, excited, thinking, encouraging, etc.) with fade transitions
+- **Voice ID** mapped to iFlytek TTS for dialogue voice lines
+- **Affection system** — 5 levels from Acquaintance to Soulmate
+- **Battle sprites** — animated party members in Main Quest battles (Wukong has 3-frame attack animation)
 
 ---
 
 ## Authentication & Security
 
-### Three-Layer Auth Architecture
+### Three-Layer Auth
 
 ```
-Request → ┌─ Layer 1: Middleware ─────────────────────────────────┐
-          │  Runs on EVERY request                                │
-          │  Refreshes Supabase session cookie                    │
-          │  Public paths: /login, /api/auth/callback             │
-          │  Unauthed + /api/* → 401 JSON                         │
-          │  Unauthed + page → redirect /login                    │
-          │  Authed + /login → redirect /dashboard                │
-          └───────────────────────────┬───────────────────────────┘
-                                      │
-          ┌─ Layer 2: Layout Guard ───┴───────────────────────────┐
-          │  (main)/layout.tsx — server component                  │
-          │  supabase.auth.getUser() again (handles edge cases)    │
-          │  No user → redirect /login                             │
-          │  Fetches profile + friend request count in Promise.all │
-          │  All child pages safely use user!.id                   │
-          └───────────────────────────┬───────────────────────────┘
-                                      │
-          ┌─ Layer 3: API Route Guards ┴──────────────────────────┐
-          │  Every API route independently verifies auth           │
-          │  supabase.auth.getUser() → 401 if no user             │
-          └───────────────────────────────────────────────────────┘
+Request → Layer 1: Middleware
+            Refreshes Supabase session cookie on EVERY request
+            Public paths: /login, /api/auth/callback
+            Unauthed + API → 401 JSON
+            Unauthed + page → redirect /login
+
+        → Layer 2: Layout Guard — (main)/layout.tsx
+            getUser() server-side
+            Fetches profile + friend request count in Promise.all
+            All child pages safely use user!.id
+
+        → Layer 3: API Route Guards
+            Every API route independently verifies auth
 ```
 
 ### Login Methods
 
 | Method | Flow |
 |--------|------|
-| **Email/Password** | `signInWithPassword()` → redirect `/dashboard` |
+| **Email/Password** | `signInWithPassword()` → redirect to `/dashboard` |
 | **Email Sign-up** | `signUp()` → DB trigger creates profile + default characters |
-| **Google OAuth** | `signInWithOAuth({ provider: "google" })` → Google → callback → session |
-| **Discord OAuth** | `signInWithOAuth({ provider: "discord" })` + `relationships.read` scope for friend suggestions |
+| **Google OAuth** | `signInWithOAuth({ provider: "google" })` → callback → session |
+| **Discord OAuth** | `signInWithOAuth({ provider: "discord" })` + `relationships.read` for friend suggestions |
 
-### Database Security
+### Security Measures
 
-All 10 tables use **Row Level Security (RLS)** — users can only read/write their own data. The `anon` key is safe to expose in the browser; all sensitive operations are gated by RLS policies.
-
----
-
-## Social & Leaderboard
-
-### Friend System Flow
-
-```
-Search (/api/social/search)
-  └→ Send Request (/api/social/request)
-       └→ Pending notification (badge on navbar)
-            └→ Accept/Reject (/api/social/respond)
-                 └→ Friends list with live stats (/api/social/friends)
-```
-
-### Friend Stats
-
-For each friend, the API aggregates:
-- Profile: level, XP, streak, display name, avatar
-- Practice sessions: average scores per component (C1–C7)
-- Selected companion: name + image
-
-### Leaderboard
-
-| Tab | Data Source | Sorting |
-|-----|-----------|---------|
-| **Global** | All `profiles` | `total_xp DESC` |
-| **Friends** | Accepted friendships + self | `total_xp DESC` (client-side) |
-
-### Discord Friend Suggestions
-
-If authenticated via Discord (`relationships.read` scope), the app can suggest friends by cross-referencing Discord friend lists with registered users.
+- **Row Level Security (RLS)** on all database tables
+- **Server-side XP clamping** — `MAX_XP_PER_SESSION = 2000`
+- **Zod validation** on all API inputs (`progressUpdateSchema`, `leaderboardQuerySchema`)
+- **HMAC-SHA256 auth** for all iFlytek WebSocket connections
+- **Security headers** — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, HSTS
+- **Cascading account deletion** — cleans up all user data across 7 tables + storage
 
 ---
 
-## Character Companion System
+## Network Resilience
 
-### Architecture
+A multi-layer resilience stack ensures the app degrades gracefully under poor network conditions:
 
 ```
-┌─ characters table ─────────────────────────────────────┐
-│  id, name, personality_prompt, voice_id,                │
-│  image_url, unlock_cost_xp, is_default                  │
-│                                                         │
-│  ┌─ character_expressions ──────────────────────────┐  │
-│  │  10 expressions per character:                    │  │
-│  │  neutral, happy, proud, excited, thinking,        │  │
-│  │  encouraging, teasing, surprised, listening,      │  │
-│  │  disappointed                                     │  │
-│  └───────────────────────────────────────────────────┘  │
-│                                                         │
-│  ┌─ character_skins ────────────────────────────────┐  │
-│  │  Unlockable at higher affection levels            │  │
-│  └───────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─ user_characters table ────────────────────────────────┐
-│  user_id, character_id, unlocked_at,                    │
-│  affection_xp, affection_level,                         │
-│  active_skin_id, is_selected                            │
-└─────────────────────────────────────────────────────────┘
+Layer 1 — Client: fetchWithRetry (3 retries, exponential backoff with jitter)
+           Retryable: 429, 500, 502, 503  |  Non-retryable: 400, 401, 403, 404
+
+Layer 2 — Server: Gemini retryWithBackoff (3 retries, 1s/2s/4s + jitter)
+
+Layer 3 — Server: TTS in-memory LRU cache (500 entries)
+
+Layer 4 — Client: Audio ObjectURL cache (Map<word, ObjectURL> per session)
+
+Layer 5 — Client: Browser Web Speech API fallback for TTS failures
+
+Layer 6 — Client: Hardcoded feedback strings when AI is unreachable
 ```
 
-### Expression Reactions
-
-Characters dynamically change expressions based on performance:
-- **Score ≥ 90**: happy, proud, excited
-- **Score 60–89**: encouraging, thinking
-- **Score < 60**: encouraging, thinking (never negative — companions are supportive)
-
-### Local Image Fallbacks
-
-When Supabase has no expression images, local fallbacks are used:
-- Kaede → `/img/character/Kaede/kaede.png`
-- Hao Ran → `/img/character/HaoRan/haoran.png`
-- Mei Lin → `/img/character/MeiLin/meilin.png`
+All 24+ internal API fetch calls across all practice components are covered by `fetchWithRetry`.
 
 ---
 
@@ -874,17 +588,21 @@ When Supabase has no expression images, local fallbacks are used:
 | **Framework** | Next.js 16 (App Router, Turbopack) | Server/client rendering, API routes |
 | **UI Library** | React 19 | Component architecture |
 | **Language** | TypeScript (strict mode) | Type safety |
-| **Database** | Supabase (PostgreSQL + RLS) | Data persistence, auth, real-time |
+| **Database** | Supabase (PostgreSQL + RLS) | Data persistence, auth, storage |
 | **Auth** | Supabase Auth | Email, Google OAuth, Discord OAuth |
 | **AI Feedback** | Google Gemini 2.0 Flash | Contextual feedback, content analysis |
 | **Speech Assessment** | iFlytek ISE (WebSocket) | Pronunciation scoring (zh-CN) |
-| **Text-to-Speech** | iFlytek TTS (WebSocket) | Native Putonghua audio |
-| **ASR** | iFlytek IST (WebSocket) | Speech-to-text for C5 |
+| **Speech Recognition** | iFlytek IST (WebSocket) | Speech-to-text for C5 |
+| **Text-to-Speech** | iFlytek TTS (WebSocket) | Native Putonghua audio synthesis |
 | **Styling** | Tailwind CSS 4 | Utility-first CSS |
 | **UI Components** | shadcn/ui (New York) + Radix UI | Accessible component primitives |
 | **Icons** | Lucide React | Consistent icon set |
 | **Notifications** | Sonner | Toast notifications |
-| **Fonts** | Press Start 2P, VT323, Noto Sans SC | Pixel headings, retro body, Chinese |
+| **Validation** | Zod | Runtime schema validation |
+| **Testing** | Vitest + Testing Library | Unit & component tests |
+| **Analytics** | Vercel Analytics | Usage tracking |
+| **Fonts** | Press Start 2P, VT323, ZCOOL XiaoWei | Pixel headings, retro body, Chinese display |
+| **Deployment** | Vercel | Production hosting |
 
 ---
 
@@ -894,7 +612,7 @@ When Supabase has no expression images, local fallbacks are used:
 
 - [Node.js](https://nodejs.org) 18+
 - A [Supabase](https://supabase.com) project
-- API keys: iFlytek (ISE + TTS), Google Gemini
+- API keys: iFlytek (ISE + TTS + IST), Google Gemini
 
 ### 1. Clone and Install
 
@@ -912,6 +630,7 @@ Create `.env.local`:
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 # Google Gemini
 GEMINI_API_KEY=your_gemini_api_key
@@ -924,28 +643,37 @@ IFLYTEK_API_SECRET=your_api_secret
 
 ### 3. Set Up Database
 
-Apply the migration to your Supabase project. The schema creates 10 tables with RLS:
+Apply migrations to your Supabase project. The schema creates 13 tables with RLS policies:
 
 | Table | Purpose |
 |-------|---------|
-| `profiles` | User XP, level, streaks, display name |
-| `user_progress` | Per-component aggregate stats |
-| `characters` | AI companion definitions |
-| `character_expressions` | 10 expression images per character |
-| `character_skins` | Unlockable cosmetics |
+| `profiles` | User XP, level, streaks, friend code, display name |
+| `user_progress` | Per-component aggregate stats (C1-C7) |
+| `characters` | AI companion definitions and personality prompts |
+| `character_expressions` | Expression images per character |
+| `character_skins` | Unlockable cosmetics by affection level |
 | `user_characters` | Unlock state, affection, skin selection |
 | `practice_sessions` | Individual session history |
 | `practice_details` | Per-question results within sessions |
 | `question_banks` | Questions for all 7 components |
 | `friendships` | Friend requests and relationships |
+| `achievements` | Static achievement catalog (31 achievements) |
+| `user_achievements` | Per-user unlock records with timestamps |
+| `quest_progress` | Quest stage progress, attempts, best scores |
 
 Database triggers auto-create a `profiles` row on signup and unlock default characters.
 
-### 4. Google OAuth (Optional)
+### 4. OAuth Setup (Optional)
 
-1. Create an OAuth 2.0 Client ID at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Add `https://your-project.supabase.co/auth/v1/callback` as a redirect URI
-3. Enable Google in [Supabase Auth Providers](https://supabase.com/dashboard/project/_/auth/providers)
+**Google:**
+1. Create OAuth 2.0 Client at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Add `https://your-project.supabase.co/auth/v1/callback` as redirect URI
+3. Enable Google in Supabase Auth Providers
+
+**Discord:**
+1. Create application at [Discord Developer Portal](https://discord.com/developers/applications)
+2. Add same callback URI + enable `relationships.read` scope for friend suggestions
+3. Enable Discord in Supabase Auth Providers
 
 ### 5. Run
 
@@ -963,54 +691,39 @@ Open [http://localhost:3000](http://localhost:3000).
 src/
 ├── app/
 │   ├── page.tsx                          # Auth redirect → /login or /dashboard
-│   ├── layout.tsx                        # Root layout (fonts, theme, metadata)
-│   ├── globals.css                       # Pixel-art theme + Tailwind config
-│   ├── (auth)/login/                     # Login page + server actions
+│   ├── layout.tsx                        # Root layout (fonts, theme, Vercel Analytics)
+│   ├── globals.css                       # Pixel-art theme, Chinese motifs, battle animations
+│   ├── (auth)/login/                     # Login/signup + OAuth
 │   ├── (main)/                           # Protected routes (3-layer auth)
-│   │   ├── layout.tsx                    # Auth guard + navbar + profile fetch
-│   │   ├── dashboard/                    # Home hub — tile menu navigation
+│   │   ├── layout.tsx                    # Auth guard + navbar + achievement toast provider
+│   │   ├── dashboard/                    # Home hub — splash screen + tile menu
+│   │   ├── main-quest/                   # RPG campaign — 7-stage story + battles
 │   │   ├── practice/                     # Quest board — 7 component cards
-│   │   ├── component-1/                  # Monosyllabic drill (PracticeSession)
-│   │   ├── component-2/                  # Multisyllabic drill (PracticeSession)
-│   │   ├── component-3/                  # Vocab/grammar quiz (QuizSession)
-│   │   ├── component-4/                  # Passage reading (ReadingSession)
-│   │   ├── component-5/                  # Prompted speaking (SpeakingSession)
-│   │   ├── component-6/                  # Cantonese mistakes (PracticeSession)
-│   │   ├── component-7/                  # Polyphonic chars (reuses QuizSession)
+│   │   ├── component-[1-7]/             # Practice components (see above)
 │   │   ├── mock-exam/                    # Full exam simulation (ExamRunner)
+│   │   ├── achievements/                 # Achievement showcase + activity feed
 │   │   ├── leaderboard/                  # Global + friends rankings
-│   │   ├── characters/                   # Gallery, unlock shop, skin equip
-│   │   ├── profile/                      # Stats, history, level progress
+│   │   ├── characters/                   # Gallery, quest unlocks, affection
+│   │   ├── profile/                      # Stats, history, danger zone
 │   │   └── social/                       # Friends, requests, search
-│   └── api/
-│       ├── speech/assess/                # iFlytek ISE pronunciation scoring
-│       ├── speech/c5-assess/             # 3-step C5 pipeline (ASR + ISE + Gemini)
-│       ├── tts/speak/                    # Academic TTS (cached, WAV)
-│       ├── tts/companion/                # Character voice TTS (WAV)
-│       ├── ai/feedback/                  # Gemini personality feedback
-│       ├── auth/callback/                # OAuth PKCE code exchange
-│       ├── progress/update/              # XP, level, streak, affection
-│       ├── leaderboard/                  # Rankings (global + friends)
-│       └── social/                       # 9 friend system endpoints
+│   └── api/                              # 15+ API routes (see API Reference)
 ├── components/
-│   ├── ui/                               # shadcn/ui primitives
-│   ├── shared/                           # Navbar, XPBar
+│   ├── ui/                               # shadcn/ui primitives (Button, Card, Dialog, etc.)
+│   ├── shared/                           # Navbar, XPBar, ContentWrapper, AchievementToast
 │   ├── character/                        # CharacterDisplay, DialogueBox
-│   └── practice/                         # AudioRecorder (WAV PCM encoder)
+│   ├── practice/                         # AudioRecorder (WAV PCM encoder)
+│   └── quest/                            # 12 battle/story components
 ├── lib/
 │   ├── supabase/                         # Browser + server Supabase clients
-│   ├── iflytek-speech/client.ts          # ISE WebSocket client
-│   ├── voice/client.ts                   # TTS WebSocket client
-│   ├── voice/pinyin-data.ts              # 1,583-line pinyin lookup tables
-│   ├── gemini/client.ts                  # Gemini with retry logic
-│   ├── gamification/xp.ts               # XP, levels, streaks, affection
-│   ├── character-images.ts               # Local image fallback paths
-│   └── pinyin.ts                         # Tone-number → tone-mark conversion
-├── types/
-│   ├── database.ts                       # Supabase table type definitions
-│   ├── character.ts                      # Expression + character types
-│   ├── practice.ts                       # Practice mode + scoring types
-│   └── gamification.ts                   # XP/level/affection constants
+│   ├── iflytek-speech/                   # ISE + IST WebSocket clients
+│   ├── voice/                            # TTS WebSocket client + pinyin lookup data
+│   ├── gemini/                           # Gemini with retry logic
+│   ├── quest/                            # Battle logic, stage config, story text
+│   ├── achievements/                     # 31 achievement definitions + event-driven checks
+│   ├── gamification/                     # XP, levels, streaks, affection calculations
+│   ├── scoring/                          # C5 official PSC scoring rubric
+│   └── *.ts                              # Pinyin, audio utils, character images, env, etc.
+├── types/                                # TypeScript interfaces (database, character, practice, gamification)
 └── data/                                 # Question bank source files
 ```
 
@@ -1022,82 +735,106 @@ src/
 
 | Method | Endpoint | Input | Output |
 |--------|----------|-------|--------|
-| POST | `/api/speech/assess` | FormData: `audio` (WAV), `referenceText`, `category` | JSON: per-word scores, aggregates |
-| POST | `/api/speech/c5-assess` | FormData: `audio` (WAV), `topic`, `spokenDurationSeconds` | JSON: C5 score breakdown |
-| POST | `/api/tts/speak` | JSON: `{ voiceId, text }` | `audio/wav` (cached) |
-| POST | `/api/tts/companion` | JSON: `{ voiceId, text }` | `audio/wav` (no cache) |
+| POST | `/api/speech/assess` | FormData: `audio`, `referenceText`, `category` | Per-word scores + aggregates |
+| POST | `/api/speech/c5-assess` | FormData: `audio`, `topic`, `spokenDurationSeconds` | C5 score breakdown (pronunciation, vocab, fluency, time) |
+| POST | `/api/tts/speak` | JSON: `{ voiceId, text }` | `audio/wav` (LRU cached) |
+| POST | `/api/tts/companion` | JSON: `{ voiceId, text }` | `audio/wav` |
 
 ### AI
 
 | Method | Endpoint | Input | Output |
 |--------|----------|-------|--------|
-| POST | `/api/ai/feedback` | JSON: `{ characterPrompt, component, questionText, score, isCorrect }` | JSON: `{ feedback, fallback? }` |
+| POST | `/api/ai/feedback` | JSON: character prompt, component, question, score, isCorrect | Personality-driven feedback |
 
-### Progress
+### Progress & Quest
 
 | Method | Endpoint | Input | Output |
 |--------|----------|-------|--------|
-| POST | `/api/progress/update` | JSON: session stats, XP earned, component, character | JSON: updated XP, level, affection |
-| GET | `/api/leaderboard` | Query: `?type=global\|friends` | JSON: ranked user stats |
+| POST | `/api/progress/update` | Session stats, XP, component, character | Updated XP, level, affection, newAchievements |
+| GET | `/api/quest/progress` | — | All quest stage progress |
+| POST | `/api/quest/progress` | Stage, score, HP, results | Updated stage progress + character unlocks |
+| GET | `/api/leaderboard` | Query: `?type=global\|friends` | Ranked user stats |
+
+### Achievements
+
+| Method | Endpoint | Input | Output |
+|--------|----------|-------|--------|
+| GET | `/api/achievements/feed` | — | Last 20 achievement events (user + friends) |
+| POST | `/api/achievements/mock-exam` | — | Mock exam achievement check |
 
 ### Social
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/social/search?q=` | Search users by username |
-| GET | `/api/social/lookup?displayName=` | Find user by display name |
+| GET | `/api/social/search?q=` | Search users by display name (min 2 chars) |
+| GET | `/api/social/lookup?displayName=` | Find user by friend code |
 | POST | `/api/social/request` | Send friend request |
-| GET | `/api/social/requests` | List incoming requests |
-| GET | `/api/social/request-count` | Pending request count (navbar badge) |
-| POST | `/api/social/respond` | Accept/reject request |
-| GET | `/api/social/friends` | List friends with stats |
+| GET | `/api/social/requests` | List pending requests (incoming + outgoing) |
+| GET | `/api/social/request-count` | Pending count for navbar badge |
+| POST | `/api/social/respond` | Accept/reject + achievement trigger |
+| GET | `/api/social/friends` | Friends with full stats |
 | DELETE | `/api/social/remove` | Remove friend |
 | GET | `/api/social/discord-suggestions` | Discord-linked suggestions |
+
+### Auth
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/auth/callback` | OAuth PKCE code exchange |
+| DELETE | `/api/auth/delete-account` | Cascading account deletion |
 
 ---
 
 ## Database Schema
 
 ```sql
-profiles            user_progress         practice_sessions
-┌──────────────┐    ┌──────────────────┐  ┌────────────────────┐
-│ id (uuid)    │    │ id               │  │ id                 │
-│ username     │    │ user_id (fk)     │  │ user_id (fk)       │
-│ display_name │    │ component (1-7)  │  │ character_id (fk)  │
-│ avatar_url   │    │ questions_done   │  │ component (1-7)    │
-│ total_xp     │    │ questions_correct│  │ score              │
-│ current_level│    │ best_streak      │  │ xp_earned          │
-│ login_streak │    │ total_time       │  │ duration_seconds   │
-│ last_login   │    │ updated_at       │  │ created_at         │
-│ discord_id   │    └──────────────────┘  └────────────────────┘
-└──────────────┘
-
-characters          character_expressions   user_characters
-┌──────────────┐    ┌──────────────────┐   ┌──────────────────┐
-│ id           │    │ id               │   │ user_id (fk)     │
-│ name         │    │ character_id(fk) │   │ character_id(fk) │
-│ personality  │    │ expression_name  │   │ unlocked_at      │
-│ voice_id     │    │ image_url        │   │ affection_xp     │
-│ image_url    │    └──────────────────┘   │ affection_level  │
-│ unlock_cost  │                           │ active_skin_id   │
-│ is_default   │    character_skins        │ is_selected      │
-└──────────────┘    ┌──────────────────┐   └──────────────────┘
-                    │ id               │
-question_banks      │ character_id(fk) │   friendships
-┌──────────────┐    │ skin_name        │   ┌──────────────────┐
-│ id           │    │ image_url        │   │ id               │
-│ component    │    │ required_affection│  │ requester_id(fk) │
-│ content      │    └──────────────────┘   │ addressee_id(fk) │
-│ metadata     │                           │ status           │
-└──────────────┘    practice_details       │ created_at       │
-                    ┌──────────────────┐   │ updated_at       │
-                    │ id               │   └──────────────────┘
-                    │ session_id (fk)  │
-                    │ question_content │
-                    │ user_answer      │
-                    │ is_correct       │
-                    │ score            │
-                    └──────────────────┘
+profiles               user_progress          practice_sessions
+┌────────────────┐     ┌──────────────────┐   ┌────────────────────┐
+│ id (uuid, PK)  │     │ id               │   │ id                 │
+│ username        │     │ user_id (FK)     │   │ user_id (FK)       │
+│ display_name    │     │ component (1-7)  │   │ character_id (FK)  │
+│ avatar_url      │     │ questions_done   │   │ component (1-7)    │
+│ total_xp        │     │ questions_correct│   │ score              │
+│ current_level   │     │ best_streak      │   │ xp_earned          │
+│ login_streak    │     │ total_time_secs  │   │ duration_seconds   │
+│ last_login_date │     │ last_practiced   │   │ created_at         │
+│ discord_id      │     └──────────────────┘   └────────────────────┘
+│ friend_code     │
+└────────────────┘     practice_details       friendships
+                       ┌──────────────────┐   ┌──────────────────┐
+characters             │ id               │   │ id               │
+┌────────────────┐     │ session_id (FK)  │   │ requester_id(FK) │
+│ id             │     │ question_text    │   │ addressee_id(FK) │
+│ name           │     │ user_answer      │   │ status           │
+│ personality_*  │     │ is_correct       │   │ created_at       │
+│ voice_id       │     │ pron_score       │   │ updated_at       │
+│ image_url      │     │ feedback         │   └──────────────────┘
+│ unlock_stage   │     └──────────────────┘
+│ is_default     │                            achievements
+└────────────────┘     quest_progress         ┌──────────────────┐
+                       ┌──────────────────┐   │ id               │
+character_expressions  │ id               │   │ key (unique)     │
+┌──────────────────┐   │ user_id (FK)     │   │ name             │
+│ character_id(FK) │   │ stage (1-7)      │   │ description      │
+│ expression_name  │   │ is_cleared       │   │ emoji            │
+│ image_url        │   │ attempts         │   │ tier             │
+└──────────────────┘   │ best_score       │   │ sort_order       │
+                       │ cleared_at       │   └──────────────────┘
+character_skins        └──────────────────┘
+┌──────────────────┐                          user_achievements
+│ character_id(FK) │   user_characters        ┌──────────────────┐
+│ skin_name        │   ┌──────────────────┐   │ user_id (FK)     │
+│ image_url        │   │ user_id (FK)     │   │ achievement_id   │
+│ required_affection│  │ character_id(FK) │   │ unlocked_at      │
+└──────────────────┘   │ affection_xp     │   └──────────────────┘
+                       │ affection_level  │
+question_banks         │ active_skin_id   │
+┌──────────────────┐   │ is_selected      │
+│ component (1-7)  │   └──────────────────┘
+│ content          │
+│ pinyin           │
+│ metadata (JSONB) │
+└──────────────────┘
 ```
 
 All tables have **Row Level Security** enabled — users can only access their own data.
@@ -1118,22 +855,33 @@ npm run test      # Vitest unit tests
 
 ## UI Theme
 
-A pixel-art retro aesthetic with warm, inviting colors:
+A pixel-art retro aesthetic with Chinese-ink influences:
 
-- **Fonts**: Press Start 2P (pixel headings), VT323 (retro body text), Noto Sans SC (Chinese characters)
-- **Palette**: Warm cream background (`#FDF6E3`), amber primary (`#B45309`), brown accents
-- **Effects**: `pixel-border` (3px box shadow), `pixel-glow`, `pixel-btn` (4px drop shadow), `border-radius: 0px`
-- **Animations**: shimmer, fade-in-up, pixel-pulse, blink-cursor
-- **Accessibility**: Respects `prefers-reduced-motion` — all animations disabled when requested
+- **Fonts**: Press Start 2P (pixel headings), VT323 (retro body text), ZCOOL XiaoWei (Chinese display)
+- **Palette**: Warm cream (`#FFF8E7`), vermilion red (`#C8102E`), rosewood (`#8B4513`), gold accent (`#C9A96E`)
+- **Effects**: `pixel-border`, `pixel-glow`, `pixel-btn` (4px drop shadow), `border-radius: 0px`
+- **Chinese motifs**: `chinese-frame` (double rosewood/gold border), `chinese-corner` (vermilion L-brackets), `chinese-divider` (gradient diamond line)
+- **Battle animations**: 15+ keyframes including idle-bob, boss-float, flinch, attack-trail, damage-float, heart-shatter
+- **Accessibility**: Full `prefers-reduced-motion` support — all animations disabled when requested
 
 ---
 
 ## Documentation
 
-- **Design Document**: `docs/plans/2026-02-08-psc-webtool-design.md`
-- **Implementation Plan**: `docs/plans/2026-02-08-psc-webtool-implementation.md`
-- **PSC Reference**: `doc/PSC_comprehensive_guide.md`
-- See `docs/plans/` for additional design documents (social, leaderboard, home hub, C3/C6/C7 component designs)
+| Document | Path |
+|----------|------|
+| Project Instructions (Claude) | `CLAUDE.md` |
+| Initial Design | `docs/plans/2026-02-08-psc-webtool-design.md` |
+| Implementation Plan | `docs/plans/2026-02-08-psc-webtool-implementation.md` |
+| Social System | `docs/plans/2026-02-11-social-friends-design.md` |
+| Leaderboard | `docs/plans/2026-02-14-leaderboard-design.md` |
+| Home Hub | `docs/plans/2026-02-17-home-hub-design.md` |
+| C3/C6/C7 Components | `docs/plans/2026-02-17-c3-c6-c7-design.md` |
+| Main Quest RPG | `docs/plans/2026-02-20-main-quest-rpg.md` |
+| Battle Screen Redesign | `docs/plans/2026-02-20-battle-screen-redesign.md` |
+| Achievements | `docs/plans/2026-02-21-achievements-design.md` |
+| PSC Reference Guide | `doc/PSC_comprehensive_guide.md` |
+| Game Narrative | `public/storyline/story.md` |
 
 ---
 
