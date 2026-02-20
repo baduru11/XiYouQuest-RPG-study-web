@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import type { BattleState, StageNumber } from "@/lib/quest/types";
 import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
@@ -47,16 +46,10 @@ export function DefeatScreen({
   }, [stage]);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      {/* Background */}
-      <Image
-        src={config.backgroundImage}
-        alt={`${config.name} defeat`}
-        fill
-        className="object-cover"
-        unoptimized
-      />
-      <div className="absolute inset-0 bg-black/80" />
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url("${config.backgroundImage}")` }}
+    >
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center gap-6 max-w-md mx-auto px-6">

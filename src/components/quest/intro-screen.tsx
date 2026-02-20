@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { QUEST_INTRO_TEXT } from "@/lib/quest/story-text";
 
@@ -33,21 +32,10 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url("/img/main stage/1.webp")` }}
       onClick={!allShown ? advance : undefined}
     >
-      {/* Background image */}
-      <Image
-        src="/img/main stage/1.webp"
-        alt="Quest intro background"
-        fill
-        className="object-cover"
-        priority
-        unoptimized
-      />
-
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/70" />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center gap-6 max-w-2xl mx-auto px-6">

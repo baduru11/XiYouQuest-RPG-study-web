@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import Image from "next/image";
 import type { BattleState, StageNumber } from "@/lib/quest/types";
 import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
 import { STAGE_QUESTIONS } from "@/lib/quest/stage-questions";
@@ -124,20 +123,11 @@ export function BattleScreen({
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col ${
+      className={`fixed inset-0 z-[9999] flex flex-col bg-cover bg-center ${
         shaking ? "animate-shake" : ""
       }`}
+      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("${config.backgroundImage}")` }}
     >
-      {/* Background */}
-      <Image
-        src={config.backgroundImage}
-        alt={`${config.name} battle`}
-        fill
-        className="object-cover"
-        priority
-        unoptimized
-      />
-      <div className="absolute inset-0 bg-black/50" />
 
       {/* Flash overlay for blocked/damage */}
       {flashing && (

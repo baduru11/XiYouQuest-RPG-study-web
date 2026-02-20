@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import type { StageNumber } from "@/lib/quest/types";
 import { STAGE_STORIES } from "@/lib/quest/story-text";
@@ -39,21 +38,10 @@ export function StoryScreen({ stage, onContinue, onBack }: StoryScreenProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url("${config.backgroundImage}")` }}
       onClick={!allShown ? advance : undefined}
     >
-      {/* Background image */}
-      <Image
-        src={config.backgroundImage}
-        alt={`${config.name} background`}
-        fill
-        className="object-cover"
-        priority
-        unoptimized
-      />
-
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/65" />
 
       {/* Back button */}
       <button

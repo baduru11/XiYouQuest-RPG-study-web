@@ -90,16 +90,10 @@ export function VictoryScreen({
   }, [saved, onReturnToStages]);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      {/* Background */}
-      <Image
-        src={config.backgroundImage}
-        alt={`${config.name} victory`}
-        fill
-        className="object-cover"
-        unoptimized
-      />
-      <div className="absolute inset-0 bg-black/70" />
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: `linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url("${config.backgroundImage}")` }}
+    >
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center gap-5 max-w-lg mx-auto px-6 max-h-[90vh] overflow-y-auto py-8">
