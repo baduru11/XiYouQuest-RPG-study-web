@@ -81,7 +81,7 @@ export function StageSelect({
       {/* ─── Title bar ─── */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0">
         <div className="min-w-0">
-          <h1 className="font-pixel text-sm md:text-lg text-primary pixel-glow-gold leading-tight">
+          <h1 className="font-pixel text-[10px] sm:text-sm md:text-lg text-primary pixel-glow-gold leading-tight truncate">
             Journey to the West
           </h1>
           <p className="font-chinese text-base md:text-lg text-muted-foreground leading-tight">
@@ -277,7 +277,7 @@ export function StageSelect({
           return (
             <span
               key={`label-${stageNum}`}
-              className="absolute -translate-x-1/2 font-chinese font-bold text-sm sm:text-lg md:text-2xl text-foreground/75 pointer-events-none whitespace-nowrap mt-5 sm:mt-7 md:mt-10 lg:mt-11"
+              className="absolute -translate-x-1/2 font-chinese font-bold text-xs sm:text-lg md:text-2xl text-foreground/75 pointer-events-none whitespace-nowrap mt-5 sm:mt-7 md:mt-10 lg:mt-11"
               style={{
                 left: `${(pos.x / 1000) * 100}%`,
                 top: `${(pos.y / 500) * 100}%`,

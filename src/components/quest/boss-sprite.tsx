@@ -32,9 +32,34 @@ export function BossSprite({
     : Math.ceil((bossHP / bossMaxHP) * totalHearts);
 
   return (
-    <div className="absolute bottom-2 sm:bottom-4 right-[5%] sm:right-[8%] md:right-[12%] flex flex-col items-center gap-1 z-10">
-      {/* Boss info + hearts floating above */}
-      <div className="relative border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md">
+    <div className="absolute bottom-6 sm:bottom-10 right-[12%] sm:right-[15%] md:right-[18%] flex flex-col items-center gap-1 z-10">
+      {/* Boss sprite */}
+      <div
+        className={`relative ${
+          isHit
+            ? "animate-boss-hit"
+            : isRecoiling
+              ? "animate-recoil"
+              : ""
+        }`}
+      >
+        {/* White flash overlay on hit */}
+        {isHit && (
+          <div className="absolute inset-0 bg-white/40 z-10 pointer-events-none rounded-sm" />
+        )}
+        <img
+          src={bossImage}
+          alt={bossName}
+          loading="eager"
+          className={`w-[170px] h-[195px] sm:w-[260px] sm:h-[297px] md:w-[432px] md:h-[480px] object-contain drop-shadow-xl ${
+            !isHit && !isRecoiling ? "animate-boss-float" : ""
+          }`}
+          draggable={false}
+        />
+      </div>
+
+      {/* Boss info + hearts below sprite */}
+      <div className="relative border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[170px] sm:max-w-[260px] md:max-w-[432px]">
         <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
         <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
           <div className="flex justify-between items-baseline">
@@ -68,31 +93,6 @@ export function BossSprite({
           </div>
         </div>
         <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
-      </div>
-
-      {/* Boss sprite */}
-      <div
-        className={`relative ${
-          isHit
-            ? "animate-boss-hit"
-            : isRecoiling
-              ? "animate-recoil"
-              : ""
-        }`}
-      >
-        {/* White flash overlay on hit */}
-        {isHit && (
-          <div className="absolute inset-0 bg-white/40 z-10 pointer-events-none rounded-sm" />
-        )}
-        <img
-          src={bossImage}
-          alt={bossName}
-          loading="eager"
-          className={`w-[170px] h-[195px] sm:w-[260px] sm:h-[297px] md:w-[432px] md:h-[480px] object-contain drop-shadow-xl ${
-            !isHit && !isRecoiling ? "animate-boss-float" : ""
-          }`}
-          draggable={false}
-        />
       </div>
     </div>
   );

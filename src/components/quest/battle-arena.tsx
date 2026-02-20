@@ -111,7 +111,7 @@ export function BattleArena({
 
       {/* Floating damage near boss */}
       {showDamage && damageText && (
-        <div className="absolute right-[10%] sm:right-[15%] md:right-[20%] bottom-[40%] sm:bottom-[45%] z-40 flex justify-center">
+        <div className="absolute right-[15%] sm:right-[20%] md:right-[25%] bottom-[40%] sm:bottom-[45%] z-40 w-[100px] flex justify-center">
           <FloatingDamage
             text={damageText}
             type={damageType}

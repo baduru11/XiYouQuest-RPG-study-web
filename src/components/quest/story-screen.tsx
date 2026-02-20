@@ -49,9 +49,9 @@ export function StoryScreen({ stage, onContinue, onBack }: StoryScreenProps) {
           e.stopPropagation();
           onBack();
         }}
-        className="absolute top-4 left-4 z-20 flex items-center gap-2 text-amber-300/70 hover:text-amber-300 transition-colors font-retro text-sm"
+        className="absolute top-3 left-3 z-20 flex items-center gap-2 text-amber-300/70 hover:text-amber-300 transition-colors font-retro text-sm p-2 min-h-[44px] min-w-[44px]"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-5 h-5" />
         Back
       </button>
 
@@ -102,7 +102,7 @@ export function StoryScreen({ stage, onContinue, onBack }: StoryScreenProps) {
           </div>
         ) : (
           <p className="font-retro text-sm text-amber-300/60 animate-blink mt-2">
-            Press any key to continue...
+            Tap to continue...
           </p>
         )}
       </div>

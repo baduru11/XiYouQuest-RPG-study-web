@@ -317,7 +317,7 @@ export function BattleScreen({
               {speakerName && (
                 <div className="px-3 pt-2 pb-1 sm:px-6 sm:pt-3 flex items-center gap-2">
                   <div className={`w-1.5 h-4 sm:h-5 rounded-sm ${isPlayerTurn ? "bg-amber-600" : "bg-red-700"}`} />
-                  <span className={`font-chinese text-sm sm:text-base md:text-lg font-bold ${speakerColor} tracking-wide truncate`}>
+                  <span className={`font-pixel text-[8px] sm:text-[10px] md:text-xs font-bold ${speakerColor} tracking-wide truncate`}>
                     {speakerName}
                   </span>
                   <div className="flex-1 h-px bg-amber-800/20" />
@@ -332,25 +332,25 @@ export function BattleScreen({
                 {/* Player Menu */}
                 {battleState.phase === "player_menu" && (
                   <div className="text-center space-y-4">
-                    <p className="font-chinese text-lg text-amber-900/80">
-                      汝欲何为？
+                    <p className="font-pixel text-xs sm:text-sm text-amber-900/80">
+                      What will you do?
                     </p>
                     <div className="flex justify-center gap-3 sm:gap-4">
                       <button
                         onClick={handleAttackChoice}
-                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 border-2 border-amber-700/50 bg-amber-100/60
-                          hover:bg-amber-200/80 hover:border-amber-700 transition-all cursor-pointer rounded-sm"
+                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-3 sm:px-6 sm:py-3 border-2 border-amber-700/50 bg-amber-100/60
+                          hover:bg-amber-200/80 hover:border-amber-700 transition-all cursor-pointer rounded-sm min-h-[44px]"
                       >
                         <Swords className="w-4 h-4 sm:w-5 sm:h-5 text-amber-700" />
-                        <span className="font-chinese text-base sm:text-lg font-bold text-amber-900">攻击</span>
+                        <span className="font-pixel text-[10px] sm:text-xs font-bold text-amber-900">Attack</span>
                       </button>
                       <button
                         onClick={onFlee}
-                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 border-2 border-stone-400/50 bg-stone-100/60
-                          hover:bg-red-100/60 hover:border-red-400 transition-all cursor-pointer rounded-sm"
+                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-3 sm:px-6 sm:py-3 border-2 border-stone-400/50 bg-stone-100/60
+                          hover:bg-red-100/60 hover:border-red-400 transition-all cursor-pointer rounded-sm min-h-[44px]"
                       >
                         <DoorOpen className="w-4 h-4 sm:w-5 sm:h-5 text-stone-500" />
-                        <span className="font-chinese text-base sm:text-lg text-stone-600">逃跑</span>
+                        <span className="font-pixel text-[10px] sm:text-xs text-stone-600">Flee</span>
                       </button>
                     </div>
                   </div>

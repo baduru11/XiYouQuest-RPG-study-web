@@ -74,7 +74,7 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
           </Button>
         ) : (
           <p className="font-retro text-sm text-amber-300/60 animate-blink mt-2">
-            Press any key to continue...
+            Tap to continue...
           </p>
         )}
       </div>

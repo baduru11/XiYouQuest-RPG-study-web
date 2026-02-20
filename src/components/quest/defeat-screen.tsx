@@ -60,7 +60,7 @@ export function DefeatScreen({
     >
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-md mx-auto px-6">
+      <div className="relative z-10 flex flex-col items-center gap-6 max-w-md mx-auto px-6 max-h-[100dvh] overflow-y-auto py-6">
         {/* Defeat title */}
         <div className="text-center animate-fade-in-up">
           <h1 className="font-pixel text-2xl md:text-3xl text-red-500 pixel-glow">

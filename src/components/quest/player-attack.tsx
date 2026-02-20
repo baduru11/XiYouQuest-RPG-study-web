@@ -248,13 +248,13 @@ export function PlayerAttack({
         <div className="flex justify-center">
           <button
             onClick={handleContinue}
-            className={`px-6 py-2 border-2 transition-all cursor-pointer rounded-sm font-chinese text-lg ${
+            className={`px-6 py-3 border-2 transition-all cursor-pointer rounded-sm font-pixel text-xs min-h-[44px] ${
               attackSucceeds
                 ? "border-green-700/50 bg-green-100/60 hover:bg-green-200/80 text-green-900"
                 : "border-amber-700/50 bg-amber-100/60 hover:bg-amber-200/80 text-amber-900"
             }`}
           >
-            {attackSucceeds ? "攻击！" : "继续"}
+            {attackSucceeds ? "Attack!" : "Continue"}
           </button>
         </div>
       </div>
@@ -319,11 +319,11 @@ export function PlayerAttack({
                   <button
                     onClick={() => playTTS(word)}
                     disabled={playingWord !== null}
-                    className="text-amber-700/60 hover:text-amber-800 transition-colors disabled:opacity-50"
+                    className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-amber-700/60 hover:text-amber-800 transition-colors disabled:opacity-50"
                     title={`Play "${word}"`}
                   >
                     <Volume2
-                      className={`w-3.5 h-3.5 ${
+                      className={`w-4 h-4 ${
                         playingWord === word
                           ? "text-amber-700 animate-pulse"
                           : ""
