@@ -1,0 +1,9 @@
+ Now I will implement 'main quest' section. It is a 西游记 based storyline RPG.
+  when user first clicks 'main quset' button, show a brief story description on whole screen(till user press anything to continue) then there will be a stage selection        
+  screen. we have total 7 stages with each bosses( @public/img/boss/ ) . Our main characters are ( @public/img/main character) 4 characters with sonwukong being the default         first character. When stage is selected, we first see some story progression, then we enter 'battle mode' when user selects continue. each stage has background img (        
+  @"public/img/main stage\" ) with own background music(to be added later).                                                                                                          Our battle mode is a RPG style turn based game. where in user's turn, user attack with 'recording' style components. In enemy's turn user attacks the user with mcq question 
+   and user has to answer them in limited time in order to defend the attack. failure to answer lead to losing hp. design the levels so that certain amount of incorrect       
+  answer causes 0hp and failing the stage. we questions are in @public/stageQuestion\ . when user is done with all recording questions, boss dies(0hp) and stage is cleared.   
+  When users fail the stage 1 times and retries, user can listen to audio/show pinyin(which is not allowed on first attempt). Upon clearing 2,3,6 stage, user unlocks new      
+  character which are placed next to sonwukong on following stages. user can select characters(which are to replace current unlockable characters, delete all old ones). our   
+  story is at @public/storyline/story.md .
