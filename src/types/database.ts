@@ -99,3 +99,20 @@ export interface Friendship {
   created_at: string;
   updated_at: string;
 }
+
+export interface Achievement {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  emoji: string;
+  tier: 'common' | 'uncommon' | 'rare' | 'epic';
+  sort_order: number;
+}
+
+export interface UserAchievement {
+  id: string;
+  user_id: string;
+  achievement_id: string;
+  unlocked_at: string;
+}
