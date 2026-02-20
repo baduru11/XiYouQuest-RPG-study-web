@@ -29,10 +29,16 @@ export async function signup(formData: FormData) {
     password: formData.get("password") as string,
   };
 
-  const { error } = await supabase.auth.signUp(data);
+  const { error, data: signUpData } = await supabase.auth.signUp(data);
 
   if (error) {
     return { error: error.message };
+  }
+
+  // Fire-and-forget account_created achievement
+  if (signUpData.user) {
+    const { checkAndUnlockAchievements } = await import("@/lib/achievements/check");
+    checkAndUnlockAchievements(supabase, signUpData.user.id, { type: "account_created" }).catch(() => {});
   }
 
   revalidatePath("/", "layout");

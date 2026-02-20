@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { friendRespondSchema } from "@/lib/validations";
+import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -57,7 +58,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(updated);
+    // Check and unlock achievement for the acceptor (current user).
+    // The requester's achievement is awarded on their next relevant action,
+    // since RLS prevents cross-user INSERT on user_achievements.
+    let newAchievements: unknown[] = [];
+    if (action === "accept") {
+      try {
+        newAchievements = await checkAndUnlockAchievements(supabase, user.id, { type: 'friend_added' });
+      } catch (err) {
+        console.error("Friend achievement check error:", err);
+        newAchievements = [];
+      }
+    }
+
+    return NextResponse.json({ ...updated, newAchievements });
   } catch (error) {
     console.error("Respond error:", error);
     return NextResponse.json(

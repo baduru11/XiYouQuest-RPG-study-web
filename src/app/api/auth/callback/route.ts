@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -46,6 +47,13 @@ export async function GET(request: Request) {
         .from("profiles")
         .update({ discord_id: discordIdentity.id })
         .eq("id", user.id);
+    }
+
+    // Fire-and-forget achievement check for account creation
+    try {
+      await checkAndUnlockAchievements(supabase, user.id, { type: 'account_created' });
+    } catch (err) {
+      console.error("Auth callback achievement check error:", err);
     }
   }
 

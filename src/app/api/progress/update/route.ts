@@ -4,6 +4,7 @@ import { getUserLevel, getAffectionLevel } from "@/lib/gamification/xp";
 import { XP_VALUES } from "@/types/gamification";
 import { progressUpdateSchema } from "@/lib/validations";
 import { MAX_XP_PER_SESSION } from "@/lib/constants";
+import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -166,13 +167,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 9. Return results
+    // 9. Check and unlock achievements
+    let newAchievements: unknown[] = [];
+    try {
+      const { data: charData } = await supabase
+        .from('characters')
+        .select('name')
+        .eq('id', characterId)
+        .single();
+
+      if (charData) {
+        newAchievements = await checkAndUnlockAchievements(supabase, user.id, {
+          type: 'session_complete',
+          characterName: charData.name,
+        });
+      }
+    } catch (err) {
+      console.error("Session achievement check error:", err);
+      newAchievements = [];
+    }
+
+    // 10. Return results
     return NextResponse.json({
       totalXP: newTotalXP,
       level: levelInfo.level,
       affectionXP,
       affectionLevel,
       dailyBonus,
+      newAchievements,
     });
   } catch (error) {
     console.error("Progress update error:", error);

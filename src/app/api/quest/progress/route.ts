@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { StageNumber } from "@/lib/quest/types";
 import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
+import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 /** Map quest character names → DB character names */
 const QUEST_TO_DB_NAME: Record<string, string> = {
@@ -41,10 +42,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { stage, is_cleared, score } = body as {
+  const { stage, is_cleared, score, damage_taken, remaining_hp } = body as {
     stage: StageNumber;
     is_cleared: boolean;
     score: number;
+    damage_taken?: number;
+    remaining_hp?: number;
   };
 
   if (!stage || stage < 1 || stage > 7) {
@@ -125,5 +128,17 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true });
+  // Check and unlock achievements
+  let newAchievements: unknown[] = [];
+  try {
+    const context = is_cleared
+      ? { type: 'quest_clear' as const, stage, damageTaken: damage_taken ?? 999, remainingHP: remaining_hp ?? 999 }
+      : { type: 'quest_fail' as const };
+    newAchievements = await checkAndUnlockAchievements(supabase, user.id, context);
+  } catch (err) {
+    console.error("Quest achievement check error:", err);
+    newAchievements = [];
+  }
+
+  return NextResponse.json({ success: true, newAchievements });
 }
