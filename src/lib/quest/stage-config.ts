@@ -9,7 +9,7 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     subtitle: "The Divine Staff Awakens",
     bossName: "Demon King of Turmoil",
     bossNameCN: "混乱魔王",
-    bossImage: "/img/boss/1/1.webp",
+    bossImage: "/img/boss/1/혼세 기본.webp",
     backgroundImage: "/img/main stage/1.webp",
     playerMaxHP: 5,
     bossMaxHP: 100,
@@ -69,7 +69,7 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     subtitle: "The Corrupted Bull Demon",
     bossName: "Bull Demon King",
     bossNameCN: "牛魔王",
-    bossImage: "/img/boss/5/1.webp",
+    bossImage: "/img/boss/5/우마왕 기본.webp",
     backgroundImage: "/img/main stage/5.webp",
     playerMaxHP: 3,
     bossMaxHP: 100,
@@ -99,7 +99,7 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     subtitle: "Face Your Own Shadow",
     bossName: "Twisted Sun Wukong",
     bossNameCN: "扭曲悟空",
-    bossImage: "/img/boss/7/1.webp",
+    bossImage: "/img/boss/7/어둠오공 기본.webp",
     backgroundImage: "/img/main stage/7.webp",
     playerMaxHP: 3,
     bossMaxHP: 100,
@@ -123,8 +123,8 @@ export const QUEST_CHARACTERS: Record<
   "Sam Jang": {
     name: "Sam Jang",
     nameCN: "三藏",
-    image: "/img/main character/sam jang/1.webp",
-    imageAlt: "/img/main character/sam jang/2-1.webp",
+    image: "/img/main character/sam jang/삼장 전방주시.webp",
+    imageAlt: "/img/main character/sam jang/삼장 명함.webp",
   },
   "Sha Wujing": {
     name: "Sha Wujing",
@@ -135,8 +135,8 @@ export const QUEST_CHARACTERS: Record<
   "Zhu Baijie": {
     name: "Zhu Baijie",
     nameCN: "猪八戒",
-    image: "/img/main character/zhu bajie/1.webp",
-    imageAlt: "/img/main character/zhu bajie/2.webp",
+    image: "/img/main character/zhu bajie/저팔계 전방주시.webp",
+    imageAlt: "/img/main character/zhu bajie/저팔계 명함.webp",
   },
 };
 
