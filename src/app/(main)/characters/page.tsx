@@ -6,7 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { AFFECTION_LEVELS } from "@/types/gamification";
 import { getAffectionLevel } from "@/lib/gamification/xp";
 import { CharacterActions } from "./character-actions";
-import { Lock, Heart, Sparkles } from "lucide-react";
+import { Lock, Heart, Sparkles, Swords } from "lucide-react";
+import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
 
 import { CHARACTER_IMAGES } from "@/lib/character-images";
 
@@ -17,7 +18,7 @@ export default async function CharactersPage() {
   const userId = user!.id;
 
   // Fetch all data in parallel
-  const [{ data: characters }, { data: userCharacters }, { data: profile }] =
+  const [{ data: characters }, { data: userCharacters }, { data: profile }, { data: questProgress }] =
     await Promise.all([
       supabase
         .from("characters")
@@ -29,9 +30,15 @@ export default async function CharactersPage() {
         .order("is_default", { ascending: false }),
       supabase.from("user_characters").select("*").eq("user_id", userId),
       supabase.from("profiles").select("total_xp").eq("id", userId).single(),
+      supabase.from("quest_progress").select("stage, is_cleared").eq("user_id", userId),
     ]);
 
   const totalXP = profile?.total_xp ?? 0;
+  const clearedStages = new Set(
+    (questProgress ?? [])
+      .filter((p: { is_cleared: boolean }) => p.is_cleared)
+      .map((p: { stage: number }) => p.stage)
+  );
 
   const userCharacterMap = new Map(
     (userCharacters || []).map((uc: {
@@ -50,10 +57,10 @@ export default async function CharactersPage() {
         </p>
       </div>
 
-      {/* XP display badge */}
+      {/* Quest progress hint */}
       <div className="inline-flex items-center gap-2 pixel-border bg-accent/50 px-4 py-2">
-        <Sparkles className="h-4 w-4 text-yellow-600" />
-        <span className="text-sm">Your XP: <span className="font-bold text-foreground">{totalXP}</span></span>
+        <Swords className="h-4 w-4 text-amber-600" />
+        <span className="text-sm">Unlock companions by progressing through the <span className="font-bold text-foreground">Main Quest</span></span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -63,6 +70,7 @@ export default async function CharactersPage() {
           personality_description: string;
           image_url: string;
           unlock_cost_xp: number;
+          unlock_stage: number | null;
           is_default: boolean;
           character_expressions: Array<{
             expression_name: string;
@@ -83,7 +91,8 @@ export default async function CharactersPage() {
           const isSelected = userChar?.is_selected ?? false;
           const affectionXP = userChar?.affection_xp ?? 0;
           const affection = getAffectionLevel(affectionXP);
-          const canAfford = totalXP >= character.unlock_cost_xp;
+          const stageCleared = character.unlock_stage ? clearedStages.has(character.unlock_stage) : true;
+          const stageName = character.unlock_stage ? STAGE_CONFIGS[character.unlock_stage as keyof typeof STAGE_CONFIGS]?.name : null;
 
           // Calculate progress to next affection level
           const currentLevelConfig = AFFECTION_LEVELS[affection.level];
@@ -114,9 +123,10 @@ export default async function CharactersPage() {
                     {isSelected && (
                       <Badge variant="default">Active</Badge>
                     )}
-                    {!isUnlocked && (
-                      <Badge variant="secondary">
-                        {character.unlock_cost_xp} XP
+                    {!isUnlocked && character.unlock_stage && (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Swords className="h-3 w-3" />
+                        Stage {character.unlock_stage}
                       </Badge>
                     )}
                   </div>
@@ -144,8 +154,10 @@ export default async function CharactersPage() {
                   {!isUnlocked && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60">
                       <Lock className="h-8 w-8 text-muted-foreground mb-1" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {character.unlock_cost_xp} XP to unlock
+                      <span className="text-xs font-medium text-muted-foreground text-center px-2">
+                        {character.unlock_stage
+                          ? `Clear Stage ${character.unlock_stage}: ${stageName}`
+                          : "Complete the tutorial"}
                       </span>
                     </div>
                   )}
@@ -174,9 +186,9 @@ export default async function CharactersPage() {
                   characterId={character.id}
                   isUnlocked={isUnlocked}
                   isSelected={isSelected}
-                  canAfford={canAfford}
-                  unlockCost={character.unlock_cost_xp}
-                  userXP={totalXP}
+                  unlockStage={character.unlock_stage}
+                  stageCleared={stageCleared}
+                  stageName={stageName}
                 />
               </CardContent>
             </Card>

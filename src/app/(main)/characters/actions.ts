@@ -28,41 +28,43 @@ export async function selectCharacter(characterId: string) {
   revalidatePath("/dashboard");
 }
 
-export async function unlockCharacter(characterId: string) {
+/** Unlock a character that the user has earned through quest progression */
+export async function unlockCharacterByQuest(characterId: string) {
   if (!UUID_REGEX.test(characterId)) return { error: "Invalid character ID" };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  // Get character cost
+  // Get character's unlock_stage requirement
   const { data: character } = await supabase
     .from("characters")
-    .select("unlock_cost_xp")
+    .select("id, unlock_stage")
     .eq("id", characterId)
     .single();
 
   if (!character) return { error: "Character not found" };
 
-  // Get user XP
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("total_xp")
-    .eq("id", user.id)
-    .single();
+  // Verify quest stage is cleared (if unlock_stage is set)
+  if (character.unlock_stage) {
+    const { data: progress } = await supabase
+      .from("quest_progress")
+      .select("is_cleared")
+      .eq("user_id", user.id)
+      .eq("stage", character.unlock_stage)
+      .single();
 
-  if (!profile || profile.total_xp < character.unlock_cost_xp) {
-    return { error: "Not enough XP" };
+    if (!progress?.is_cleared) {
+      return { error: "Quest stage not cleared yet" };
+    }
   }
 
-  // Deduct XP and unlock character
-  await supabase
-    .from("profiles")
-    .update({ total_xp: profile.total_xp - character.unlock_cost_xp })
-    .eq("id", user.id);
-
+  // Unlock character (upsert to handle race conditions)
   await supabase
     .from("user_characters")
-    .insert({ user_id: user.id, character_id: characterId, is_selected: false });
+    .upsert(
+      { user_id: user.id, character_id: characterId, is_selected: false },
+      { onConflict: "user_id,character_id", ignoreDuplicates: true }
+    );
 
   revalidatePath("/characters");
   revalidatePath("/dashboard");
