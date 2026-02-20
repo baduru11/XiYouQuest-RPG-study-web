@@ -25,8 +25,12 @@ import {
   Search,
   UserPlus,
   X,
+  Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
+import { TOTAL_ACHIEVEMENTS } from "@/lib/achievements/definitions";
+import { timeAgo } from "@/lib/utils";
 
 interface SocialClientProps {
   userId: string;
@@ -62,6 +66,7 @@ interface FriendStats {
   total_xp: number;
   login_streak: number;
   total_sessions: number;
+  achievement_count: number;
   avg_scores: Record<string, number>;
   selected_character: { name: string; image_url: string } | null;
 }
@@ -98,11 +103,22 @@ const SCORE_BAR_CLASSES = [
   "h-2 flex-1 [&>[data-slot=progress-indicator]]:bg-teal-500",
 ];
 
+interface FeedEntry {
+  unlocked_at: string;
+  display_name: string;
+  avatar_url: string | null;
+  achievement_name: string;
+  achievement_emoji: string;
+  achievement_tier: string;
+  is_self: boolean;
+}
+
 export function SocialClient({
   userId,
   friendCode,
   hasDiscord,
 }: SocialClientProps) {
+  const { showAchievementToasts } = useAchievementToast();
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [codeQuery, setCodeQuery] = useState("");
@@ -125,6 +141,8 @@ export function SocialClient({
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
   const [requestsError, setRequestsError] = useState<string | null>(null);
   const [friendsError, setFriendsError] = useState<string | null>(null);
+  const [activityFeed, setActivityFeed] = useState<FeedEntry[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
 
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -230,7 +248,11 @@ export function SocialClient({
           body: JSON.stringify({ friendship_id: friendshipId, action }),
         });
         if (res.ok) {
+          const data = await res.json();
           toast.success(action === "accept" ? "Friend added!" : "Request rejected");
+          if (data.newAchievements?.length > 0) {
+            showAchievementToasts(data.newAchievements);
+          }
           fetchRequests();
           fetchFriends();
         } else {
@@ -348,6 +370,11 @@ export function SocialClient({
     fetchRequests();
     fetchFriends();
     fetchDiscordSuggestions();
+    fetch("/api/achievements/feed")
+      .then((res) => res.ok ? res.json() : { feed: [] })
+      .then((data) => setActivityFeed(data.feed ?? []))
+      .catch(() => setActivityFeed([]))
+      .finally(() => setFeedLoading(false));
   }, [fetchRequests, fetchFriends, fetchDiscordSuggestions]);
 
   useEffect(() => {
@@ -708,6 +735,72 @@ export function SocialClient({
           </div>
         )}
       </div>
+
+      {/* Section 4: Recent Achievement Activity */}
+      <div className="space-y-4">
+        <h2 className="font-pixel text-xs text-foreground flex items-center gap-2">
+          <Trophy className="h-4 w-4" />
+          Recent Activity
+        </h2>
+
+        {feedLoading && (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-2">
+                <div className="h-8 w-8 rounded-sm animate-shimmer" />
+                <div className="flex-1 space-y-1">
+                  <div className="h-4 w-48 rounded animate-shimmer" />
+                  <div className="h-3 w-24 rounded animate-shimmer" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!feedLoading && activityFeed.length === 0 && (
+          <div className="pixel-border bg-card/60 p-6 text-center">
+            <p className="text-base font-retro text-muted-foreground">
+              No recent activity &mdash; add friends to see their achievements!
+            </p>
+          </div>
+        )}
+
+        {!feedLoading && activityFeed.length > 0 && (
+          <div className="space-y-2">
+            {activityFeed.map((entry, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-2 pixel-border bg-card/40"
+              >
+                <div className="h-10 w-10 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                  {entry.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={entry.avatar_url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-lg font-retro text-foreground truncate">
+                    <span className="font-bold">
+                      {entry.is_self ? "You" : entry.display_name}
+                    </span>{" "}
+                    unlocked {entry.achievement_emoji}{" "}
+                    <span className="font-bold">{entry.achievement_name}</span>
+                  </p>
+                  <p className="text-base font-retro text-muted-foreground">
+                    {timeAgo(entry.unlocked_at)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -861,6 +954,12 @@ function FriendCard({
       {/* Sessions */}
       <p className="text-base font-retro text-muted-foreground">
         Sessions: <span className="text-foreground font-bold">{friend.total_sessions}</span>
+      </p>
+
+      {/* Achievements */}
+      <p className="text-base font-retro text-muted-foreground flex items-center gap-1.5">
+        <Trophy className="h-3.5 w-3.5 text-primary" />
+        Achievements: <span className="text-foreground font-bold">{friend.achievement_count}/{TOTAL_ACHIEVEMENTS}</span>
       </p>
 
       {/* Remove Button */}

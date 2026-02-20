@@ -15,6 +15,7 @@ interface UserStats {
     name: string;
     image_url: string;
   } | null;
+  achievement_count: number;
 }
 
 async function getUserStats(
@@ -22,7 +23,7 @@ async function getUserStats(
   userId: string
 ): Promise<UserStats | null> {
   // Fetch profile, practice sessions, and selected character in parallel
-  const [profileResult, sessionsResult, selectedCharResult] = await Promise.all(
+  const [profileResult, sessionsResult, selectedCharResult, achievementCountResult] = await Promise.all(
     [
       supabase
         .from("profiles")
@@ -43,6 +44,11 @@ async function getUserStats(
         .eq("user_id", userId)
         .eq("is_selected", true)
         .single(),
+
+      supabase
+        .from("user_achievements")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId),
     ]
   );
 
@@ -96,6 +102,7 @@ async function getUserStats(
     total_sessions: totalSessions,
     avg_scores: avgScores,
     selected_character: selectedCharacter,
+    achievement_count: achievementCountResult.count ?? 0,
   };
 }
 
