@@ -136,7 +136,7 @@ export function StageSelect({
         {/* SVG paths */}
         <svg
           viewBox="0 0 1000 500"
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
           className="absolute inset-0 w-full h-full"
           aria-hidden="true"
         >
@@ -231,7 +231,7 @@ export function StageSelect({
               className={`
                 absolute rounded-full overflow-hidden
                 w-12 h-12 sm:w-14 sm:h-14 md:w-[72px] md:h-[72px] lg:w-20 lg:h-20
-                -translate-x-1/2 -translate-y-1/2
+                -translate-x-[10%] -translate-y-[10%]
                 animate-node-pop-in
                 transition-transform duration-150
                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
