@@ -105,14 +105,18 @@ export interface BattleState {
   stage: StageConfig;
   /** All rounds for this battle */
   rounds: BattleRound[];
+  /** Split recording groups (max 5 words each, passages unchanged) */
+  recordingGroups: RecordingGroup[];
   /** Current round index */
   currentRound: number;
   /** Current phase within the round */
-  phase: "boss_attack" | "player_attack" | "animating";
+  phase: "player_menu" | "player_attack" | "boss_attack" | "animating";
   /** Current MCQ index within the round's mcqIndices */
   currentMCQInRound: number;
   /** Player current HP */
   playerHP: number;
+  /** Player max HP (base 3 + 2 per companion) */
+  playerMaxHP: number;
   /** Boss current HP (0-100) */
   bossHP: number;
   /** Number of recording groups completed */

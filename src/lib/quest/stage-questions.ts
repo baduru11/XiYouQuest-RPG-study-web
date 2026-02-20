@@ -9,6 +9,7 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
         type: "monosyllabic",
         words: ["\u54F2", "\u6D3D", "\u6ED5", "\u6602", "\u7FFB", "\u60A6", "\u94ED", "\u6B27", "\u5DE2", "\u62AB"],
         category: "read_syllable",
+        pinyin: ["zhé", "qià", "téng", "áng", "fān", "yuè", "míng", "ōu", "cháo", "pī"],
       },
     ],
     mcqQuestions: [
@@ -43,28 +44,18 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
   2: {
     recordingGroups: [
       {
-        label: "Monosyllabic Group 1",
+        label: "Monosyllabic Characters",
         type: "monosyllabic",
-        words: ["\u8881", "\u6E3A", "\u8C2C", "\u5CE6", "\u8E31", "\u55D3", "\u9976", "\u77BB", "\u7A91", "\u8FC2"],
+        words: ["袁", "渺", "谬", "峦", "踱", "瘟", "蕨", "驴", "唐", "猿"],
         category: "read_syllable",
+        pinyin: ["yuán", "miǎo", "miù", "luán", "duó", "wēn", "jué", "lǘ", "táng", "yuán"],
       },
       {
-        label: "Monosyllabic Group 2",
-        type: "monosyllabic",
-        words: ["\u9CD6", "\u6DAE", "\u888D", "\u9CC3", "\u8D63", "\u761F", "\u8568", "\u9A74", "\u5510", "\u733F"],
-        category: "read_syllable",
-      },
-      {
-        label: "Multisyllabic Group 1",
+        label: "Multisyllabic Words",
         type: "multisyllabic",
-        words: ["\u62D0\u5F2F\u513F", "\u63A2\u7D22", "\u521B\u4F5C", "\u897F\u6E38\u8BB0", "\u706B\u773C\u91D1\u775B", "\u53D6\u7ECF", "\u6316\u82E6", "\u8D2B\u7A77", "\u4E00\u76EE\u4E86\u7136"],
+        words: ["拐弯儿", "探索", "取经", "贫穷", "一目了然", "挫折", "减轻", "罪恶", "金箍棒", "紧箍咒"],
         category: "read_word",
-      },
-      {
-        label: "Multisyllabic Group 2",
-        type: "multisyllabic",
-        words: ["\u632B\u6298", "\u538B\u8FEB", "\u51CF\u8F7B", "\u7F6A\u6076", "\u91D1\u7B8D\u68D2", "\u7D27\u7B8D\u5492", "\u7B7E\u8BA2", "\u75B2\u5026", "\u4FA6\u67E5", "\u7A97\u5B50"],
-        category: "read_word",
+        pinyin: ["guǎi wān er", "tàn suǒ", "qǔ jīng", "pín qióng", "yí mù liǎo rán", "cuò zhé", "jiǎn qīng", "zuì è", "jīn gū bàng", "jǐn gū zhòu"],
       },
     ],
     mcqQuestions: [
@@ -138,12 +129,14 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
         type: "monosyllabic",
         words: ["\u85D5", "\u9576", "\u98D8", "\u7A9D", "\u582A", "\u7727", "\u78BE", "\u9AFB", "\u7A9F", "\u9B4F"],
         category: "read_syllable",
+        pinyin: ["ǒu", "xiāng", "piāo", "wō", "kān", "mī", "niǎn", "jì", "kū", "wèi"],
       },
       {
         label: "Multisyllabic Words",
         type: "multisyllabic",
         words: ["\u6602\u9996", "\u8870\u53D8", "\u8BCB\u6BC1", "\u6CD5\u672F", "\u9F50\u5929\u5927\u5723", "\u767D\u9AA8\u7CBE", "\u8138\u76D8\u513F", "\u6559\u8BAD", "\u7B4B\u6597\u4E91", "\u5929\u5BAB"],
         category: "read_word",
+        pinyin: ["áng shǒu", "shuāi biàn", "dǐ huǐ", "fǎ shù", "qí tiān dà shèng", "bái gǔ jīng", "liǎn pán er", "jiào xun", "jīn dǒu yún", "tiān gōng"],
       },
       {
         label: "Passage Reading",
@@ -234,12 +227,14 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
         type: "monosyllabic",
         words: ["\u72FC", "\u6708", "\u5C71", "\u722A", "\u773C", "\u98CE", "\u5F71", "\u568E", "\u6797", "\u591C"],
         category: "read_syllable",
+        pinyin: ["láng", "yuè", "shān", "zhuǎ", "yǎn", "fēng", "yǐng", "háo", "lín", "yè"],
       },
       {
         label: "Multisyllabic Words",
         type: "multisyllabic",
         words: ["\u6708\u72FC\u9B54", "\u6708\u5149", "\u72FC\u568E", "\u5C71\u5F84", "\u5229\u722A", "\u9B3C\u706B", "\u6811\u5F71", "\u591C\u98CE", "\u5077\u88AD", "\u9000\u8DEF"],
         category: "read_word",
+        pinyin: ["yuè láng mó", "yuè guāng", "láng háo", "shān jìng", "lì zhuǎ", "guǐ huǒ", "shù yǐng", "yè fēng", "tōu xí", "tuì lù"],
       },
     ],
     mcqQuestions: [
@@ -313,12 +308,14 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
         type: "multisyllabic",
         words: ["\u906E\u5929\u853D\u65E5", "\u5F25\u6F2B", "\u7FFB\u6D8C\u4E0D\u606F", "\u5E9E\u7136\u5927\u7269", "\u51DD\u795E\u6212\u5907", "\u8150\u5316", "\u54AE\u54EE", "\u8F70\u9E23", "\u7C0C\u7C0C\u843D\u4E0B", "\u8D64\u7EA2\u5982\u8840"],
         category: "read_word",
+        pinyin: ["zhē tiān bì rì", "mí màn", "fān yǒng bù xī", "páng rán dà wù", "níng shén jiè bèi", "fǔ huà", "páo xiào", "hōng míng", "sù sù luò xià", "chì hóng rú xuè"],
       },
       {
         label: "Multisyllabic Group 2",
         type: "multisyllabic",
         words: ["\u707C\u70ED\u6C14\u6D41", "\u8FF8\u53D1\u91D1\u5149", "\u524A\u5F31", "\u5C16\u9510", "\u6311\u8D77", "\u7A33\u4F4F\u5FC3\u795E", "\u6E05\u6670\u9971\u6EE1", "\u6614\u65E5\u5F3A\u8005", "\u65E0\u8DEF\u53EF\u9000", "\u9707\u8033\u6B32\u804B"],
         category: "read_word",
+        pinyin: ["zhuó rè qì liú", "bèng fā jīn guāng", "xuē ruò", "jiān ruì", "tiǎo qǐ", "wěn zhù xīn shén", "qīng xī bǎo mǎn", "xī rì qiáng zhě", "wú lù kě tuì", "zhèn ěr yù lóng"],
       },
       {
         label: "Passage Reading",
@@ -389,18 +386,21 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
         type: "multisyllabic",
         words: ["\u8C41\u7136\u5F00\u6717", "\u6D9F\u6F2A", "\u5A49\u8F6C\u557C\u9E23", "\u66B4\u98CE\u96E8", "\u7F1D\u9699", "\u5B88\u62A4\u8005", "\u5929\u5EAD\u8BD5\u70BC", "\u7184\u7184\u751F\u8F89", "\u988A\u9996", "\u4E91\u6735\u513F"],
         category: "read_word",
+        pinyin: ["huò rán kāi lǎng", "lián yī", "wǎn zhuǎn tí míng", "bào fēng yǔ", "fèng xì", "shǒu hù zhě", "tiān tíng shì liàn", "yì yì shēng huī", "hàn shǒu", "yún duǒ er"],
       },
       {
         label: "Multisyllabic Group 2",
         type: "multisyllabic",
         words: ["\u9707\u8033\u6B32\u804B", "\u7480\u74A8", "\u7EB9\u4E1D\u4E0D\u52A8", "\u51DD\u795E", "\u5C4F\u606F", "\u8131\u53E3\u800C\u51FA", "\u5B57\u6B63\u8154\u5706", "\u6C14\u5598\u5401\u5401", "\u6447\u6447\u6B32\u5760", "\u706B\u661F\u513F"],
         category: "read_word",
+        pinyin: ["zhèn ěr yù lóng", "cuǐ càn", "wén sī bù dòng", "níng shén", "bǐng xī", "tuō kǒu ér chū", "zì zhèng qiāng yuán", "qì chuǎn xū xū", "yáo yáo yù zhuì", "huǒ xīng er"],
       },
       {
         label: "Multisyllabic Group 3",
         type: "multisyllabic",
         words: ["\u5168\u529B\u4EE5\u8D74", "\u534A\u4FE1\u534A\u7591", "\u6045\u7136\u5927\u609F", "\u4ECE\u5BB9\u4E0D\u8FEB", "\u4E0D\u77E5\u6240\u63AA", "\u5FF5\u5FF5\u6709\u8BCD", "\u76EE\u7764\u53E3\u5446", "\u632F\u632F\u6709\u8BCD", "\u4E91\u5F69", "\u82B1\u74E3\u513F"],
         category: "read_word",
+        pinyin: ["quán lì yǐ fù", "bàn xìn bàn yí", "huǎng rán dà wù", "cóng róng bù pò", "bù zhī suǒ cuò", "niàn niàn yǒu cí", "mù dèng kǒu dāi", "zhèn zhèn yǒu cí", "yún cai", "huā bàn er"],
       },
     ],
     mcqQuestions: [
@@ -489,18 +489,21 @@ export const STAGE_QUESTIONS: Record<StageNumber, StageQuestions> = {
         type: "multisyllabic",
         words: ["\u7687\u5BAB", "\u94DC\u955C", "\u77D7\u7ACB", "\u626D\u66F2", "\u7A7A\u6D1E", "\u8150\u5316", "\u6B8B\u5F71", "\u4E3B\u5BB0", "\u56DA\u5F92", "\u79C3\u9E6B"],
         category: "read_word",
+        pinyin: ["huáng gōng", "tóng jìng", "chù lì", "niǔ qū", "kōng dòng", "fǔ huà", "cán yǐng", "zhǔ zǎi", "qiú tú", "tū jiù"],
       },
       {
         label: "Multisyllabic Group 2",
         type: "multisyllabic",
         words: ["\u9707\u8033\u6B32\u804B", "\u5414\u53EB", "\u541E\u98DF", "\u517B\u6599", "\u79C3\u9E6B", "\u7834\u788E", "\u97F3\u8282", "\u6270\u4E71", "\u5FC3\u795E", "\u6495\u54AC"],
         category: "read_word",
+        pinyin: ["zhèn ěr yù lóng", "hǒu jiào", "tūn shí", "yǎng liào", "tū jiù", "pò suì", "yīn jié", "rǎo luàn", "xīn shén", "sī yǎo"],
       },
       {
         label: "Multisyllabic Group 3",
         type: "multisyllabic",
         words: ["\u6DF1\u547C\u5438", "\u56DE\u8361", "\u5636\u5414", "\u6E83\u6563", "\u524D\u6240\u672A\u6709", "\u900F\u4EAE", "\u6D88\u6563", "\u9752\u70DF", "\u6E05\u6F88", "\u6E29\u548C"],
         category: "read_word",
+        pinyin: ["shēn hū xī", "huí dàng", "sī hǒu", "kuì sàn", "qián suǒ wèi yǒu", "tòu liang", "xiāo sàn", "qīng yān", "qīng chè", "wēn hé"],
       },
       {
         label: "Final Passage",

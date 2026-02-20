@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
 import type {
   QuestScreen,
   StageNumber,
@@ -20,11 +20,22 @@ interface MainQuestClientProps {
   unlockedCharacters: string[];
 }
 
+const INTRO_SEEN_KEY = "quest_intro_seen";
+const emptySubscribe = () => () => {};
+
 export function MainQuestClient({
   questProgress: initialProgress,
   unlockedCharacters: initialCharacters,
 }: MainQuestClientProps) {
+  // Read localStorage without useEffect to avoid React 19 set-state-in-effect lint error
+  const introSeen = useSyncExternalStore(
+    emptySubscribe,
+    () => { try { return localStorage.getItem(INTRO_SEEN_KEY) === "1"; } catch { return false; } },
+    () => false
+  );
+
   const [screen, setScreen] = useState<QuestScreen>("intro");
+  const [forceIntro, setForceIntro] = useState(false);
   const [selectedStage, setSelectedStage] = useState<StageNumber | null>(null);
   const [battleState, setBattleState] = useState<BattleState | null>(null);
   const [questProgress, setQuestProgress] =
@@ -41,7 +52,15 @@ export function MainQuestClient({
   );
 
   const handleIntroComplete = useCallback(() => {
+    try { localStorage.setItem(INTRO_SEEN_KEY, "1"); } catch { /* ignore */ }
+    setForceIntro(false);
     setScreen("stage_select");
+  }, []);
+
+  const handleWatchPrologue = useCallback(() => {
+    try { localStorage.removeItem(INTRO_SEEN_KEY); } catch { /* ignore */ }
+    setForceIntro(true);
+    setScreen("intro");
   }, []);
 
   const handleStageSelect = useCallback((stage: StageNumber) => {
@@ -52,10 +71,10 @@ export function MainQuestClient({
   const handleStoryComplete = useCallback(() => {
     if (!selectedStage) return;
     const isRetry = getAttempts(selectedStage) > 0;
-    const state = createBattleState(selectedStage, isRetry);
+    const state = createBattleState(selectedStage, isRetry, unlockedCharacters);
     setBattleState(state);
     setScreen("battle");
-  }, [selectedStage, getAttempts]);
+  }, [selectedStage, getAttempts, unlockedCharacters]);
 
   const handleBattleVictory = useCallback((finalState: BattleState) => {
     setBattleState(finalState);
@@ -86,7 +105,10 @@ export function MainQuestClient({
     []
   );
 
-  switch (screen) {
+  // Effective screen: skip intro if already seen
+  const effectiveScreen = screen === "intro" && introSeen && !forceIntro ? "stage_select" : screen;
+
+  switch (effectiveScreen) {
     case "intro":
       return <IntroScreen onComplete={handleIntroComplete} />;
     case "stage_select":
@@ -95,6 +117,7 @@ export function MainQuestClient({
           questProgress={questProgress}
           unlockedCharacters={unlockedCharacters}
           onStageSelect={handleStageSelect}
+          onWatchPrologue={handleWatchPrologue}
         />
       );
     case "story":
@@ -113,6 +136,7 @@ export function MainQuestClient({
           unlockedCharacters={unlockedCharacters}
           onVictory={handleBattleVictory}
           onDefeat={handleBattleDefeat}
+          onFlee={handleReturnToStages}
         />
       ) : null;
     case "victory":
@@ -120,6 +144,7 @@ export function MainQuestClient({
         <VictoryScreen
           stage={selectedStage}
           battleState={battleState}
+          questProgress={questProgress}
           onReturnToStages={handleReturnToStages}
           onProgressUpdate={handleProgressUpdate}
         />

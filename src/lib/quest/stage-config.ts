@@ -112,13 +112,18 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
 /** Character image paths for quest party display */
 export const QUEST_CHARACTERS: Record<
   string,
-  { name: string; nameCN: string; image: string; imageAlt: string }
+  { name: string; nameCN: string; image: string; imageAlt: string; attackFrames?: string[] }
 > = {
   "Son Wukong": {
     name: "Son Wukong",
     nameCN: "孙悟空",
     image: "/img/main character/son wukong/1.webp",
     imageAlt: "/img/main character/son wukong/2.webp",
+    attackFrames: [
+      "/img/main character/son wukong/attack_animation_frames/공격1.webp",
+      "/img/main character/son wukong/attack_animation_frames/공격2.webp",
+      "/img/main character/son wukong/attack_animation_frames/공격3.webp",
+    ],
   },
   "Sam Jang": {
     name: "Sam Jang",

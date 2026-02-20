@@ -1,17 +1,72 @@
 // src/lib/quest/battle-logic.ts
 
-import type { BattleRound, BattleState, StageNumber } from "./types";
+import type { BattleRound, BattleState, RecordingGroup, StageNumber } from "./types";
 import { getStageConfig } from "./stage-config";
 import { STAGE_QUESTIONS } from "./stage-questions";
+
+/** Max words per recording sub-group (passages are never split) */
+const MAX_WORDS_PER_GROUP = 5;
+
+/** Base HP for Wukong alone */
+const BASE_PLAYER_HP = 3;
+/** Extra HP per unlocked companion */
+const HP_PER_COMPANION = 2;
+
+/**
+ * Calculates player max HP based on unlocked characters.
+ * Wukong alone = 3 HP, each companion adds 2 HP.
+ */
+export function calculatePlayerMaxHP(unlockedCharacters: string[]): number {
+  const companions = unlockedCharacters.filter((n) => n !== "Son Wukong").length;
+  return BASE_PLAYER_HP + companions * HP_PER_COMPANION;
+}
+
+/** Pronunciation score threshold — attack only succeeds above this */
+const ATTACK_THRESHOLD = 80;
+
+/**
+ * Splits recording groups so each word-based group has at most MAX_WORDS_PER_GROUP words.
+ * Passage groups are kept intact.
+ */
+export function splitRecordingGroups(groups: RecordingGroup[]): RecordingGroup[] {
+  const result: RecordingGroup[] = [];
+
+  for (const group of groups) {
+    // Passages are never split
+    if (group.type === "passage" || group.words.length <= MAX_WORDS_PER_GROUP) {
+      result.push(group);
+      continue;
+    }
+
+    // Split into chunks of MAX_WORDS_PER_GROUP
+    const totalChunks = Math.ceil(group.words.length / MAX_WORDS_PER_GROUP);
+    for (let c = 0; c < totalChunks; c++) {
+      const start = c * MAX_WORDS_PER_GROUP;
+      const end = start + MAX_WORDS_PER_GROUP;
+      const chunkWords = group.words.slice(start, end);
+      const chunkPinyin = group.pinyin?.slice(start, end);
+
+      result.push({
+        label: totalChunks > 1 ? `${group.label} (${c + 1}/${totalChunks})` : group.label,
+        type: group.type,
+        words: chunkWords,
+        category: group.category,
+        ...(chunkPinyin ? { pinyin: chunkPinyin } : {}),
+      });
+    }
+  }
+
+  return result;
+}
 
 /**
  * Distributes MCQ questions evenly across recording groups.
  * Pattern: each round = [MCQ block] + [Recording group]
  * MCQ per round = ceil(totalMCQ / numRecordingGroups)
  */
-export function generateBattleRounds(stage: StageNumber): BattleRound[] {
+export function generateBattleRounds(stage: StageNumber, splitGroups: RecordingGroup[]): BattleRound[] {
   const questions = STAGE_QUESTIONS[stage];
-  const numRecordingGroups = questions.recordingGroups.length;
+  const numRecordingGroups = splitGroups.length;
   const totalMCQ = questions.mcqQuestions.length;
   const mcqPerRound = Math.ceil(totalMCQ / numRecordingGroups);
 
@@ -36,26 +91,30 @@ export function generateBattleRounds(stage: StageNumber): BattleRound[] {
 
 /**
  * Creates initial battle state with correct HP, rounds, phase.
- * Initial phase: "boss_attack" if first round has MCQs, else "player_attack".
+ * Recording groups are split into sub-groups of max 5 words.
+ * Player HP = 3 base + 2 per unlocked companion.
  */
 export function createBattleState(
   stage: StageNumber,
-  isRetry: boolean
+  isRetry: boolean,
+  unlockedCharacters: string[]
 ): BattleState {
   const config = getStageConfig(stage);
-  const rounds = generateBattleRounds(stage);
   const questions = STAGE_QUESTIONS[stage];
-  const totalRecordings = questions.recordingGroups.length;
-
-  const firstRoundHasMCQ = rounds.length > 0 && rounds[0].mcqIndices.length > 0;
+  const splitGroups = splitRecordingGroups(questions.recordingGroups);
+  const rounds = generateBattleRounds(stage, splitGroups);
+  const totalRecordings = splitGroups.length;
+  const playerMaxHP = calculatePlayerMaxHP(unlockedCharacters);
 
   return {
     stage: config,
     rounds,
+    recordingGroups: splitGroups,
     currentRound: 0,
-    phase: firstRoundHasMCQ ? "boss_attack" : "player_attack",
+    phase: "player_menu",
     currentMCQInRound: 0,
-    playerHP: config.playerMaxHP,
+    playerHP: playerMaxHP,
+    playerMaxHP,
     bossHP: config.bossMaxHP,
     recordingsCompleted: 0,
     totalRecordings,
@@ -71,13 +130,28 @@ export function createBattleState(
 
 /**
  * Returns ceil(bossMaxHP / totalRecordings).
- * This is the amount of damage dealt per recording completion.
+ * This is the maximum damage dealt per recording completion.
  */
 export function calculateBossDamage(
   bossMaxHP: number,
   totalRecordings: number
 ): number {
   return Math.ceil(bossMaxHP / totalRecordings);
+}
+
+/**
+ * Calculates actual damage based on pronunciation score.
+ * >= 80: full damage (attack succeeds)
+ * < 80: 0 damage (miss)
+ */
+export function calculateScaledDamage(
+  baseDamage: number,
+  pronunciationScore: number
+): { damage: number; outcome: "hit" | "miss" } {
+  if (pronunciationScore >= ATTACK_THRESHOLD) {
+    return { damage: baseDamage, outcome: "hit" };
+  }
+  return { damage: 0, outcome: "miss" };
 }
 
 /**
@@ -106,8 +180,7 @@ export function processMCQAnswer(
 /**
  * Processes a recording completion.
  * Adds the score to pronunciationScores, recalculates average.
- * Subtracts boss damage from bossHP (min 0).
- * Increments recordingsCompleted.
+ * Damage: >= 80 = full damage (hit), < 80 = 0 damage (miss).
  */
 export function processRecordingComplete(
   state: BattleState,
@@ -116,7 +189,8 @@ export function processRecordingComplete(
   const newScores = [...state.results.pronunciationScores, pronunciationScore];
   const avgScore =
     newScores.reduce((sum, s) => sum + s, 0) / newScores.length;
-  const damage = calculateBossDamage(state.stage.bossMaxHP, state.totalRecordings);
+  const baseDamage = calculateBossDamage(state.stage.bossMaxHP, state.totalRecordings);
+  const { damage } = calculateScaledDamage(baseDamage, pronunciationScore);
 
   return {
     ...state,
@@ -149,48 +223,55 @@ export function advanceBattle(state: BattleState): {
 
   const currentRound = state.rounds[state.currentRound];
 
-  if (state.phase === "boss_attack") {
-    // Check if there are more MCQs in this round
-    const nextMCQIndex = state.currentMCQInRound + 1;
-    if (nextMCQIndex < currentRound.mcqIndices.length) {
-      // Advance to next MCQ in the same round
-      return {
-        state: { ...state, currentMCQInRound: nextMCQIndex },
-        outcome: "continue",
-      };
-    } else {
-      // All MCQs in this round done, move to player_attack
-      return {
-        state: { ...state, phase: "player_attack", currentMCQInRound: 0 },
-        outcome: "continue",
-      };
-    }
-  }
+  // RPG turn order: player_menu → player_attack → boss_attack → next round
 
   if (state.phase === "player_attack") {
-    // Check for victory
-    if (state.bossHP <= 0 || state.currentRound >= state.rounds.length - 1) {
+    // Player just attacked — boss defeated?
+    if (state.bossHP <= 0) {
       return { state, outcome: "victory" };
     }
-
-    // Advance to next round
-    const nextRound = state.currentRound + 1;
-    const nextRoundData = state.rounds[nextRound];
-    const nextPhase =
-      nextRoundData.mcqIndices.length > 0 ? "boss_attack" : "player_attack";
-
+    // Move to boss counter-attack (MCQ phase)
+    if (currentRound.mcqIndices.length > 0) {
+      return {
+        state: { ...state, phase: "boss_attack", currentMCQInRound: 0 },
+        outcome: "continue",
+      };
+    }
+    // No MCQs this round — skip to next round or end
+    if (state.currentRound >= state.rounds.length - 1) {
+      return { state, outcome: state.bossHP <= 0 ? "victory" : "defeat" };
+    }
     return {
-      state: {
-        ...state,
-        currentRound: nextRound,
-        phase: nextPhase,
-        currentMCQInRound: 0,
-      },
+      state: { ...state, currentRound: state.currentRound + 1, phase: "player_menu", currentMCQInRound: 0 },
       outcome: "continue",
     };
   }
 
-  // Animating or other phases - just continue
+  if (state.phase === "boss_attack") {
+    // Check if there are more MCQs in this round
+    const nextMCQIndex = state.currentMCQInRound + 1;
+    if (nextMCQIndex < currentRound.mcqIndices.length) {
+      return {
+        state: { ...state, currentMCQInRound: nextMCQIndex },
+        outcome: "continue",
+      };
+    }
+    // All MCQs done — check if player survived, then advance to next round
+    if (state.playerHP <= 0) {
+      return { state, outcome: "defeat" };
+    }
+    // All rounds done?
+    if (state.currentRound >= state.rounds.length - 1) {
+      return { state, outcome: state.bossHP <= 0 ? "victory" : "defeat" };
+    }
+    // Next round — back to player menu
+    return {
+      state: { ...state, currentRound: state.currentRound + 1, phase: "player_menu", currentMCQInRound: 0 },
+      outcome: "continue",
+    };
+  }
+
+  // player_menu, animating, or other phases — just continue
   return { state, outcome: "continue" };
 }
 

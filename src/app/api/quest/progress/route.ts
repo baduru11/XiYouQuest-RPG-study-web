@@ -2,6 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { StageNumber } from "@/lib/quest/types";
+import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
+
+/** Map quest character names → DB character names */
+const QUEST_TO_DB_NAME: Record<string, string> = {
+  "Sam Jang": "Tang Sanzang (三藏)",
+  "Sha Wujing": "Sha Wujing (沙悟净)",
+  "Zhu Baijie": "Zhu Bajie (猪八戒)",
+};
 
 /** GET: Fetch all quest progress for the authenticated user */
 export async function GET() {
@@ -84,6 +92,36 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  // Auto-unlock character if this stage unlocks one
+  if (is_cleared) {
+    const stageConfig = STAGE_CONFIGS[stage];
+    const questCharName = stageConfig?.unlocksCharacter;
+    const dbCharName = questCharName ? QUEST_TO_DB_NAME[questCharName] : null;
+
+    if (dbCharName) {
+      // Find the character ID by name
+      const { data: character } = await supabase
+        .from("characters")
+        .select("id")
+        .eq("name", dbCharName)
+        .single();
+
+      if (character) {
+        // Insert into user_characters if not already unlocked (ignore conflict)
+        await supabase
+          .from("user_characters")
+          .upsert(
+            {
+              user_id: user.id,
+              character_id: character.id,
+              is_selected: false,
+            },
+            { onConflict: "user_id,character_id", ignoreDuplicates: true }
+          );
+      }
     }
   }
 
