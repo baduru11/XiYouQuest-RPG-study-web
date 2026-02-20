@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ArrowLeft, LogOut, User, Users } from "lucide-react";
+import Image from "next/image";
 
 interface NavbarProps {
   totalXP: number;
@@ -64,12 +65,15 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
           )}
           <Link
             href="/dashboard"
-            className="font-pixel text-base text-primary cursor-pointer hover:opacity-80 transition-opacity pixel-glow"
+            className="cursor-pointer hover:opacity-80 transition-opacity"
           >
-            PSC Quest
-            <span className="hidden sm:inline font-chinese-display text-sm ml-1 pixel-glow-gold">
-              普通话
-            </span>
+            <Image
+              src="/img/background/Logo.webp"
+              alt="XiYouQuest"
+              width={120}
+              height={40}
+              className="object-contain"
+            />
           </Link>
         </div>
 

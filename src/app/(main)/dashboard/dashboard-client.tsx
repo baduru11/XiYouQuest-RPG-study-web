@@ -192,7 +192,7 @@ export function DashboardClient({
 
   // ── Dashboard content ──
   return (
-    <div className="mx-auto max-w-2xl space-y-3 py-6">
+    <div className="mx-auto max-w-2xl space-y-3 py-2">
       {/* Mute button */}
       <button
         onClick={() => setMuted((m) => !m)}
@@ -207,29 +207,14 @@ export function DashboardClient({
       </button>
 
       {/* Greeting with character */}
-      <div className="flex items-center gap-5 py-4">
-        <div className="relative h-24 w-24 pixel-border bg-muted overflow-hidden shrink-0">
-          {charImage ? (
-            <Image
-              src={charImage}
-              alt={charName || "Character"}
-              fill
-              className="object-contain"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              {charName || "?"}
-            </div>
-          )}
-        </div>
-        <div>
-          <h1 className="font-pixel text-xl text-primary pixel-glow leading-relaxed">
-            Welcome back, {displayName || "Adventurer"}!
-          </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            Ready to continue your quest?
-          </p>
-        </div>
+      <div className="flex justify-center">
+        <Image
+          src="/img/background/Logo.webp"
+          alt="XiYouQuest"
+          width={581}
+          height={194}
+          className="object-contain"
+        />
       </div>
 
       {/* Main Quest */}

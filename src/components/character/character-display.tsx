@@ -23,7 +23,7 @@ export function CharacterDisplay({
 
   return (
     <div className={`relative flex flex-col items-center ${className}`}>
-      <div className="relative h-48 w-36 sm:h-64 sm:w-48 overflow-hidden pixel-border bg-muted">
+      <div className="relative overflow-hidden pixel-border bg-muted max-w-48 sm:max-w-56">
         {imageUrl && !error ? (
           <>
             {!loaded && (
@@ -32,15 +32,15 @@ export function CharacterDisplay({
             <Image
               src={imageUrl}
               alt={`${characterName} - ${currentExpression}`}
-              fill
-              sizes="(max-width: 640px) 144px, 192px"
-              className={`object-contain transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+              width={224}
+              height={224}
+              className={`w-full h-auto transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
               onLoad={() => setLoaded(true)}
               onError={() => setError(true)}
             />
           </>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground text-center p-2">
+          <div className="flex h-48 w-36 items-center justify-center text-sm text-muted-foreground text-center p-2">
             {characterName}
             <br />
             ({currentExpression})
