@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import type { BattleState, StageNumber, QuestProgress } from "@/lib/quest/types";
@@ -12,6 +12,7 @@ import { Loader2, Star, Swords, Mic } from "lucide-react";
 interface VictoryScreenProps {
   stage: StageNumber;
   battleState: BattleState;
+  questProgress: QuestProgress[];
   onReturnToStages: () => void;
   onProgressUpdate: (newProgress: QuestProgress[], newCharacters: string[]) => void;
 }
@@ -19,11 +20,11 @@ interface VictoryScreenProps {
 export function VictoryScreen({
   stage,
   battleState,
+  questProgress,
   onReturnToStages,
   onProgressUpdate,
 }: VictoryScreenProps) {
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const savedRef = useRef(false);
 
   const config = STAGE_CONFIGS[stage];
@@ -40,6 +41,30 @@ export function VictoryScreen({
     ? Math.round(battleState.results.avgPronunciationScore)
     : 0;
 
+  const doOptimisticUpdate = useCallback(() => {
+    // Build a fake progress entry so the next stage unlocks even if API failed
+    const optimistic: QuestProgress = {
+      id: `optimistic-${stage}`,
+      user_id: "",
+      stage,
+      is_cleared: true,
+      attempts: 1,
+      best_score: xp,
+      cleared_at: new Date().toISOString(),
+    };
+    const merged = [...questProgress];
+    const idx = merged.findIndex((p) => p.stage === stage);
+    if (idx >= 0) {
+      merged[idx] = { ...merged[idx], is_cleared: true, best_score: Math.max(merged[idx].best_score, xp) };
+    } else {
+      merged.push(optimistic);
+    }
+    const clearedStages = merged
+      .filter((p) => p.is_cleared)
+      .map((p) => p.stage as StageNumber);
+    onProgressUpdate(merged, getUnlockedCharacters(clearedStages));
+  }, [stage, xp, questProgress, onProgressUpdate]);
+
   const handleContinue = useCallback(async () => {
     if (savedRef.current) {
       onReturnToStages();
@@ -49,7 +74,7 @@ export function VictoryScreen({
     setSaving(true);
     try {
       // Save progress
-      await fetch("/api/quest/progress", {
+      const postRes = await fetch("/api/quest/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -59,35 +84,39 @@ export function VictoryScreen({
         }),
       });
 
-      // Refresh progress
+      if (!postRes.ok) {
+        console.error("Quest progress POST failed:", postRes.status, await postRes.text());
+      }
+
+      // Refresh progress from server
       const response = await fetch("/api/quest/progress");
-      const data = await response.json();
-      const newProgress: QuestProgress[] = data.progress ?? [];
+      if (response.ok) {
+        const data = await response.json();
+        const newProgress: QuestProgress[] = data.progress ?? [];
 
-      // Recalculate unlocked characters
-      const clearedStages = newProgress
-        .filter((p: QuestProgress) => p.is_cleared)
-        .map((p: QuestProgress) => p.stage);
-      const newCharacters = getUnlockedCharacters(clearedStages);
+        const clearedStages = newProgress
+          .filter((p: QuestProgress) => p.is_cleared)
+          .map((p: QuestProgress) => p.stage);
+        const newCharacters = getUnlockedCharacters(clearedStages);
+        onProgressUpdate(newProgress, newCharacters);
+      } else {
+        // GET failed — do optimistic update
+        doOptimisticUpdate();
+      }
 
-      onProgressUpdate(newProgress, newCharacters);
       savedRef.current = true;
-      setSaved(true);
-    } catch {
-      // Even on error, let them continue
+    } catch (err) {
+      console.error("Quest progress save error:", err);
+      // On API failure, optimistically update so the next stage unlocks
+      doOptimisticUpdate();
       savedRef.current = true;
-      setSaved(true);
     } finally {
       setSaving(false);
+      requestAnimationFrame(() => {
+        onReturnToStages();
+      });
     }
-  }, [stage, xp, onProgressUpdate, onReturnToStages]);
-
-  // Auto-continue after save completes
-  useEffect(() => {
-    if (saved) {
-      onReturnToStages();
-    }
-  }, [saved, onReturnToStages]);
+  }, [stage, xp, onProgressUpdate, onReturnToStages, doOptimisticUpdate]);
 
   return (
     <div
@@ -122,7 +151,7 @@ export function VictoryScreen({
         {/* Character unlock */}
         {unlockedChar && (
           <div
-            className="flex flex-col items-center gap-3 p-4 pixel-border bg-amber-900/30 backdrop-blur-sm w-full animate-fade-in-up"
+            className="flex flex-col items-center gap-3 p-4 pixel-border bg-amber-900/50 w-full animate-fade-in-up"
             style={{ animationDelay: "0.4s" }}
           >
             <div className="w-20 h-20 pixel-border overflow-hidden relative bg-background/50">
@@ -134,10 +163,10 @@ export function VictoryScreen({
                 unoptimized
               />
             </div>
-            <p className="font-pixel text-xs text-amber-300 pixel-glow-gold text-center">
+            <p className="font-pixel text-sm text-amber-300 text-center">
               {unlockedChar.name} has joined your party!
             </p>
-            <p className="font-chinese text-sm text-amber-200/70">
+            <p className="font-chinese text-base text-amber-200 text-center">
               {unlockedChar.nameCN}加入了队伍!
             </p>
           </div>
