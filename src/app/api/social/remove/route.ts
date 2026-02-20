@@ -21,15 +21,13 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Atomically verify ownership and delete in one query to prevent TOCTOU
-    const { data: deleted, error: deleteError } = await supabase
+    const { error: deleteError, count } = await supabase
       .from("friendships")
-      .delete()
+      .delete({ count: "exact" })
       .eq("id", id)
-      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-      .select("id")
-      .single();
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
 
-    if (deleteError || !deleted) {
+    if (deleteError || count === 0) {
       return NextResponse.json(
         { error: "Friendship not found" },
         { status: 404 }
