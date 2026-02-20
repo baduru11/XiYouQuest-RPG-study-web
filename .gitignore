@@ -44,3 +44,9 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Windows NUL device artifact
+NUL
