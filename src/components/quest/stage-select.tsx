@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import type { QuestProgress, StageNumber } from "@/lib/quest/types";
-import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
+import { STAGE_CONFIGS, QUEST_CHARACTERS } from "@/lib/quest/stage-config";
 import { Check, Lock } from "lucide-react";
 
 interface StageSelectProps {
@@ -87,6 +87,27 @@ export function StageSelect({
           <p className="font-chinese text-base md:text-lg text-muted-foreground leading-tight">
             西游记
           </p>
+        </div>
+        {/* Party portraits */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {unlockedCharacters.map((name) => {
+            const char = QUEST_CHARACTERS[name];
+            if (!char) return null;
+            return (
+              <div
+                key={name}
+                className="w-9 h-9 md:w-11 md:h-11 rounded-full border-2 border-amber-700/60 overflow-hidden bg-amber-900/30"
+                title={`${char.name} · ${char.nameCN}`}
+              >
+                <img
+                  src={char.image}
+                  alt={char.name}
+                  className="w-full h-full object-cover object-top"
+                  draggable={false}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
