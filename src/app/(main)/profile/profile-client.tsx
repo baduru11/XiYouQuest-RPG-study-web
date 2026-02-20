@@ -20,6 +20,8 @@ import {
   Target,
   Zap,
   Heart,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 
 interface Profile {
@@ -88,6 +90,9 @@ export default function ProfileClient({
   const [displayName, setDisplayName] = useState(profile?.display_name || "Adventurer");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || null);
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { level, name: levelName, xpToNext } = getUserLevel(profile?.total_xp ?? 0);
@@ -111,13 +116,14 @@ export default function ProfileClient({
 
   async function handleSaveName() {
     if (!profile || nameValue.trim() === "") return;
+    const trimmed = nameValue.trim().slice(0, 15);
     setSaving(true);
     const supabase = createClient();
     await supabase
       .from("profiles")
-      .update({ display_name: nameValue.trim() })
+      .update({ display_name: trimmed })
       .eq("id", profile.id);
-    setDisplayName(nameValue.trim());
+    setDisplayName(trimmed);
     setEditingName(false);
     setSaving(false);
     router.refresh();
@@ -202,7 +208,7 @@ export default function ProfileClient({
                       value={nameValue}
                       onChange={(e) => setNameValue(e.target.value)}
                       className="h-8 w-48 font-retro text-xl"
-                      maxLength={30}
+                      maxLength={15}
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Enter") handleSaveName();
@@ -477,6 +483,95 @@ export default function ProfileClient({
             })}
           </div>
         )}
+      </div>
+
+      {/* Section 5: Danger Zone */}
+      <div>
+        <h2 className="font-pixel text-sm text-destructive mb-3">Danger Zone</h2>
+        <Card className="border-destructive/30">
+          <CardContent className="px-4 py-3">
+            {!showDeleteConfirm ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-retro text-lg text-foreground">Delete Account</p>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete your account and all data
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="font-pixel text-xs"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Delete
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="font-retro text-lg text-destructive font-bold">
+                  This action is permanent and cannot be undone.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  All your progress, characters, practice history, and friendships will be permanently deleted.
+                  Type <span className="font-bold text-foreground">DELETE</span> to confirm.
+                </p>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE to confirm"
+                  className="h-8 w-48 font-retro text-base"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteConfirmText !== "DELETE" || deleting}
+                    onClick={async () => {
+                      setDeleting(true);
+                      try {
+                        const res = await fetch("/api/auth/delete-account", {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          window.location.href = "/login";
+                        } else {
+                          setDeleting(false);
+                        }
+                      } catch {
+                        setDeleting(false);
+                      }
+                    }}
+                    className="font-pixel text-xs"
+                  >
+                    {deleting ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      "Confirm Delete"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteConfirmText("");
+                    }}
+                    disabled={deleting}
+                    className="font-pixel text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
