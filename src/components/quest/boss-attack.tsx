@@ -121,11 +121,25 @@ export function BossAttack({
         </span>
       </div>
 
-      {/* Timer */}
-      <div className="flex justify-center">
-        <span className={`font-pixel text-2xl ${timerColor}`}>
-          {timeLeft}
-        </span>
+      {/* Timer bar + number */}
+      <div className="space-y-1">
+        <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-1000 ease-linear ${
+              timeLeft > timerSeconds * 0.5
+                ? "bg-green-500"
+                : timeLeft > timerSeconds * 0.25
+                  ? "bg-yellow-500"
+                  : "bg-red-500"
+            }`}
+            style={{ width: `${(timeLeft / timerSeconds) * 100}%` }}
+          />
+        </div>
+        <div className="flex justify-center">
+          <span className={`font-pixel text-lg ${timerColor}`}>
+            {timeLeft}
+          </span>
+        </div>
       </div>
 
       {/* MCQ Card */}
