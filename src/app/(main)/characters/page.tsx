@@ -27,7 +27,8 @@ export default async function CharactersPage() {
           character_expressions (*),
           character_skins (*)
         `)
-        .order("is_default", { ascending: false }),
+        .order("is_default", { ascending: false })
+        .order("unlock_stage", { ascending: true, nullsFirst: true }),
       supabase.from("user_characters").select("*").eq("user_id", userId),
       supabase.from("profiles").select("total_xp").eq("id", userId).single(),
       supabase.from("quest_progress").select("stage, is_cleared").eq("user_id", userId),
@@ -53,7 +54,7 @@ export default async function CharactersPage() {
       <div>
         <h1 className="font-pixel text-base text-primary pixel-glow">Characters</h1>
         <p className="text-muted-foreground mt-1">
-          Choose your study companion. Unlock new characters with XP!
+          Choose your study companion. Unlock new characters by clearing quest stages!
         </p>
       </div>
 
