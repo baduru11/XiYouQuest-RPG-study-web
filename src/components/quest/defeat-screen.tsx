@@ -11,6 +11,7 @@ interface DefeatScreenProps {
   battleState: BattleState;
   onRetry: () => void;
   onReturnToStages: () => void;
+  onAchievements?: (achievements: { key: string; name: string; emoji: string; tier: string }[]) => void;
 }
 
 export function DefeatScreen({
@@ -18,6 +19,7 @@ export function DefeatScreen({
   battleState,
   onRetry,
   onReturnToStages,
+  onAchievements,
 }: DefeatScreenProps) {
   const config = STAGE_CONFIGS[stage];
   const savedRef = useRef(false);
@@ -39,11 +41,17 @@ export function DefeatScreen({
         stage,
         is_cleared: false,
         score: 0,
+        damage_taken: battleState.playerMaxHP - battleState.playerHP,
       }),
-    }).catch(() => {
-      // Silently fail - not critical
-    });
-  }, [stage]);
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.newAchievements?.length > 0) {
+          onAchievements?.(data.newAchievements);
+        }
+      })
+      .catch(() => {});
+  }, [stage, battleState.playerMaxHP, battleState.playerHP, onAchievements]);
 
   return (
     <div

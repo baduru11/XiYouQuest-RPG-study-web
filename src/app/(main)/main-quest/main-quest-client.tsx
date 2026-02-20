@@ -14,6 +14,8 @@ import { StoryScreen } from "@/components/quest/story-screen";
 import { BattleScreen } from "@/components/quest/battle-screen";
 import { VictoryScreen } from "@/components/quest/victory-screen";
 import { DefeatScreen } from "@/components/quest/defeat-screen";
+import { useAchievementToast } from "@/components/shared/achievement-toast";
+import type { UnlockedAchievement } from "@/lib/achievements/types";
 
 interface MainQuestClientProps {
   questProgress: QuestProgress[];
@@ -27,6 +29,8 @@ export function MainQuestClient({
   questProgress: initialProgress,
   unlockedCharacters: initialCharacters,
 }: MainQuestClientProps) {
+  const { showAchievementToasts } = useAchievementToast();
+
   // Read localStorage without useEffect to avoid React 19 set-state-in-effect lint error
   const introSeen = useSyncExternalStore(
     emptySubscribe,
@@ -147,6 +151,7 @@ export function MainQuestClient({
           questProgress={questProgress}
           onReturnToStages={handleReturnToStages}
           onProgressUpdate={handleProgressUpdate}
+          onAchievements={(achs) => showAchievementToasts(achs as UnlockedAchievement[])}
         />
       ) : null;
     case "defeat":
@@ -156,6 +161,7 @@ export function MainQuestClient({
           battleState={battleState}
           onRetry={handleRetry}
           onReturnToStages={handleReturnToStages}
+          onAchievements={(achs) => showAchievementToasts(achs as UnlockedAchievement[])}
         />
       ) : null;
     default:

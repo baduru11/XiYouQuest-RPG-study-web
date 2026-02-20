@@ -15,6 +15,7 @@ interface VictoryScreenProps {
   questProgress: QuestProgress[];
   onReturnToStages: () => void;
   onProgressUpdate: (newProgress: QuestProgress[], newCharacters: string[]) => void;
+  onAchievements?: (achievements: { key: string; name: string; emoji: string; tier: string }[]) => void;
 }
 
 export function VictoryScreen({
@@ -23,6 +24,7 @@ export function VictoryScreen({
   questProgress,
   onReturnToStages,
   onProgressUpdate,
+  onAchievements,
 }: VictoryScreenProps) {
   const [saving, setSaving] = useState(false);
   const savedRef = useRef(false);
@@ -81,11 +83,20 @@ export function VictoryScreen({
           stage,
           is_cleared: true,
           score: xp,
+          damage_taken: battleState.playerMaxHP - battleState.playerHP,
+          remaining_hp: battleState.playerHP,
         }),
       });
 
       if (!postRes.ok) {
-        console.error("Quest progress POST failed:", postRes.status, await postRes.text());
+        // POST failed — continue to refresh progress anyway
+      } else {
+        try {
+          const postData = await postRes.json();
+          if (postData.newAchievements?.length > 0) {
+            onAchievements?.(postData.newAchievements);
+          }
+        } catch {}
       }
 
       // Refresh progress from server
@@ -116,7 +127,7 @@ export function VictoryScreen({
         onReturnToStages();
       });
     }
-  }, [stage, xp, onProgressUpdate, onReturnToStages, doOptimisticUpdate]);
+  }, [stage, xp, battleState.playerMaxHP, battleState.playerHP, onProgressUpdate, onReturnToStages, doOptimisticUpdate, onAchievements]);
 
   return (
     <div
