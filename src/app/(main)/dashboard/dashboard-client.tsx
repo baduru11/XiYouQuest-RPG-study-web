@@ -192,7 +192,7 @@ export function DashboardClient({
 
   // ── Dashboard content ──
   return (
-    <div className="mx-auto max-w-2xl space-y-3 py-6">
+    <div className="mx-auto max-w-2xl space-y-3 py-2">
       {/* Mute button */}
       <button
         onClick={() => setMuted((m) => !m)}
@@ -207,46 +207,33 @@ export function DashboardClient({
       </button>
 
       {/* Greeting with character */}
-      <div className="flex items-center gap-5 py-4">
-        <div className="relative h-24 w-24 pixel-border bg-muted overflow-hidden shrink-0">
-          {charImage ? (
-            <Image
-              src={charImage}
-              alt={charName || "Character"}
-              fill
-              className="object-contain"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              {charName || "?"}
-            </div>
-          )}
-        </div>
-        <div>
-          <h1 className="font-pixel text-xl text-primary pixel-glow leading-relaxed">
-            Welcome back, {displayName || "Adventurer"}!
-          </h1>
-          <p className="text-lg text-muted-foreground mt-1">
-            Ready to continue your quest?
-          </p>
-        </div>
+      <div className="flex justify-center">
+        <Image
+          src="/img/background/Logo.webp"
+          alt="XiYouQuest"
+          width={581}
+          height={194}
+          className="object-contain"
+        />
       </div>
 
-      {/* Main Quest — coming soon */}
-      <div className="pixel-border bg-card px-5 py-3 opacity-50 cursor-not-allowed">
-        <div className="flex items-center gap-5">
-          <Swords className="h-8 w-8 text-muted-foreground shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="font-pixel text-sm text-muted-foreground leading-relaxed">
-              Main Quest
-            </p>
-            <p className="text-base text-muted-foreground">Story-driven campaign</p>
+      {/* Main Quest */}
+      <Link href="/main-quest" className="group block">
+        <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all">
+          <div className="flex items-center gap-5">
+            <Swords className="h-8 w-8 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-pixel text-sm text-foreground leading-relaxed">
+                Main Quest
+              </p>
+              <p className="text-base text-muted-foreground">
+                Journey to the West — Story Campaign
+              </p>
+            </div>
+            <ArrowRight className="h-6 w-6 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          <span className="shrink-0 text-xs font-pixel px-3 py-1.5 pixel-border bg-muted text-muted-foreground">
-            Coming Soon
-          </span>
         </div>
-      </div>
+      </Link>
 
       {/* Menu tiles */}
       {MENU_ITEMS.map((item) => (

@@ -1,0 +1,158 @@
+// src/lib/quest/stage-config.ts
+import type { StageConfig, StageNumber } from "./types";
+
+export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
+  1: {
+    stage: 1,
+    name: "Prologue",
+    nameCN: "序章",
+    subtitle: "The Divine Staff Awakens",
+    bossName: "Demon King of Turmoil",
+    bossNameCN: "混乱魔王",
+    bossImage: "/img/boss/1/혼세 기본.webp",
+    backgroundImage: "/img/main stage/1.webp",
+    playerMaxHP: 5,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 15,
+    unlocksCharacter: null,
+    prerequisiteStage: null,
+  },
+  2: {
+    stage: 2,
+    name: "River of Shattered Tone",
+    nameCN: "碎调之河",
+    subtitle: "Water Spirits Bend Your Voice",
+    bossName: "Water Spirit",
+    bossNameCN: "水灵",
+    bossImage: "/img/boss/2/2.webp",
+    backgroundImage: "/img/main stage/2.webp",
+    playerMaxHP: 5,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 15,
+    unlocksCharacter: "Sam Jang",
+    prerequisiteStage: 1,
+  },
+  3: {
+    stage: 3,
+    name: "Desert of Illusion",
+    nameCN: "幻影沙漠",
+    subtitle: "The Lady of Bleached Bones",
+    bossName: "Lady of Bleached Bones",
+    bossNameCN: "白骨夫人",
+    bossImage: "/img/boss/3/1.webp",
+    backgroundImage: "/img/main stage/3.webp",
+    playerMaxHP: 4,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 15,
+    unlocksCharacter: "Sha Wujing",
+    prerequisiteStage: 2,
+  },
+  4: {
+    stage: 4,
+    name: "Moonlit Mountain",
+    nameCN: "月影山",
+    subtitle: "The Wolf Knows Your Weakness",
+    bossName: "Moonfang Wolf Demon",
+    bossNameCN: "月牙狼魔",
+    bossImage: "/img/boss/4/1.webp",
+    backgroundImage: "/img/main stage/4.webp",
+    playerMaxHP: 4,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 15,
+    unlocksCharacter: null,
+    prerequisiteStage: 3,
+  },
+  5: {
+    stage: 5,
+    name: "Misty Bamboo Forest",
+    nameCN: "迷雾竹林",
+    subtitle: "The Corrupted Bull Demon",
+    bossName: "Bull Demon King",
+    bossNameCN: "牛魔王",
+    bossImage: "/img/boss/5/우마왕 기본.webp",
+    backgroundImage: "/img/main stage/5.webp",
+    playerMaxHP: 3,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 12,
+    unlocksCharacter: null,
+    prerequisiteStage: 4,
+  },
+  6: {
+    stage: 6,
+    name: "Plains of Fading Echoes",
+    nameCN: "余音平原",
+    subtitle: "The Heavenly Trial",
+    bossName: "Heavenly Guardian",
+    bossNameCN: "天庭守护者",
+    bossImage: "/img/boss/6/1.webp",
+    backgroundImage: "/img/main stage/6.webp",
+    playerMaxHP: 3,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 12,
+    unlocksCharacter: "Zhu Baijie",
+    prerequisiteStage: 5,
+  },
+  7: {
+    stage: 7,
+    name: "Western Palace",
+    nameCN: "西天宫殿",
+    subtitle: "Face Your Own Shadow",
+    bossName: "Twisted Sun Wukong",
+    bossNameCN: "扭曲悟空",
+    bossImage: "/img/boss/7/어둠오공 기본.webp",
+    backgroundImage: "/img/main stage/7.webp",
+    playerMaxHP: 3,
+    bossMaxHP: 100,
+    mcqTimerSeconds: 12,
+    unlocksCharacter: null,
+    prerequisiteStage: 6,
+  },
+};
+
+/** Character image paths for quest party display */
+export const QUEST_CHARACTERS: Record<
+  string,
+  { name: string; nameCN: string; image: string; imageAlt: string; attackFrames?: string[] }
+> = {
+  "Son Wukong": {
+    name: "Son Wukong",
+    nameCN: "孙悟空",
+    image: "/img/main character/son wukong/1.webp",
+    imageAlt: "/img/main character/son wukong/2.webp",
+    attackFrames: [
+      "/img/main character/son wukong/attack_animation_frames/공격1.webp",
+      "/img/main character/son wukong/attack_animation_frames/공격2.webp",
+      "/img/main character/son wukong/attack_animation_frames/공격3.webp",
+    ],
+  },
+  "Sam Jang": {
+    name: "Sam Jang",
+    nameCN: "三藏",
+    image: "/img/main character/sam jang/삼장 전방주시.webp",
+    imageAlt: "/img/main character/sam jang/삼장 명함.webp",
+  },
+  "Sha Wujing": {
+    name: "Sha Wujing",
+    nameCN: "沙悟净",
+    image: "/img/main character/sha wujing/1.webp",
+    imageAlt: "/img/main character/sha wujing/2.webp",
+  },
+  "Zhu Baijie": {
+    name: "Zhu Baijie",
+    nameCN: "猪八戒",
+    image: "/img/main character/zhu bajie/저팔계 전방주시.webp",
+    imageAlt: "/img/main character/zhu bajie/저팔계 명함.webp",
+  },
+};
+
+/** Order characters unlock in */
+export const CHARACTER_UNLOCK_ORDER = [
+  "Son Wukong",
+  "Sam Jang",
+  "Sha Wujing",
+  "Zhu Baijie",
+] as const;
+
+export function getStageConfig(stage: StageNumber): StageConfig {
+  return STAGE_CONFIGS[stage];
+}

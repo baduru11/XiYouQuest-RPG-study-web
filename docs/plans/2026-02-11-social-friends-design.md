@@ -241,7 +241,7 @@ User's own friend code shown prominently with a copy-to-clipboard button. Format
 - Button changes to "Requested" (disabled) after sending
 - Friend code lookup shows single result card or "No user found"
 - **Discord Suggestions** sub-section (only for Discord-login users):
-  - Header: "Discord Friends on PSC Quest"
+  - Header: "Discord Friends on XiYouQuest"
   - Auto-populated on page load
   - List with "Add" buttons
   - Hidden entirely if no token, API fails, or zero matches

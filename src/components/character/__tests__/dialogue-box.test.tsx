@@ -8,18 +8,18 @@ afterEach(() => {
 
 describe("DialogueBox", () => {
   it("renders the character name", () => {
-    render(<DialogueBox text="Hello!" characterName="Kaede" isTyping={false} />);
-    expect(screen.getByText("Kaede")).toBeInTheDocument();
+    render(<DialogueBox text="Hello!" characterName="Sun Wukong (孙悟空)" isTyping={false} />);
+    expect(screen.getByText("Sun Wukong (孙悟空)")).toBeInTheDocument();
   });
 
   it("shows full text immediately when isTyping is false", () => {
-    render(<DialogueBox text="Hello world!" characterName="Kaede" isTyping={false} />);
+    render(<DialogueBox text="Hello world!" characterName="Sun Wukong (孙悟空)" isTyping={false} />);
     expect(screen.getByText("Hello world!")).toBeInTheDocument();
   });
 
   it("shows skip button during typing animation", () => {
     vi.useFakeTimers();
-    render(<DialogueBox text="Hello world!" characterName="Kaede" isTyping={true} typingSpeed={50} />);
+    render(<DialogueBox text="Hello world!" characterName="Sun Wukong (孙悟空)" isTyping={true} typingSpeed={50} />);
 
     act(() => { vi.advanceTimersByTime(50); });
     expect(screen.getByText(/Skip/)).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("DialogueBox", () => {
 
   it("types text progressively", () => {
     vi.useFakeTimers();
-    render(<DialogueBox text="AB" characterName="Kaede" isTyping={true} typingSpeed={50} />);
+    render(<DialogueBox text="AB" characterName="Sun Wukong (孙悟空)" isTyping={true} typingSpeed={50} />);
 
     // After 1 tick, first character should appear
     act(() => { vi.advanceTimersByTime(50); });
@@ -45,7 +45,7 @@ describe("DialogueBox", () => {
 
   it("hides skip button when text completes", () => {
     vi.useFakeTimers();
-    render(<DialogueBox text="Hi" characterName="Kaede" isTyping={true} typingSpeed={50} />);
+    render(<DialogueBox text="Hi" characterName="Sun Wukong (孙悟空)" isTyping={true} typingSpeed={50} />);
 
     // Complete the typing
     act(() => { vi.advanceTimersByTime(150); }); // 50 * 2 chars + extra tick

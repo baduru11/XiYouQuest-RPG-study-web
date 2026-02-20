@@ -2,24 +2,25 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { selectCharacter, unlockCharacter } from "./actions";
+import { selectCharacter, unlockCharacterByQuest } from "./actions";
+import Link from "next/link";
 
 interface CharacterActionsProps {
   characterId: string;
   isUnlocked: boolean;
   isSelected: boolean;
-  canAfford: boolean;
-  unlockCost: number;
-  userXP: number;
+  unlockStage: number | null;
+  stageCleared: boolean;
+  stageName: string | null;
 }
 
 export function CharacterActions({
   characterId,
   isUnlocked,
   isSelected,
-  canAfford,
-  unlockCost,
-  userXP,
+  unlockStage,
+  stageCleared,
+  stageName,
 }: CharacterActionsProps) {
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +32,7 @@ export function CharacterActions({
 
   async function handleUnlock() {
     setLoading(true);
-    await unlockCharacter(characterId);
+    await unlockCharacterByQuest(characterId);
     setLoading(false);
   }
 
@@ -56,7 +57,8 @@ export function CharacterActions({
     );
   }
 
-  if (canAfford) {
+  // Stage cleared but not yet in user_characters — allow claiming
+  if (stageCleared) {
     return (
       <Button
         onClick={handleUnlock}
@@ -64,14 +66,17 @@ export function CharacterActions({
         className="w-full"
         size="sm"
       >
-        {loading ? "Unlocking..." : `Unlock (${unlockCost} XP)`}
+        {loading ? "Unlocking..." : "Claim Companion"}
       </Button>
     );
   }
 
+  // Stage not cleared yet — show quest link
   return (
-    <Button disabled variant="outline" className="w-full" size="sm">
-      Need {unlockCost - userXP} more XP
+    <Button asChild variant="outline" className="w-full" size="sm">
+      <Link href="/main-quest">
+        {unlockStage ? `Clear Stage ${unlockStage}` : "Start Quest"}
+      </Link>
     </Button>
   );
 }

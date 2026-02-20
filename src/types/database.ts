@@ -31,6 +31,8 @@ export interface Character {
   voice_id: string;
   image_url: string;
   unlock_cost_xp: number;
+  /** Quest stage that must be cleared to unlock this character (null = always available) */
+  unlock_stage: number | null;
   is_default: boolean;
 }
 

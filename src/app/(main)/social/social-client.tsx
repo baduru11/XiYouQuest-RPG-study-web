@@ -519,7 +519,7 @@ export function SocialClient({
               <div className="pt-2 border-t-2 border-border space-y-2">
                 <h3 className="font-pixel text-[10px] text-muted-foreground flex items-center gap-2">
                   <Users className="h-3 w-3" />
-                  Discord Friends on PSC Quest
+                  Discord Friends on XiYouQuest
                 </h3>
                 <div className="space-y-1">
                   {discordSuggestions.map((user) => (

@@ -24,7 +24,7 @@ const KNOB_BASE: React.CSSProperties = {
 export function ContentWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/dashboard") {
+  if (pathname === "/dashboard" || pathname === "/main-quest") {
     return <>{children}</>;
   }
 
