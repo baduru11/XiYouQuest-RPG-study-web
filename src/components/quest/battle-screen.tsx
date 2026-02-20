@@ -302,7 +302,7 @@ export function BattleScreen({
 
       {/* RPG Dialogue Scroll — top of screen */}
       {!isAnimating && battleState.phase !== "animating" && (
-        <div className="absolute top-0 left-0 right-0 z-30 p-3 md:p-5">
+        <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-3 md:p-5">
           <div className={`w-full max-w-2xl mx-auto relative`}>
             {/* Scroll body */}
             <div
@@ -311,46 +311,46 @@ export function BattleScreen({
                 rounded-sm overflow-hidden`}
             >
               {/* Decorative top edge */}
-              <div className="h-2 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+              <div className="h-1.5 sm:h-2 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
 
               {/* Speaker name banner */}
               {speakerName && (
-                <div className="px-6 pt-3 pb-1 flex items-center gap-2">
-                  <div className={`w-1.5 h-5 rounded-sm ${isPlayerTurn ? "bg-amber-600" : "bg-red-700"}`} />
-                  <span className={`font-chinese text-base md:text-lg font-bold ${speakerColor} tracking-wide`}>
+                <div className="px-3 pt-2 pb-1 sm:px-6 sm:pt-3 flex items-center gap-2">
+                  <div className={`w-1.5 h-4 sm:h-5 rounded-sm ${isPlayerTurn ? "bg-amber-600" : "bg-red-700"}`} />
+                  <span className={`font-chinese text-sm sm:text-base md:text-lg font-bold ${speakerColor} tracking-wide truncate`}>
                     {speakerName}
                   </span>
                   <div className="flex-1 h-px bg-amber-800/20" />
-                  <span className="font-retro text-[10px] text-amber-800/40">
+                  <span className="font-retro text-[10px] text-amber-800/40 shrink-0">
                     R{battleState.currentRound + 1}/{battleState.rounds.length}
                   </span>
                 </div>
               )}
 
               {/* Scroll content */}
-              <div className="px-6 py-4 space-y-4 max-h-[45vh] overflow-y-auto">
+              <div className="px-3 py-3 sm:px-6 sm:py-4 space-y-3 sm:space-y-4 max-h-[40vh] sm:max-h-[45vh] overflow-y-auto">
                 {/* Player Menu */}
                 {battleState.phase === "player_menu" && (
                   <div className="text-center space-y-4">
                     <p className="font-chinese text-lg text-amber-900/80">
                       汝欲何为？
                     </p>
-                    <div className="flex justify-center gap-4">
+                    <div className="flex justify-center gap-3 sm:gap-4">
                       <button
                         onClick={handleAttackChoice}
-                        className="flex items-center gap-2 px-6 py-3 border-2 border-amber-700/50 bg-amber-100/60
+                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 border-2 border-amber-700/50 bg-amber-100/60
                           hover:bg-amber-200/80 hover:border-amber-700 transition-all cursor-pointer rounded-sm"
                       >
-                        <Swords className="w-5 h-5 text-amber-700" />
-                        <span className="font-chinese text-lg font-bold text-amber-900">攻击</span>
+                        <Swords className="w-4 h-4 sm:w-5 sm:h-5 text-amber-700" />
+                        <span className="font-chinese text-base sm:text-lg font-bold text-amber-900">攻击</span>
                       </button>
                       <button
                         onClick={onFlee}
-                        className="flex items-center gap-2 px-6 py-3 border-2 border-stone-400/50 bg-stone-100/60
+                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 border-2 border-stone-400/50 bg-stone-100/60
                           hover:bg-red-100/60 hover:border-red-400 transition-all cursor-pointer rounded-sm"
                       >
-                        <DoorOpen className="w-5 h-5 text-stone-500" />
-                        <span className="font-chinese text-lg text-stone-600">逃跑</span>
+                        <DoorOpen className="w-4 h-4 sm:w-5 sm:h-5 text-stone-500" />
+                        <span className="font-chinese text-base sm:text-lg text-stone-600">逃跑</span>
                       </button>
                     </div>
                   </div>
@@ -387,7 +387,7 @@ export function BattleScreen({
               </div>
 
               {/* Decorative bottom edge */}
-              <div className="h-2 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+              <div className="h-1.5 sm:h-2 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
             </div>
           </div>
         </div>

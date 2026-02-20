@@ -30,10 +30,10 @@ export function PartySprites({
   );
 
   return (
-    <div className="absolute bottom-4 left-[8%] md:left-[12%] flex items-end gap-0">
+    <div className="absolute bottom-2 sm:bottom-4 left-[5%] sm:left-[8%] md:left-[12%] flex items-end gap-0">
       {/* Other support characters behind (not Sam Jang) */}
       {otherMembers.length > 0 && (
-        <div className="flex flex-col-reverse items-start gap-1 -mr-6 md:-mr-10 z-0">
+        <div className="flex flex-col-reverse items-start gap-1 -mr-3 sm:-mr-6 md:-mr-10 z-0">
           {otherMembers.slice(0, 2).map((name, i) => {
             const char = QUEST_CHARACTERS[name];
             if (!char) return null;
@@ -47,7 +47,7 @@ export function PartySprites({
                   src={char.image}
                   alt={char.name}
                   loading="eager"
-                  className="w-[144px] h-[192px] md:w-[192px] md:h-[240px] object-contain animate-idle-bob drop-shadow-lg"
+                  className="w-[80px] h-[107px] sm:w-[120px] sm:h-[160px] md:w-[192px] md:h-[240px] object-contain animate-idle-bob drop-shadow-lg"
                   style={{ animationDelay: `${(i + 2) * 0.3}s` }}
                   draggable={false}
                 />
@@ -60,14 +60,14 @@ export function PartySprites({
       {/* Sam Jang — behind Wukong, facing backwards, 80% size, overlapping */}
       {samJang && (
         <div
-          className={`absolute bottom-0 z-0 ${isFlinching ? "animate-flinch" : ""}`}
-          style={{ animationDelay: "0.1s", left: "-60px", marginLeft: "-40px" }}
+          className={`absolute bottom-0 z-0 left-[-25px] sm:left-[-45px] md:left-[-60px] -ml-[15px] sm:-ml-[25px] md:-ml-[40px] ${isFlinching ? "animate-flinch" : ""}`}
+          style={{ animationDelay: "0.1s" }}
         >
           <img
             src={samJang.image}
             alt={samJang.name}
             loading="eager"
-            className="w-[230px] h-[307px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -scale-x-100"
+            className="w-[120px] h-[160px] sm:w-[175px] sm:h-[233px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -scale-x-100"
             style={{ animationDelay: "0.3s" }}
             draggable={false}
           />
@@ -90,12 +90,12 @@ export function PartySprites({
         {/* Player HP box with names + hearts above character */}
         <div className="relative mb-1 border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md">
           <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
-          <div className="px-3 py-1.5 space-y-1">
+          <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
             <div className="min-w-0">
-              <p className="font-pixel text-[10px] md:text-xs text-amber-900 truncate">
+              <p className="font-pixel text-[8px] sm:text-[10px] md:text-xs text-amber-900 truncate">
                 {unlockedCharacters.map((n) => QUEST_CHARACTERS[n]?.name).filter(Boolean).join(" · ")}
               </p>
-              <p className="font-chinese text-xs md:text-sm text-amber-800 truncate">
+              <p className="font-chinese text-[10px] sm:text-xs md:text-sm text-amber-800 truncate">
                 {unlockedCharacters.map((n) => QUEST_CHARACTERS[n]?.nameCN).filter(Boolean).join(" · ")}
               </p>
             </div>
@@ -106,7 +106,7 @@ export function PartySprites({
               return (
                 <Heart
                   key={i}
-                  className={`w-5 h-5 md:w-6 md:h-6 drop-shadow-md ${
+                  className={`w-3.5 h-3.5 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-md ${
                     isShattering
                       ? "animate-heart-shatter text-red-500 fill-red-500"
                       : isFilled
@@ -125,7 +125,7 @@ export function PartySprites({
           src={attackFrame ?? wukong.image}
           alt="Son Wukong"
           loading="eager"
-          className={`w-[288px] h-[384px] md:w-[384px] md:h-[480px] object-contain drop-shadow-xl ${
+          className={`w-[150px] h-[200px] sm:w-[220px] sm:h-[293px] md:w-[384px] md:h-[480px] object-contain drop-shadow-xl ${
             attackFrame ? "" : "animate-idle-bob"
           }`}
           draggable={false}

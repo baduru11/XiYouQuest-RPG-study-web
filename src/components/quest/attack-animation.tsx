@@ -79,9 +79,10 @@ export function useAttackAnimation(
       if (attackState !== "idle") return;
       scoreRef.current = score;
 
-      // Phase 1: Dash forward
+      // Phase 1: Dash forward (scale with screen width)
       setAttackState("dashing");
-      setDashOffset(120);
+      const dashDist = typeof window !== "undefined" ? Math.min(120, window.innerWidth * 0.18) : 120;
+      setDashOffset(dashDist);
 
       setTimeout(() => {
         // Phase 2: Attack frames

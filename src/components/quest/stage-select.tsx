@@ -77,7 +77,7 @@ export function StageSelect({
   const infoStatus = getStageStatus(infoStage);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-88px)] animate-fade-in-up">
+    <div className="flex flex-col h-[calc(100dvh-72px)] sm:h-[calc(100dvh-80px)] md:h-[calc(100dvh-88px)] animate-fade-in-up">
       {/* ─── Title bar ─── */}
       <div className="flex items-center justify-between px-4 py-2 shrink-0">
         <div className="min-w-0">
@@ -277,7 +277,7 @@ export function StageSelect({
           return (
             <span
               key={`label-${stageNum}`}
-              className="absolute -translate-x-1/2 font-chinese font-bold text-lg sm:text-xl md:text-2xl text-foreground/75 pointer-events-none whitespace-nowrap mt-7 sm:mt-8 md:mt-10 lg:mt-11"
+              className="absolute -translate-x-1/2 font-chinese font-bold text-sm sm:text-lg md:text-2xl text-foreground/75 pointer-events-none whitespace-nowrap mt-5 sm:mt-7 md:mt-10 lg:mt-11"
               style={{
                 left: `${(pos.x / 1000) * 100}%`,
                 top: `${(pos.y / 500) * 100}%`,
