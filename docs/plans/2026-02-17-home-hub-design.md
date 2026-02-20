@@ -28,7 +28,7 @@ Centered single-column (`max-w-2xl`) of full-width tiles:
 
 ```
 ┌─────────────────────────────────┐
-│  PSC Quest                      │  Website name (decorative header, not a link)
+│  XiYouQuest                     │  Website name (decorative header, not a link)
 ├─────────────────────────────────┤
 │  Main Quest          [Coming]   │  Disabled, "Coming Soon" badge
 ├─────────────────────────────────┤
@@ -47,7 +47,7 @@ Centered single-column (`max-w-2xl`) of full-width tiles:
 Each tile:
 - `pixel-border` card with `hover:pixel-border-primary` transition
 - Icon on left, label text, right-arrow or badge on right
-- PSC Quest tile uses `font-pixel` + `pixel-glow`
+- XiYouQuest tile uses `font-pixel` + `pixel-glow`
 - Main Quest tile has reduced opacity + "Coming Soon" tag
 
 No character greeting. No stats on the hub — stats live on the practice page.
@@ -56,11 +56,11 @@ No character greeting. No stats on the hub — stats live on the practice page.
 
 ```
 ┌──────────────────────────────────────────────┐
-│  PSC Quest          [═══XP Bar═══]  👤 Name ▾│
+│  XiYouQuest         [═══XP Bar═══]  👤 Name ▾│
 └──────────────────────────────────────────────┘
 ```
 
-- **Left:** "PSC Quest" logo → links to `/dashboard`
+- **Left:** "XiYouQuest" logo → links to `/dashboard`
 - **Right:** XP bar + Profile dropdown (avatar, name, dropdown: Profile, Social with pending badge, Log Out with confirmation)
 - **Removed:** All nav link buttons (Home, C1-C5, Character, Ranks), mobile hamburger Sheet
 

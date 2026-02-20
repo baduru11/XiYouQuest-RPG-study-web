@@ -1,4 +1,4 @@
-<h1 align="center">PSC Quest — 普通话水平测试 Study Companion</h1>
+<h1 align="center">XiYouQuest — 普通话水平测试 Study Companion</h1>
 
 <p align="center">
   <strong>AI-powered Putonghua Proficiency Test prep with anime companions, real-time speech scoring, and pixel-art gamification.</strong>
@@ -54,7 +54,7 @@
 
 ## Overview
 
-PSC Quest is a full-stack web application that transforms Putonghua Proficiency Test (PSC / 普通话水平测试) preparation into a gamified, AI-driven experience. Users practice all 5 official PSC components — plus 2 supplementary drills — with real-time pronunciation scoring from iFlytek's Intelligent Speech Evaluation engine, personalized AI feedback from Google Gemini, and a pixel-art retro aesthetic inspired by classic RPG quest boards.
+XiYouQuest is a full-stack web application that transforms Putonghua Proficiency Test (PSC / 普通话水平测试) preparation into a gamified, AI-driven experience. Users practice all 5 official PSC components — plus 2 supplementary drills — with real-time pronunciation scoring from iFlytek's Intelligent Speech Evaluation engine, personalized AI feedback from Google Gemini, and a pixel-art retro aesthetic inspired by classic RPG quest boards.
 
 Every practice session flows through a multi-service pipeline:
 

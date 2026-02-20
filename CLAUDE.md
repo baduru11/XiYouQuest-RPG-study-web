@@ -68,7 +68,7 @@ Three-layer auth: **middleware** refreshes session → **(main)/layout.tsx** cal
 
 ### Navigation
 
-Minimal navbar: **PSC Quest** logo (→ `/dashboard`), XP bar, profile dropdown (Profile, Social with pending badge, Log Out with confirmation). All primary navigation happens through the home hub tile menu at `/dashboard`.
+Minimal navbar: **XiYouQuest** logo (→ `/dashboard`), XP bar, profile dropdown (Profile, Social with pending badge, Log Out with confirmation). All primary navigation happens through the home hub tile menu at `/dashboard`.
 
 ### External Services (all in `src/lib/`)
 
@@ -122,7 +122,7 @@ All TTS uses iFlytek's global open platform WebSocket API (`wss://tts-api-sg.xf-
 
 ### Character Image System
 
-`src/lib/character-images.ts` maps character names to local image paths (`/img/character/{Name}/`). `getCharacterImageFallback()` provides local images as the `neutral` expression when Supabase has no expression images. The `CharacterDisplay` component renders expression-based images with transitions. Characters with local images: Kaede (`/img/character/Kaede/kaede.png`), Hao Ran (`/img/character/HaoRan/haoran.png`), Mei Lin (`/img/character/MeiLin/meilin.png`).
+`src/lib/character-images.ts` maps character names to local image paths (`/img/main character/{name}/`). `getCharacterImageFallback()` provides local images as the `neutral` expression when Supabase has no expression images. The `CharacterDisplay` component renders expression-based images with transitions. Characters are Journey to the West (西遊記) themed: Sun Wukong (`/img/main character/son wukong/오공 명함.webp`), Zhu Bajie (`/img/main character/zhu bajie/저팔계 명함.webp`), Sha Wujing (`/img/main character/sha wujing/사오정 명함.webp`), Tang Sanzang (`/img/main character/sam jang/삼장 명함.webp`).
 
 ### Database (Supabase PostgreSQL with RLS)
 
