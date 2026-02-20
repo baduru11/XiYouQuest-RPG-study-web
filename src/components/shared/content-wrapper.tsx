@@ -24,14 +24,18 @@ const KNOB_BASE: React.CSSProperties = {
 export function ContentWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/dashboard" || pathname === "/main-quest") {
+  if (pathname === "/dashboard") {
     return <>{children}</>;
+  }
+
+  if (pathname === "/main-quest") {
+    return <div className="py-4">{children}</div>;
   }
 
   const isPassageReading = pathname === "/component-4";
 
   return (
-    <div style={{ position: "relative", marginTop: 12, marginBottom: 16 }}>
+    <div style={{ position: "relative", marginTop: 28, marginBottom: 32 }}>
       {/* ── Top scroll roller (挂杆) ── */}
       <div
         style={{

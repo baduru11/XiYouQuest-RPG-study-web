@@ -192,7 +192,7 @@ export function DashboardClient({
 
   // ── Dashboard content ──
   return (
-    <div className="mx-auto max-w-2xl space-y-3 py-2">
+    <div className="mx-auto max-w-2xl space-y-2.5">
       {/* Mute button */}
       <button
         onClick={() => setMuted((m) => !m)}
@@ -219,18 +219,18 @@ export function DashboardClient({
 
       {/* Main Quest */}
       <Link href="/main-quest" className="group block">
-        <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all">
-          <div className="flex items-center gap-5">
-            <Swords className="h-8 w-8 text-primary shrink-0" />
+        <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all">
+          <div className="flex items-center gap-4">
+            <Swords className="h-6 w-6 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="font-pixel text-sm text-foreground leading-relaxed">
                 Main Quest
               </p>
-              <p className="text-base text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Journey to the West — Story Campaign
               </p>
             </div>
-            <ArrowRight className="h-6 w-6 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </div>
       </Link>
@@ -238,32 +238,48 @@ export function DashboardClient({
       {/* Menu tiles */}
       {MENU_ITEMS.map((item) => (
         <Link key={item.href} href={item.href} className="group block">
-          <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all">
-            <div className="flex items-center gap-5">
-              <item.icon className="h-8 w-8 text-primary shrink-0" />
+          <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all">
+            <div className="flex items-center gap-4">
+              <item.icon className="h-6 w-6 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-pixel text-sm text-foreground leading-relaxed">
                   {item.label}
                 </p>
-                <p className="text-base text-muted-foreground">{item.description}</p>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <ArrowRight className="h-6 w-6 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
           </div>
         </Link>
       ))}
 
+      {/* Achievements */}
+      <Link href="/achievements" className="group block">
+        <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all">
+          <div className="flex items-center gap-4">
+            <Trophy className="h-6 w-6 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-pixel text-sm text-foreground leading-relaxed">
+                Achievements
+              </p>
+              <p className="text-sm text-muted-foreground">Track your milestones</p>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        </div>
+      </Link>
+
       {/* Profile / Social row */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <Link href="/profile" className="group block">
-          <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
-            <UserCircle className="h-8 w-8 text-primary shrink-0" />
+          <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all flex items-center gap-4">
+            <UserCircle className="h-6 w-6 text-primary shrink-0" />
             <p className="font-pixel text-sm text-foreground leading-relaxed">Profile</p>
           </div>
         </Link>
         <Link href="/social" className="group block">
-          <div className="pixel-border chinese-corner bg-card px-5 py-3 hover:pixel-border-primary transition-all flex items-center gap-5">
-            <Users className="h-8 w-8 text-primary shrink-0" />
+          <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all flex items-center gap-4">
+            <Users className="h-6 w-6 text-primary shrink-0" />
             <p className="font-pixel text-sm text-foreground leading-relaxed">Social</p>
             {pendingCount > 0 && (
               <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs font-bold bg-primary text-primary-foreground pixel-border">

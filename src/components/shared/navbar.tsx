@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, LogOut, User, Users } from "lucide-react";
+import { ArrowLeft, LogOut, Trophy, User, Users } from "lucide-react";
 import Image from "next/image";
 
 interface NavbarProps {
@@ -114,6 +114,10 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
                     {pendingRequestCount}
                   </span>
                 )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push("/achievements")} className="text-lg font-bold px-3 py-2.5 gap-3">
+                <Trophy className="h-5 w-5" />
+                Achievements
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

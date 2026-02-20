@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NavbarClient } from "@/components/shared/navbar-client";
 import { ContentWrapper } from "@/components/shared/content-wrapper";
+import { AchievementToastProvider } from "@/components/shared/achievement-toast";
 
 export default async function MainLayout({
   children,
@@ -29,16 +30,18 @@ export default async function MainLayout({
   ]);
 
   return (
-    <div className="min-h-screen">
-      <NavbarClient
-        totalXP={profile?.total_xp ?? 0}
-        displayName={profile?.display_name ?? null}
-        avatarUrl={profile?.avatar_url ?? null}
-        pendingRequestCount={pendingCount ?? 0}
-      />
-      <main className="mx-auto max-w-screen-2xl px-4 py-4 lg:px-6">
-        <ContentWrapper>{children}</ContentWrapper>
-      </main>
-    </div>
+    <AchievementToastProvider>
+      <div className="min-h-screen">
+        <NavbarClient
+          totalXP={profile?.total_xp ?? 0}
+          displayName={profile?.display_name ?? null}
+          avatarUrl={profile?.avatar_url ?? null}
+          pendingRequestCount={pendingCount ?? 0}
+        />
+        <main className="mx-auto max-w-screen-2xl px-4 lg:px-6">
+          <ContentWrapper>{children}</ContentWrapper>
+        </main>
+      </div>
+    </AchievementToastProvider>
   );
 }
