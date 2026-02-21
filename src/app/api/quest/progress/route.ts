@@ -1,9 +1,9 @@
 // src/app/api/quest/progress/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import type { StageNumber } from "@/lib/quest/types";
 import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
+import { questProgressSchema } from "@/lib/validations";
 
 /** Map quest character names → DB character names */
 const QUEST_TO_DB_NAME: Record<string, string> = {
@@ -27,7 +27,8 @@ export async function GET() {
     .order("stage", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Quest progress fetch error:", error);
+    return NextResponse.json({ error: "Failed to load quest progress" }, { status: 500 });
   }
 
   return NextResponse.json({ progress: data });
@@ -42,16 +43,26 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { stage, is_cleared, score, damage_taken, remaining_hp } = body as {
-    stage: StageNumber;
-    is_cleared: boolean;
-    score: number;
-    damage_taken?: number;
-    remaining_hp?: number;
-  };
+  const parsed = questProgressSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+  const { stage, is_cleared, score, damage_taken, remaining_hp } = parsed.data;
 
-  if (!stage || stage < 1 || stage > 7) {
-    return NextResponse.json({ error: "Invalid stage" }, { status: 400 });
+  // Prerequisite stage check
+  const prerequisiteStage = STAGE_CONFIGS[stage].prerequisiteStage;
+  if (prerequisiteStage !== null) {
+    const { data: prereq } = await supabase
+      .from("quest_progress")
+      .select("is_cleared")
+      .eq("user_id", user.id)
+      .eq("stage", prerequisiteStage)
+      .eq("is_cleared", true)
+      .single();
+
+    if (!prereq) {
+      return NextResponse.json({ error: "Prerequisite stage not cleared" }, { status: 403 });
+    }
   }
 
   // Upsert: increment attempts, update best_score and is_cleared
@@ -81,7 +92,8 @@ export async function POST(request: NextRequest) {
       .eq("id", existing.id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Quest progress update error:", error);
+      return NextResponse.json({ error: "Failed to save quest progress" }, { status: 500 });
     }
   } else {
     const { error } = await supabase.from("quest_progress").insert({
@@ -94,7 +106,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Quest progress insert error:", error);
+      return NextResponse.json({ error: "Failed to save quest progress" }, { status: 500 });
     }
   }
 

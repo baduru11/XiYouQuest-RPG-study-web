@@ -35,8 +35,23 @@ export async function POST(request: NextRequest) {
       bestStreak,
     } = parsed.data;
 
-    // Server-side XP bounds validation
-    const clampedXpEarned = Math.max(0, Math.min(Math.floor(xpEarned), MAX_XP_PER_SESSION));
+    // Server-side XP bounds validation — cap per-question (max 20 XP each: 10 base * 2.0x streak)
+    const perQuestionCap = questionsAttempted > 0 ? questionsAttempted * 20 : MAX_XP_PER_SESSION;
+    const clampedXpEarned = Math.max(0, Math.min(Math.floor(xpEarned), perQuestionCap, MAX_XP_PER_SESSION));
+
+    // Anti-replay: reject duplicate submissions from same user+component within 10 seconds
+    const { data: recentSession } = await supabase
+      .from("practice_sessions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("component", component)
+      .gte("created_at", new Date(Date.now() - 10_000).toISOString())
+      .limit(1)
+      .single();
+
+    if (recentSession) {
+      return NextResponse.json({ error: "Duplicate submission" }, { status: 429 });
+    }
 
     // 1. Insert practice session
     const { error: sessionError } = await supabase
