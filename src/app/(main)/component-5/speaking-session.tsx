@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { getDialogue } from "@/lib/dialogue";
-import { useAudioSettings } from "@/components/shared/audio-settings";
 import { encodeWAV } from "@/lib/audio-utils";
 import { shuffle } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
@@ -68,7 +67,6 @@ interface C5SpeakingAnalysis {
 
 export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
-  const { applyTtsVolume } = useAudioSettings();
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
   const [phase, setPhase] = useState<SessionPhase>("select");
@@ -82,9 +80,6 @@ export function SpeakingSession({ topics, character, characterId, component }: S
   const [showTranscript, setShowTranscript] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [volume, setVolume] = useState(0);
-
-  const [isPlayingCompanion, setIsPlayingCompanion] = useState(false);
-  const companionAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // PCM WAV recording refs (replaces MediaRecorder)
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -101,59 +96,12 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     setDisplayTopics(shuffled.slice(0, 6));
   }, [topics]);
 
-  // Stop audio on unmount (when navigating to another page)
-  useEffect(() => {
-    return () => {
-      if (companionAudioRef.current) {
-        companionAudioRef.current.pause();
-        companionAudioRef.current = null;
-      }
-    };
-  }, []);
-
-  const playCompanionVoice = useCallback(async (text: string, _companionExpression: ExpressionName) => {
-    if (isPlayingCompanion) return;
-    setIsPlayingCompanion(true);
-    try {
-      const response = await fetchWithRetry("/api/tts/companion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          voiceId: character.voiceId,
-          text,
-        }),
-      });
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        applyTtsVolume(audio);
-        companionAudioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          companionAudioRef.current = null;
-          setIsPlayingCompanion(false);
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          companionAudioRef.current = null;
-          setIsPlayingCompanion(false);
-        };
-        await audio.play();
-      } else {
-        setIsPlayingCompanion(false);
-      }
-    } catch {
-      setIsPlayingCompanion(false);
-    }
-  }, [character.voiceId, isPlayingCompanion, applyTtsVolume]);
-
   // Greeting on mount (voice disabled)
   useEffect(() => {
     if (!hasPlayedGreeting.current) {
       hasPlayedGreeting.current = true;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Animate volume meter from analyser
   const updateVolume = useCallback(() => {
@@ -342,7 +290,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       setExpression("surprised");
       setDialogue(getDialogue(character.name, "c5_mic_error"));
     }
-  }, [updateVolume]);
+  }, [updateVolume, character.name]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
@@ -469,7 +417,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       setDialogue(getDialogue(character.name, "c5_error"));
       setAnalysis(null);
     }
-  }, [selectedTopic, character.personalityPrompt, playCompanionVoice]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedTopic, character.personalityPrompt, character.name]);
 
   // Back to topic selection
   const handleBackToSelection = useCallback(() => {
@@ -484,7 +432,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     hasSavedProgress.current = false;
     const shuffled = shuffle(topics);
     setDisplayTopics(shuffled.slice(0, 6));
-  }, [topics]);
+  }, [topics, character.name]);
 
   // Topic selection screen
   if (phase === "select") {

@@ -180,7 +180,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
       setExpression("neutral");
       setDialogue(getDialogue(character.name, "c3_next"));
     }
-  }, [currentIndex, randomizedQuestions.length]);
+  }, [currentIndex, randomizedQuestions.length, character.name]);
 
   // Get label for question type
   function getTypeLabel(type: QuizQuestion["type"]): string {

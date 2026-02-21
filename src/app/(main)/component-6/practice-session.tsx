@@ -81,7 +81,7 @@ export function PracticeSession({ questions, character, characterId, component, 
     setWordGroups(groups);
   }, [questions]);
 
-  const currentWords = wordGroups[currentGroupIndex] || [];
+  const currentWords = useMemo(() => wordGroups[currentGroupIndex] || [], [wordGroups, currentGroupIndex]);
   const progressPercent = wordGroups.length > 0 ? Math.round((currentGroupIndex / wordGroups.length) * 100) : 0;
 
   // Determine the current category label based on the word index
@@ -94,12 +94,6 @@ export function PracticeSession({ questions, character, characterId, component, 
       }
     }
     return label;
-  }, [currentGroupIndex, categoryBoundaries]);
-
-  // Detect if we're at the start of a new category
-  const isNewCategory = useMemo(() => {
-    const wordIndex = currentGroupIndex * C6_WORDS_PER_GROUP;
-    return categoryBoundaries.some(b => b.startIndex === wordIndex);
   }, [currentGroupIndex, categoryBoundaries]);
 
   // Computed averages for the feedback score display
@@ -382,7 +376,7 @@ export function PracticeSession({ questions, character, characterId, component, 
         { words: currentWords, wordScores: currentWords.map(w => ({ word: w, score: null })), groupXP: 0 },
       ]);
     }
-  }, [currentWords, character.personalityPrompt, streak, component]);
+  }, [currentWords, character.personalityPrompt, streak, component, character.name]);
 
   const handleSkip = useCallback(() => {
     setGroupResults(prev => [
@@ -402,7 +396,7 @@ export function PracticeSession({ questions, character, characterId, component, 
       setExpression("neutral");
       setDialogue(getDialogue(character.name, "skipped"));
     }
-  }, [currentWords, currentGroupIndex, wordGroups.length]);
+  }, [currentWords, currentGroupIndex, wordGroups.length, character.name]);
 
   const handleNext = useCallback(() => {
     if (currentGroupIndex + 1 >= wordGroups.length) {
@@ -417,7 +411,7 @@ export function PracticeSession({ questions, character, characterId, component, 
       setExpression("neutral");
       setDialogue(getDialogue(character.name, "next_group_words"));
     }
-  }, [currentGroupIndex, wordGroups.length]);
+  }, [currentGroupIndex, wordGroups.length, character.name]);
 
   // Completion screen
   if (phase === "complete") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
@@ -75,7 +75,7 @@ export function PracticeSession({ questions, character, characterId, component }
     setWordGroups(groups);
   }, [questions]);
 
-  const currentWords = wordGroups[currentGroupIndex] || [];
+  const currentWords = useMemo(() => wordGroups[currentGroupIndex] || [], [wordGroups, currentGroupIndex]);
   const progressPercent = wordGroups.length > 0 ? Math.round((currentGroupIndex / wordGroups.length) * 100) : 0;
 
   const speakWithBrowserTTS = useCallback((text: string): Promise<void> => {
@@ -367,7 +367,7 @@ export function PracticeSession({ questions, character, characterId, component }
         },
       ]);
     }
-  }, [currentWords, character.personalityPrompt, streak]);
+  }, [currentWords, character.personalityPrompt, streak, character.name]);
 
   const handleSkip = useCallback(() => {
     // Revoke cached audio URLs for this group to free memory
@@ -397,7 +397,7 @@ export function PracticeSession({ questions, character, characterId, component }
       setExpression("neutral");
       setDialogue(getDialogue(character.name, "skipped"));
     }
-  }, [currentWords, currentGroupIndex, wordGroups.length]);
+  }, [currentWords, currentGroupIndex, wordGroups.length, character.name]);
 
   const handleNext = useCallback(() => {
     // Revoke cached audio URLs for this group to free memory
@@ -417,7 +417,7 @@ export function PracticeSession({ questions, character, characterId, component }
       setExpression("neutral");
       setDialogue(getDialogue(character.name, "next_group_characters"));
     }
-  }, [currentGroupIndex, wordGroups.length]);
+  }, [currentGroupIndex, wordGroups.length, character.name]);
 
   // Completion screen
   if (phase === "complete") {

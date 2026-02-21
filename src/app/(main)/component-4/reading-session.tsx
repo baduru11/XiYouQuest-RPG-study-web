@@ -7,7 +7,6 @@ import { DialogueBox } from "@/components/character/dialogue-box";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { fetchWithRetry } from "@/lib/fetch-retry";
@@ -66,12 +65,11 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
-  const [isPlayingCompanion, setIsPlayingCompanion] = useState(false);
   const [playingSentenceIndex, setPlayingSentenceIndex] = useState<number | null>(null);
   const [overallScore, setOverallScore] = useState<number | null>(null);
   const [sentenceScores, setSentenceScores] = useState<SentenceScore[]>([]);
   const [totalXPEarned, setTotalXPEarned] = useState(0);
-  const [feedbackText, setFeedbackText] = useState("");
+  const [, setFeedbackText] = useState("");
   const hasPlayedGreeting = useRef(false);
 
   // Background overlay ref for passage images (DOM-managed on body)
@@ -98,40 +96,6 @@ export function ReadingSession({ passages, character, characterId, component }: 
       window.speechSynthesis.speak(utterance);
     });
   }, [applyUtteranceVolume]);
-
-  const playCompanionVoice = useCallback(async (text: string, companionExpression: ExpressionName) => {
-    if (isPlayingCompanion || isPlayingAudio) return;
-    setIsPlayingCompanion(true);
-    try {
-      const response = await fetchWithRetry("/api/tts/companion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          voiceId: character.voiceId,
-          text,
-        }),
-      });
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        applyTtsVolume(audio);
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          setIsPlayingCompanion(false);
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(audioUrl);
-          setIsPlayingCompanion(false);
-        };
-        await audio.play();
-      } else {
-        setIsPlayingCompanion(false);
-      }
-    } catch {
-      setIsPlayingCompanion(false);
-    }
-  }, [character.voiceId, isPlayingCompanion, isPlayingAudio, applyTtsVolume]);
 
   // Stop currently playing audio
   const stopAudio = useCallback(() => {
@@ -180,7 +144,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     if (!hasPlayedGreeting.current) {
       hasPlayedGreeting.current = true;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Save progress when reading assessment completes
   const hasSavedProgress = useRef(false);
@@ -280,7 +244,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
       } catch { /* ignore */ }
       onFinished();
     }
-  }, [selectedPassage, character.voiceId, isPlayingAudio, isLoadingAudio, speakWithBrowserTTS]);
+  }, [selectedPassage, character.voiceId, isPlayingAudio, isLoadingAudio, speakWithBrowserTTS, applyTtsVolume, character.name]);
 
   // Play a single sentence (with client-side caching)
   const playSentence = useCallback(async (sentence: string, index: number) => {
@@ -363,7 +327,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
       } catch { /* ignore */ }
       onFinished();
     }
-  }, [character.voiceId, isPlayingAudio, speakWithBrowserTTS]);
+  }, [character.voiceId, isPlayingAudio, speakWithBrowserTTS, applyTtsVolume]);
 
   // Handle recording completion
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
@@ -508,18 +472,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
       setOverallScore(null);
       setFeedbackText("Assessment failed");
     }
-  }, [selectedPassage, sentences, character.personalityPrompt, playCompanionVoice]);
-
-  // Skip the current passage without recording
-  const handleSkipPassage = useCallback(() => {
-    setPhase("feedback");
-    setOverallScore(null);
-    setSentenceScores([]);
-    setTotalXPEarned(0);
-    setFeedbackText("Passage skipped");
-    setExpression("neutral");
-    setDialogue(getDialogue(character.name, "c4_skipped"));
-  }, []);
+  }, [selectedPassage, sentences, character.personalityPrompt, character.name]);
 
   // Select a passage
   const handleSelectPassage = useCallback((passage: Passage) => {
@@ -568,7 +521,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     if (bgOverlayRef.current) {
       bgOverlayRef.current.style.opacity = "0";
     }
-  }, []);
+  }, [character.name]);
 
   // Passage selection screen
   if (phase === "select") {
