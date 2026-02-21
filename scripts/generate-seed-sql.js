@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Parses all source question data and generates SQL migration files
  * for seeding into the question_banks table.
@@ -79,10 +80,6 @@ function parseC2() {
       }
     }
   }
-
-  // Reconstruct words using the word list as guide
-  const entries = [];
-  let pairIdx = 0;
 
   // Build word list from the pinyin file directly by matching against known words
   // Actually, let's use a simpler approach: the pinyin file format is
