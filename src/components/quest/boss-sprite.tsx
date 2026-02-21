@@ -47,6 +47,7 @@ export function BossSprite({
         {isHit && (
           <div className="absolute inset-0 bg-white/40 z-10 pointer-events-none rounded-sm" />
         )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={bossImage}
           alt={bossName}

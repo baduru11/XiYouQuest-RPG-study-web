@@ -164,7 +164,7 @@ export function PlayerAttack({
         if (mountedRef.current) setPlayingWord(null);
       }
     },
-    [playingWord]
+    [playingWord, applyTtsVolume]
   );
 
   const isPassage = recordingGroup.type === "passage";

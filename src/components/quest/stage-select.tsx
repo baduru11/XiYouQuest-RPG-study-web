@@ -99,6 +99,7 @@ export function StageSelect({
                 className="w-9 h-9 md:w-11 md:h-11 rounded-full border-2 border-amber-700/60 overflow-hidden bg-amber-900/30"
                 title={`${char.name} · ${char.nameCN}`}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={char.portrait}
                   alt={char.name}

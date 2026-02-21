@@ -46,6 +46,7 @@ export function PartySprites({
             className={`absolute bottom-[35px] sm:bottom-[65px] md:bottom-[80px] z-0 ${leftOffsets[i]} ${isFlinching ? "animate-flinch" : ""}`}
             style={{ animationDelay: `${(i + 2) * 0.1}s` }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={char.image}
               alt={char.name}
@@ -64,6 +65,7 @@ export function PartySprites({
           className={`absolute bottom-[35px] sm:bottom-[65px] md:bottom-[80px] z-0 left-[-20px] sm:left-[-70px] md:left-[-115px] ${isFlinching ? "animate-flinch" : ""}`}
           style={{ animationDelay: "0.1s" }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={samJang.image}
             alt={samJang.name}
@@ -88,6 +90,7 @@ export function PartySprites({
               : "transform 0.3s ease-in",
         }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={attackFrame ?? wukong.image}
           alt="Son Wukong"
