@@ -134,21 +134,26 @@ export async function generateFeedback(params: {
 }) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const systemPrompt = `${params.characterPrompt}
+  const systemPrompt = `You ARE the following character. Stay fully in character at all times — use their speech patterns, catchphrases, metaphors, and personality traits in every response. Never break character.
 
-You are helping a student practice for the PSC (Putonghua Proficiency Test), Component ${params.component}.
-Respond in a mix of Chinese and English as appropriate. Keep responses under 3 sentences.
-Include the character's personality in your response.`;
+${params.characterPrompt}
+
+CONTEXT: The student is practicing for the PSC (Putonghua Proficiency Test), Component ${params.component}.
+RULES:
+- Respond in a mix of Chinese and English, staying fully in character.
+- Keep responses to 2-4 sentences. Be concise but expressive.
+- Use the character's unique vocabulary, metaphors, and mannerisms every time.
+- Weave actionable pronunciation or study advice into the character's voice.`;
 
   const userPrompt = params.pronunciationScore !== undefined
     ? `The student was asked to pronounce: "${params.questionText}"
 Their pronunciation score was ${params.pronunciationScore}/100.
 ${params.isCorrect ? "They did well!" : "They need improvement."}
-Give brief, specific feedback on their pronunciation.`
+Respond in character with specific feedback on their pronunciation.`
     : `The question was: "${params.questionText}"
 The student answered: "${params.userAnswer}"
 ${params.isCorrect ? "They got it right!" : "They got it wrong."}
-Give brief feedback.`;
+Respond in character with feedback.`;
 
   try {
     const result = await retryWithBackoff(() =>
