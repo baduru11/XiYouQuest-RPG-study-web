@@ -6,6 +6,11 @@ import { progressUpdateSchema } from "@/lib/validations";
 import { MAX_XP_PER_SESSION } from "@/lib/constants";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
+/** Get today's date in Hong Kong time (YYYY-MM-DD) */
+function getHKTDate(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" });
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -64,75 +69,33 @@ export async function POST(request: NextRequest) {
       console.error("Progress upsert error:", progressError);
     }
 
-    // 3. Get current profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("total_xp, current_level, last_login_date, login_streak")
-      .eq("id", user.id)
-      .single();
+    // 3. Atomic streak + XP update via RPC (HKT timezone, race-condition safe)
+    const todayHKT = getHKTDate();
+    const { data: streakResult, error: streakError } = await supabase.rpc("update_profile_with_streak", {
+      p_user_id: user.id,
+      p_today: todayHKT,
+      p_xp_to_add: clampedXpEarned,
+      p_daily_bonus_base: XP_VALUES.daily_login,
+    });
 
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    if (streakError) {
+      console.error("Streak update error:", streakError);
+      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
     }
 
-    // 4. Add XP to profile.total_xp
-    let totalXpToAdd = clampedXpEarned;
+    const newTotalXP = streakResult[0]?.new_total_xp ?? 0;
+    const dailyBonus = streakResult[0]?.daily_bonus_awarded ?? 0;
 
-    // 8. Check and update daily login streak
-    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const lastLogin = profile.last_login_date;
-    let dailyBonus = 0;
-    let newLoginStreak = profile.login_streak;
-
-    if (lastLogin !== today) {
-      // Calculate if last login was yesterday
-      if (lastLogin) {
-        const lastDate = new Date(lastLogin);
-        const todayDate = new Date(today);
-        const diffTime = todayDate.getTime() - lastDate.getTime();
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 1) {
-          // Yesterday - increment streak
-          newLoginStreak = profile.login_streak + 1;
-        } else {
-          // More than 1 day gap - reset streak
-          newLoginStreak = 1;
-        }
-      } else {
-        // First ever login
-        newLoginStreak = 1;
-      }
-
-      // Award daily login XP bonus
-      dailyBonus = XP_VALUES.daily_login;
-      totalXpToAdd += dailyBonus;
-    }
-    // If lastLogin === today, no change to streak, no daily bonus
-
-    const newTotalXP = profile.total_xp + totalXpToAdd;
-
-    // 5. Recalculate user level from new total_xp
+    // 4. Recalculate user level from new total_xp
     const levelInfo = getUserLevel(newTotalXP);
 
-    // Update profile with new XP, level, and login info
-    const profileUpdate: Record<string, unknown> = {
-      total_xp: newTotalXP,
-      current_level: levelInfo.level,
-    };
-
-    if (lastLogin !== today) {
-      profileUpdate.last_login_date = today;
-      profileUpdate.login_streak = newLoginStreak;
-    }
-
-    const { error: profileError } = await supabase
+    const { error: levelError } = await supabase
       .from("profiles")
-      .update(profileUpdate)
+      .update({ current_level: levelInfo.level })
       .eq("id", user.id);
 
-    if (profileError) {
-      console.error("Profile update error:", profileError);
+    if (levelError) {
+      console.error("Level update error:", levelError);
     }
 
     // 6. Add xpEarned to user_characters.affection_xp
