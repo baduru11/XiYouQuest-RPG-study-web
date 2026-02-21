@@ -9,6 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
+import { getDialogue } from "@/lib/dialogue";
+import { useAudioSettings } from "@/components/shared/audio-settings";
 import { encodeWAV } from "@/lib/audio-utils";
 import { shuffle } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
@@ -66,11 +68,12 @@ interface C5SpeakingAnalysis {
 
 export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
+  const { applyTtsVolume } = useAudioSettings();
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
   const [phase, setPhase] = useState<SessionPhase>("select");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
-  const [dialogue, setDialogue] = useState("Choose a topic to speak about! Speak for at least 3 minutes.");
+  const [dialogue, setDialogue] = useState(getDialogue(character.name, "c5_initial"));
   const [elapsedTime, setElapsedTime] = useState(0);
   const elapsedTimeRef = useRef(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -124,6 +127,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
+        applyTtsVolume(audio);
         companionAudioRef.current = audio;
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
@@ -142,7 +146,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     } catch {
       setIsPlayingCompanion(false);
     }
-  }, [character.voiceId, isPlayingCompanion]);
+  }, [character.voiceId, isPlayingCompanion, applyTtsVolume]);
 
   // Greeting on mount (voice disabled)
   useEffect(() => {
@@ -282,7 +286,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       setPhase("countdown");
       setExpression("encouraging");
       setCountdown(3);
-      setDialogue("Get ready...");
+      setDialogue(getDialogue(character.name, "c5_get_ready"));
 
       // 3-second countdown
       await new Promise<void>((resolve) => {
@@ -333,10 +337,10 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       setPhase("recording");
       setElapsedTime(0);
       setExpression("listening");
-      setDialogue("I'm listening! Take your time, follow the structure, and speak naturally.");
+      setDialogue(getDialogue(character.name, "c5_listening"));
     } catch {
       setExpression("surprised");
-      setDialogue("I couldn't access your microphone. Please check your browser permissions.");
+      setDialogue(getDialogue(character.name, "c5_mic_error"));
     }
   }, [updateVolume]);
 
@@ -385,7 +389,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
     setPhase("assessing");
     setExpression("thinking");
-    setDialogue("Let me analyze your speaking... transcribing, checking pronunciation, vocabulary, grammar, and fluency.");
+    setDialogue(getDialogue(character.name, "c5_analyzing"));
 
     const spokenTime = elapsedTimeRef.current;
 
@@ -462,7 +466,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     } catch {
       setPhase("feedback");
       setExpression("surprised");
-      setDialogue("Something went wrong with the assessment. Let's try again!");
+      setDialogue(getDialogue(character.name, "c5_error"));
       setAnalysis(null);
     }
   }, [selectedTopic, character.personalityPrompt, playCompanionVoice]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -476,7 +480,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     setTotalXPEarned(0);
     setShowTranscript(false);
     setExpression("neutral");
-    setDialogue("Choose a topic to speak about! Speak for at least 3 minutes.");
+    setDialogue(getDialogue(character.name, "c5_initial"));
     hasSavedProgress.current = false;
     const shuffled = shuffle(topics);
     setDisplayTopics(shuffled.slice(0, 6));

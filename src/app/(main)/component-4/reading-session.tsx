@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { fetchWithRetry } from "@/lib/fetch-retry";
+import { getDialogue } from "@/lib/dialogue";
+import { useAudioSettings } from "@/components/shared/audio-settings";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
@@ -56,10 +58,11 @@ function splitIntoSentences(content: string): string[] {
 
 export function ReadingSession({ passages, character, characterId, component }: ReadingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
+  const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [selectedPassage, setSelectedPassage] = useState<Passage | null>(null);
   const [phase, setPhase] = useState<SessionPhase>("select");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
-  const [dialogue, setDialogue] = useState("Pick a passage to read! I'll help you practice.");
+  const [dialogue, setDialogue] = useState(getDialogue(character.name, "c4_initial"));
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -89,11 +92,12 @@ export function ReadingSession({ passages, character, characterId, component }: 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "zh-CN";
       utterance.rate = 0.9;
+      applyUtteranceVolume(utterance);
       utterance.onend = () => resolve();
       utterance.onerror = () => resolve();
       window.speechSynthesis.speak(utterance);
     });
-  }, []);
+  }, [applyUtteranceVolume]);
 
   const playCompanionVoice = useCallback(async (text: string, companionExpression: ExpressionName) => {
     if (isPlayingCompanion || isPlayingAudio) return;
@@ -111,6 +115,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
+        applyTtsVolume(audio);
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
           setIsPlayingCompanion(false);
@@ -126,7 +131,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     } catch {
       setIsPlayingCompanion(false);
     }
-  }, [character.voiceId, isPlayingCompanion, isPlayingAudio]);
+  }, [character.voiceId, isPlayingCompanion, isPlayingAudio, applyTtsVolume]);
 
   // Stop currently playing audio
   const stopAudio = useCallback(() => {
@@ -219,14 +224,14 @@ export function ReadingSession({ passages, character, characterId, component }: 
     setIsLoadingAudio(true);
     setPhase("listening-model");
     setExpression("happy");
-    setDialogue("Loading the model reading...");
+    setDialogue(getDialogue(character.name, "c4_loading_model"));
 
     const onFinished = () => {
       setIsPlayingAudio(false);
       setIsLoadingAudio(false);
       setPhase("ready");
       setExpression("encouraging");
-      setDialogue("Now it's your turn! Read the passage aloud. Take your time and keep a natural pace.");
+      setDialogue(getDialogue(character.name, "c4_your_turn"));
     };
 
     try {
@@ -243,6 +248,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
+        applyTtsVolume(audio);
         currentAudioRef.current = audio;
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
@@ -257,12 +263,12 @@ export function ReadingSession({ passages, character, characterId, component }: 
         };
         setIsLoadingAudio(false);
         setIsPlayingAudio(true);
-        setDialogue("Listen carefully to how I read the passage...");
+        setDialogue(getDialogue(character.name, "c4_listening"));
         await audio.play();
       } else {
         setIsLoadingAudio(false);
         setIsPlayingAudio(true);
-        setDialogue("Listen carefully to how I read the passage...");
+        setDialogue(getDialogue(character.name, "c4_listening"));
         await speakWithBrowserTTS(selectedPassage.content);
         onFinished();
       }
@@ -295,6 +301,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     if (cachedAudioUrl) {
       // Play from cache - no network request!
       const audio = new Audio(cachedAudioUrl);
+      applyTtsVolume(audio);
       currentAudioRef.current = audio; // Store reference for stop button
       audio.onended = () => {
         currentAudioRef.current = null;
@@ -334,6 +341,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
         audioCache.current.set(cacheKey, audioUrl);
 
         const audio = new Audio(audioUrl);
+        applyTtsVolume(audio);
         currentAudioRef.current = audio; // Store reference for stop button
         audio.onended = () => {
           currentAudioRef.current = null;
@@ -363,7 +371,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
 
     setPhase("assessing");
     setExpression("thinking");
-    setDialogue("Let me analyze your reading... checking pronunciation, pacing, and fluency.");
+    setDialogue(getDialogue(character.name, "c4_analyzing"));
 
     try {
       // Send audio to speech assessment API
@@ -496,7 +504,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     } catch {
       setPhase("feedback");
       setExpression("surprised");
-      setDialogue("Something went wrong with the assessment. But don't worry, try again!");
+      setDialogue(getDialogue(character.name, "c4_error"));
       setOverallScore(null);
       setFeedbackText("Assessment failed");
     }
@@ -510,7 +518,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     setTotalXPEarned(0);
     setFeedbackText("Passage skipped");
     setExpression("neutral");
-    setDialogue("No problem! You can try another passage or come back to this one later.");
+    setDialogue(getDialogue(character.name, "c4_skipped"));
   }, []);
 
   // Select a passage
@@ -554,7 +562,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
     setFeedbackText("");
 
     setExpression("neutral");
-    setDialogue("Pick a passage to read! I'll help you practice.");
+    setDialogue(getDialogue(character.name, "c4_initial"));
 
     // Fade out passage background
     if (bgOverlayRef.current) {
@@ -635,7 +643,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
                 setSentenceScores([]);
                 setFeedbackText("");
                 setExpression("neutral");
-                setDialogue("Let's try this passage again! Listen to the model first if you need to.");
+                setDialogue(getDialogue(character.name, "c4_retry"));
               }} className="w-full">
                 Try Again
               </Button>
@@ -770,20 +778,10 @@ export function ReadingSession({ passages, character, characterId, component }: 
             )}
 
             {(phase === "ready" || phase === "listening-model") && (
-              <>
-                <AudioRecorder
-                  onRecordingComplete={handleRecordingComplete}
-                  disabled={isPlayingAudio}
-                />
-                <Button
-                  onClick={handleSkipPassage}
-                  disabled={isPlayingAudio}
-                  variant="ghost"
-                  className="w-full"
-                >
-                  Skip Passage
-                </Button>
-              </>
+              <AudioRecorder
+                onRecordingComplete={handleRecordingComplete}
+                disabled={isPlayingAudio}
+              />
             )}
           </div>
         </div>

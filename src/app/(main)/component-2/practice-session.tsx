@@ -15,6 +15,8 @@ import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
+import { getDialogue } from "@/lib/dialogue";
+import { useAudioSettings } from "@/components/shared/audio-settings";
 
 interface PracticeSessionProps {
   questions: string[];
@@ -75,11 +77,12 @@ function detectTrickyElements(word: string): string[] {
 
 export function PracticeSession({ questions, character, characterId, component }: PracticeSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
+  const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
   const [phase, setPhase] = useState<SessionPhase>("ready");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
-  const [dialogue, setDialogue] = useState(`Let's practice multisyllabic words!`);
+  const [dialogue, setDialogue] = useState(getDialogue(character.name, "c2_initial"));
   const [wordScores, setWordScores] = useState<WordScore[]>([]);
   const [streak, setStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
@@ -122,11 +125,12 @@ export function PracticeSession({ questions, character, characterId, component }
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "zh-CN";
       utterance.rate = 0.9;
+      applyUtteranceVolume(utterance);
       utterance.onend = () => resolve();
       utterance.onerror = () => resolve();
       window.speechSynthesis.speak(utterance);
     });
-  }, []);
+  }, [applyUtteranceVolume]);
 
   // Save progress when session completes
   useEffect(() => {
@@ -204,6 +208,7 @@ export function PracticeSession({ questions, character, characterId, component }
         wordAudioCache.current.set(word, audioUrl);
       }
       const audio = new Audio(audioUrl);
+      applyTtsVolume(audio);
       currentAudioRef.current = audio;
       audio.onended = () => { currentAudioRef.current = null; playingRef.current = false; setPlayingWordIndex(null); };
       audio.onerror = () => { currentAudioRef.current = null; playingRef.current = false; setPlayingWordIndex(null); };
@@ -214,12 +219,12 @@ export function PracticeSession({ questions, character, characterId, component }
       playingRef.current = false;
       setPlayingWordIndex(null);
     }
-  }, [character.voiceId, speakWithBrowserTTS]);
+  }, [character.voiceId, speakWithBrowserTTS, applyTtsVolume]);
 
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
     setPhase("assessing");
     setExpression("thinking");
-    setDialogue("Let me check all your words...");
+    setDialogue(getDialogue(character.name, "assessing"));
 
     try {
       const referenceText = currentWords.join(" ");
@@ -411,7 +416,7 @@ export function PracticeSession({ questions, character, characterId, component }
     } catch {
       setPhase("feedback");
       setExpression("surprised");
-      setDialogue("Hmm, something went wrong with the assessment. Let's try the next one!");
+      setDialogue(getDialogue(character.name, "error"));
 
       setGroupResults(prev => [
         ...prev,
@@ -442,7 +447,7 @@ export function PracticeSession({ questions, character, characterId, component }
     if (currentGroupIndex + 1 >= wordGroups.length) {
       setPhase("complete");
       setExpression("proud");
-      setDialogue("Practice complete! Let's see your results!");
+      setDialogue(getDialogue(character.name, "session_complete"));
     } else {
       setCurrentGroupIndex(prev => prev + 1);
       setPhase("ready");
@@ -450,7 +455,7 @@ export function PracticeSession({ questions, character, characterId, component }
       setFeedbackText("");
       setShowPinyin(false);
       setExpression("neutral");
-      setDialogue("Skipped! Ready for the next group?");
+      setDialogue(getDialogue(character.name, "skipped"));
     }
   }, [currentWords, currentGroupIndex, wordGroups.length]);
 
@@ -462,7 +467,7 @@ export function PracticeSession({ questions, character, characterId, component }
     if (currentGroupIndex + 1 >= wordGroups.length) {
       setPhase("complete");
       setExpression("proud");
-      setDialogue("Amazing! You completed all the groups!");
+      setDialogue(getDialogue(character.name, "all_complete"));
     } else {
       setCurrentGroupIndex(prev => prev + 1);
       setPhase("ready");
@@ -470,7 +475,7 @@ export function PracticeSession({ questions, character, characterId, component }
       setFeedbackText("");
       setShowPinyin(false);
       setExpression("neutral");
-      setDialogue("Ready for the next group? Tap any word to listen!");
+      setDialogue(getDialogue(character.name, "next_group_words"));
     }
   }, [currentGroupIndex, wordGroups.length]);
 

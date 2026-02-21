@@ -14,6 +14,7 @@ import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { ExpressionName } from "@/types/character";
 import type { QuizQuestion, QuestionResult, ComponentNumber } from "@/types/practice";
+import { getDialogue } from "@/lib/dialogue";
 
 interface QuizSessionProps {
   questions: QuizQuestion[];
@@ -38,7 +39,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState<SessionPhase>("answering");
   const [expression, setExpression] = useState<ExpressionName>("neutral");
-  const [dialogue, setDialogue] = useState("Let's test your Putonghua knowledge! Pick the best answer.");
+  const [dialogue, setDialogue] = useState(getDialogue(character.name, "c3_initial"));
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [streak, setStreak] = useState(0);
   const [totalXPEarned, setTotalXPEarned] = useState(0);
@@ -171,13 +172,13 @@ export function QuizSession({ questions, character, characterId, component }: Qu
     if (currentIndex + 1 >= randomizedQuestions.length) {
       setPhase("complete");
       setExpression("proud");
-      setDialogue("Great job completing the quiz! Let's review your results.");
+      setDialogue(getDialogue(character.name, "c3_complete"));
     } else {
       setCurrentIndex((prev) => prev + 1);
       setPhase("answering");
       setSelectedAnswer(null);
       setExpression("neutral");
-      setDialogue("Next question! Think carefully before you answer.");
+      setDialogue(getDialogue(character.name, "c3_next"));
     }
   }, [currentIndex, randomizedQuestions.length]);
 
