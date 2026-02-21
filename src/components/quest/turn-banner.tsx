@@ -13,12 +13,12 @@ export function TurnBanner({ phase, visible }: TurnBannerProps) {
   return (
     <div className="absolute inset-x-0 top-[35%] z-30 flex justify-center pointer-events-none">
       <div
-        className={`px-8 py-3 ${
+        className={`px-4 py-2 sm:px-8 sm:py-3 ${
           isPlayer ? "bg-green-900/80" : "bg-red-900/80"
         } backdrop-blur-sm animate-banner-in`}
       >
         <p
-          className={`font-pixel text-sm md:text-base tracking-wider ${
+          className={`font-pixel text-xs sm:text-sm md:text-base tracking-wider ${
             isPlayer
               ? "text-green-400 pixel-glow-green"
               : "text-red-400 pixel-glow"

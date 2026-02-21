@@ -328,7 +328,7 @@ export function BattleScreen({
               )}
 
               {/* Scroll content */}
-              <div className="px-3 py-3 sm:px-6 sm:py-4 space-y-3 sm:space-y-4 max-h-[40vh] sm:max-h-[45vh] overflow-y-auto">
+              <div className="px-3 py-3 sm:px-6 sm:py-4 space-y-3 sm:space-y-4 max-h-[35vh] sm:max-h-[45vh] overflow-y-auto">
                 {/* Player Menu */}
                 {battleState.phase === "player_menu" && (
                   <div className="text-center space-y-4">

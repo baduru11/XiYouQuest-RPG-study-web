@@ -113,7 +113,7 @@ export function BossAttack({
       {/* Question counter + Timer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-24 h-2 bg-amber-900/20 rounded-full overflow-hidden">
+          <div className="w-16 sm:w-24 h-2 bg-amber-900/20 rounded-full overflow-hidden">
             <div
               className={`h-full transition-all duration-1000 ease-linear ${
                 timeLeft > timerSeconds * 0.5
@@ -146,7 +146,7 @@ export function BossAttack({
       <div className="grid gap-2">
         {mcq.options.map((option, i) => {
           let optionClass =
-            "w-full text-center px-4 py-3 font-chinese text-lg md:text-xl border-2 transition-all rounded-sm ";
+            "w-full text-center px-3 py-3 sm:px-4 font-chinese text-base sm:text-lg md:text-xl border-2 transition-all rounded-sm min-h-[44px] ";
 
           if (showResult) {
             if (i === mcq.correctIndex) {

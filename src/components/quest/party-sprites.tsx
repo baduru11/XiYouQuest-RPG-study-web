@@ -30,27 +30,27 @@ export function PartySprites({
   );
 
   return (
-    <div className="absolute bottom-6 sm:bottom-10 left-[12%] sm:left-[15%] md:left-[18%] flex items-end gap-0">
+    <div className="absolute bottom-6 sm:bottom-10 left-[8%] sm:left-[15%] md:left-[18%] flex items-end gap-0">
       {/* Other support characters behind (not Sam Jang) — 80% of Wukong, each at own position */}
       {otherMembers.slice(0, 2).map((name, i) => {
         const char = QUEST_CHARACTERS[name];
         if (!char) return null;
         // Each member gets progressively further left
         const leftOffsets = [
-          "left-[-55px] sm:left-[-125px] md:left-[-210px]",
-          "left-[-80px] sm:left-[-180px] md:left-[-305px]",
+          "left-[-35px] sm:left-[-125px] md:left-[-210px]",
+          "left-[-55px] sm:left-[-180px] md:left-[-305px]",
         ];
         return (
           <div
             key={name}
-            className={`absolute bottom-[55px] sm:bottom-[65px] md:bottom-[80px] z-0 ${leftOffsets[i]} ${isFlinching ? "animate-flinch" : ""}`}
+            className={`absolute bottom-[35px] sm:bottom-[65px] md:bottom-[80px] z-0 ${leftOffsets[i]} ${isFlinching ? "animate-flinch" : ""}`}
             style={{ animationDelay: `${(i + 2) * 0.1}s` }}
           >
             <img
               src={char.image}
               alt={char.name}
               loading="eager"
-              className="w-[120px] h-[160px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg"
+              className="w-[100px] h-[133px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg"
               style={{ animationDelay: `${(i + 2) * 0.3}s` }}
               draggable={false}
             />
@@ -61,14 +61,14 @@ export function PartySprites({
       {/* Sam Jang — behind Wukong, facing backwards, 80% of Wukong */}
       {samJang && (
         <div
-          className={`absolute bottom-[55px] sm:bottom-[65px] md:bottom-[80px] z-0 left-[-30px] sm:left-[-70px] md:left-[-115px] ${isFlinching ? "animate-flinch" : ""}`}
+          className={`absolute bottom-[35px] sm:bottom-[65px] md:bottom-[80px] z-0 left-[-20px] sm:left-[-70px] md:left-[-115px] ${isFlinching ? "animate-flinch" : ""}`}
           style={{ animationDelay: "0.1s" }}
         >
           <img
             src={samJang.image}
             alt={samJang.name}
             loading="eager"
-            className="w-[120px] h-[160px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -scale-x-100"
+            className="w-[100px] h-[133px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -scale-x-100"
             style={{ animationDelay: "0.3s" }}
             draggable={false}
           />
@@ -99,14 +99,14 @@ export function PartySprites({
         />
 
         {/* Player HP box with names + hearts below character */}
-        <div className="relative mt-1 border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md">
+        <div className="relative mt-1 border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[150px] sm:max-w-[220px] md:max-w-[384px]">
           <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
           <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
-            <div className="min-w-0">
-              <p className="font-pixel text-[9px] sm:text-[10px] md:text-xs text-amber-900 truncate">
+            <div>
+              <p className="font-pixel text-[9px] sm:text-[10px] md:text-xs text-amber-900 text-center leading-relaxed">
                 {unlockedCharacters.map((n) => QUEST_CHARACTERS[n]?.name).filter(Boolean).join(" · ")}
               </p>
-              <p className="font-chinese text-[10px] sm:text-xs md:text-sm text-amber-800 truncate">
+              <p className="font-chinese text-[10px] sm:text-xs md:text-sm text-amber-800 text-center leading-relaxed">
                 {unlockedCharacters.map((n) => QUEST_CHARACTERS[n]?.nameCN).filter(Boolean).join(" · ")}
               </p>
             </div>

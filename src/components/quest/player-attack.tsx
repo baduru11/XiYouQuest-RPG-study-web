@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
 import type { RecordingGroup } from "@/lib/quest/types";
 import { Volume2, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useAudioSettings } from "@/components/shared/audio-settings";
 
 interface WordScore {
   word: string;
@@ -33,6 +34,7 @@ export function PlayerAttack({
   const [playingWord, setPlayingWord] = useState<string | null>(null);
   const [wordScores, setWordScores] = useState<WordScore[]>([]);
   const [overallScore, setOverallScore] = useState(0);
+  const { applyTtsVolume } = useAudioSettings();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mountedRef = useRef(true);
 
@@ -145,6 +147,7 @@ export function PlayerAttack({
         const audioBlob = await response.blob();
         const url = URL.createObjectURL(audioBlob);
         const audio = new Audio(url);
+        applyTtsVolume(audio);
         audioRef.current = audio;
 
         audio.onended = () => {
@@ -177,9 +180,9 @@ export function PlayerAttack({
             {wordScores.map((item, idx) => (
               <div
                 key={idx}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 border border-amber-800/20 bg-amber-50/40 rounded-sm min-w-[60px]"
+                className="flex flex-col items-center gap-0.5 px-2 py-1.5 sm:px-3 sm:py-2 border border-amber-800/20 bg-amber-50/40 rounded-sm min-w-[50px] sm:min-w-[60px]"
               >
-                <span className="font-chinese text-xl md:text-2xl text-amber-950 font-bold">
+                <span className="font-chinese text-lg sm:text-xl md:text-2xl text-amber-950 font-bold">
                   {item.word}
                 </span>
                 {item.score !== null ? (
@@ -223,7 +226,7 @@ export function PlayerAttack({
         <div className="text-center space-y-1">
           <p className="font-retro text-xs text-amber-800/60">Overall Score</p>
           <p
-            className={`font-pixel text-3xl ${
+            className={`font-pixel text-2xl sm:text-3xl ${
               overallScore >= ATTACK_THRESHOLD
                 ? "text-green-700"
                 : overallScore >= 60
@@ -307,7 +310,7 @@ export function PlayerAttack({
                 key={i}
                 className="flex flex-col items-center gap-1 px-3 py-2 border border-amber-800/20 bg-amber-50/40 rounded-sm"
               >
-                <span className="font-chinese text-2xl md:text-3xl text-amber-950 font-bold">
+                <span className="font-chinese text-xl sm:text-2xl md:text-3xl text-amber-950 font-bold">
                   {word}
                 </span>
                 {showPinyin && recordingGroup.pinyin?.[i] && (

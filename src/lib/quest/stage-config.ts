@@ -10,7 +10,7 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossName: "Demon King of Turmoil",
     bossNameCN: "混乱魔王",
     bossImage: "/img/boss/1/혼세 기본.webp",
-    backgroundImage: "/img/main stage/1.webp",
+    backgroundImage: "/img/main stage/1-1.webp",
     playerMaxHP: 5,
     bossMaxHP: 100,
     mcqTimerSeconds: 15,
@@ -112,13 +112,14 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
 /** Character image paths for quest party display */
 export const QUEST_CHARACTERS: Record<
   string,
-  { name: string; nameCN: string; image: string; imageAlt: string; attackFrames?: string[] }
+  { name: string; nameCN: string; image: string; imageAlt: string; portrait: string; attackFrames?: string[] }
 > = {
   "Son Wukong": {
     name: "Son Wukong",
     nameCN: "孙悟空",
     image: "/img/main character/son wukong/1.webp",
     imageAlt: "/img/main character/son wukong/2.webp",
+    portrait: "/img/main character/son wukong/오공 명함.webp",
     attackFrames: [
       "/img/main character/son wukong/attack_animation_frames/공격1.webp",
       "/img/main character/son wukong/attack_animation_frames/공격2.webp",
@@ -130,18 +131,21 @@ export const QUEST_CHARACTERS: Record<
     nameCN: "三藏",
     image: "/img/main character/sam jang/삼장 전방주시.webp",
     imageAlt: "/img/main character/sam jang/삼장 명함.webp",
+    portrait: "/img/main character/sam jang/삼장 명함.webp",
   },
   "Sha Wujing": {
     name: "Sha Wujing",
     nameCN: "沙悟净",
     image: "/img/main character/sha wujing/1.webp",
     imageAlt: "/img/main character/sha wujing/2.webp",
+    portrait: "/img/main character/sha wujing/사오정 명함.webp",
   },
   "Zhu Baijie": {
     name: "Zhu Baijie",
     nameCN: "猪八戒",
     image: "/img/main character/zhu bajie/저팔계 전방주시.webp",
     imageAlt: "/img/main character/zhu bajie/저팔계 명함.webp",
+    portrait: "/img/main character/zhu bajie/저팔계 명함.webp",
   },
 };
 

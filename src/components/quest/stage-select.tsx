@@ -100,7 +100,7 @@ export function StageSelect({
                 title={`${char.name} · ${char.nameCN}`}
               >
                 <img
-                  src={char.image}
+                  src={char.portrait}
                   alt={char.name}
                   className="w-full h-full object-cover object-top"
                   draggable={false}
