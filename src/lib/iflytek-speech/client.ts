@@ -258,7 +258,7 @@ function parseIseXml(
         s => getAttr(s, "rec_node_type") === "paper"
       );
       let worstDp = 0;
-      let toneSyllScores: number[] = [];
+      const toneSyllScores: number[] = [];
       let worstPerr = 0;
 
       for (const syll of paperSylls) {
@@ -333,7 +333,7 @@ function parseIseXml(
       );
       const sylls = paperOnly.length > 0 ? paperOnly : allSylls;
       let worstDp = 0;
-      let toneSyllScores: number[] = [];
+      const toneSyllScores: number[] = [];
       let worstPerr = 0;
 
       for (const syll of sylls) {
