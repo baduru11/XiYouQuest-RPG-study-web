@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { MicOff } from "lucide-react";
 import { encodeWAV } from "@/lib/audio-utils";
+
+export interface AudioRecorderHandle {
+  stop: () => void;
+}
 
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob) => void;
@@ -11,7 +15,7 @@ interface AudioRecorderProps {
   disabled?: boolean;
 }
 
-export function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled }: AudioRecorderProps) {
+export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>(function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled }, ref) {
   const [isRecording, setIsRecording] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [volume, setVolume] = useState(0);
@@ -22,7 +26,15 @@ export function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled 
   const animFrameRef = useRef<number>(0);
   const analyserRef = useRef<AnalyserNode | null>(null);
 
+  // Expose imperative stop() to parent via ref
+  const stopRecordingRef = useRef<() => void>(() => {});
+
+  useImperativeHandle(ref, () => ({
+    stop: () => stopRecordingRef.current(),
+  }));
+
   // Animate volume meter from analyser
+  const updateVolumeRef = useRef<() => void>(() => {});
   const updateVolume = useCallback(() => {
     if (!analyserRef.current) return;
     const data = new Uint8Array(analyserRef.current.fftSize);
@@ -39,8 +51,9 @@ export function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled 
     const normalized = Math.min(1, rms / 0.3);
     setVolume(normalized);
 
-    animFrameRef.current = requestAnimationFrame(updateVolume);
+    animFrameRef.current = requestAnimationFrame(() => updateVolumeRef.current());
   }, []);
+  useEffect(() => { updateVolumeRef.current = updateVolume; }, [updateVolume]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -140,6 +153,11 @@ export function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled 
     setIsRecording(false);
   }, [isRecording, onRecordingComplete]);
 
+  // Keep ref in sync so useImperativeHandle always calls the latest stopRecording
+  useEffect(() => {
+    stopRecordingRef.current = stopRecording;
+  }, [stopRecording]);
+
   if (permissionDenied) {
     return (
       <div className="text-center space-y-3 rounded-lg border border-destructive/50 bg-destructive/5 p-4">
@@ -213,4 +231,4 @@ export function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled 
       )}
     </div>
   );
-}
+});
