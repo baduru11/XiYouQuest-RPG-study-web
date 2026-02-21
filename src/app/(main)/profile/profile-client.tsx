@@ -170,6 +170,7 @@ export default function ProfileClient({
             <div className="relative group">
               <div className="h-20 w-20 pixel-border bg-muted overflow-hidden flex items-center justify-center">
                 {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarUrl}
                     alt="Avatar"
@@ -439,6 +440,7 @@ export default function ProfileClient({
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-12 pixel-border bg-muted overflow-hidden flex items-center justify-center">
                         {uc.characters.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={uc.characters.image_url}
                             alt={uc.characters.name}

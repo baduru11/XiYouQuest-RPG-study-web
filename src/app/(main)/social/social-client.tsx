@@ -236,6 +236,7 @@ export function SocialClient({
         return next;
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const respondToRequest = useCallback(
@@ -269,6 +270,7 @@ export function SocialClient({
         });
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -293,6 +295,7 @@ export function SocialClient({
         return next;
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const removeFriend = useCallback(async (friendshipId: string) => {
@@ -316,6 +319,7 @@ export function SocialClient({
         return next;
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchRequests = useCallback(async () => {
@@ -593,6 +597,7 @@ export function SocialClient({
                 >
                   <div className="h-8 w-8 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                     {req.user.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={req.user.avatar_url}
                         alt={req.user.display_name || "User avatar"}
@@ -644,6 +649,7 @@ export function SocialClient({
                 >
                   <div className="h-8 w-8 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                     {req.user.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={req.user.avatar_url}
                         alt={req.user.display_name || "User avatar"}
@@ -822,6 +828,7 @@ function UserResultCard({
     <div className="flex items-center gap-3 p-2 hover:bg-accent/30 transition-colors">
       <div className="h-8 w-8 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
         {user.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={user.avatar_url}
             alt={user.display_name || "User avatar"}
@@ -880,6 +887,7 @@ function FriendCard({
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
           {friend.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={friend.avatar_url}
               alt={friend.display_name || "User avatar"}

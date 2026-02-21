@@ -283,6 +283,7 @@ function PodiumCard({
       {/* Avatar */}
       <div className="h-12 w-12 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
         {entry.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={entry.avatar_url}
             alt={entry.display_name || "User avatar"}
@@ -351,6 +352,7 @@ function RankRow({
       {/* Avatar */}
       <div className="h-8 w-8 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
         {entry.avatar_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={entry.avatar_url}
             alt={entry.display_name || "User avatar"}

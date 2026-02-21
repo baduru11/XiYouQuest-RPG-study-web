@@ -67,18 +67,16 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { effectiveMusicVolume, muted, toggleMuted } = useAudioSettings();
-  const [entered, setEntered] = useState(false);
+  const [entered, setEntered] = useState(() => {
+    if (typeof window !== "undefined") {
+      return !!sessionStorage.getItem("dashboard_entered");
+    }
+    return false;
+  });
 
   const { level, name: levelName, xpToNext } = getUserLevel(totalXP);
   const nextLevelXP = xpToNext ? totalXP + xpToNext : totalXP;
   const progress = xpToNext ? (totalXP / nextLevelXP) * 100 : 100;
-
-  // Check sessionStorage on mount
-  useEffect(() => {
-    if (sessionStorage.getItem("dashboard_entered")) {
-      setEntered(true);
-    }
-  }, []);
 
   // Create audio
   useEffect(() => {
@@ -96,6 +94,7 @@ export function DashboardClient({
       audio.pause();
       audio.src = "";
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [musicSrc]);
 
   useEffect(() => {

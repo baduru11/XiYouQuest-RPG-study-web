@@ -22,6 +22,7 @@ function NavbarSkeleton() {
     <nav className="border-b-3 border-border bg-card pixel-border">
       <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-6 lg:px-10">
         <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/img/background/Logo.webp"
             alt="XiYouQuest"

@@ -90,6 +90,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
                 className="flex items-center gap-1.5"
               >
                 {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarUrl}
                     alt="Avatar"
