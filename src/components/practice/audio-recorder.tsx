@@ -7,10 +7,11 @@ import { encodeWAV } from "@/lib/audio-utils";
 
 interface AudioRecorderProps {
   onRecordingComplete: (audioBlob: Blob) => void;
+  onRecordingStart?: () => void;
   disabled?: boolean;
 }
 
-export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderProps) {
+export function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [volume, setVolume] = useState(0);
@@ -97,13 +98,14 @@ export function AudioRecorder({ onRecordingComplete, disabled }: AudioRecorderPr
 
       setIsRecording(true);
       setPermissionDenied(false);
+      onRecordingStart?.();
 
       // Start volume animation
       animFrameRef.current = requestAnimationFrame(updateVolume);
     } catch {
       setPermissionDenied(true);
     }
-  }, [updateVolume]);
+  }, [updateVolume, onRecordingStart]);
 
   const stopRecording = useCallback(() => {
     if (!isRecording) return;
