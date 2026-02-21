@@ -99,7 +99,7 @@ export default async function MockExamPage() {
   // C4: Pick one random passage
   let examPassage: { id: string; title: string; content: string } | undefined;
   if (c4Passages && c4Passages.length > 0) {
-    const picked = c4Passages[Math.floor(Math.random() * c4Passages.length)] as { id: string; content: string; metadata: { title: string } };
+    const picked = shuffle(c4Passages)[0] as { id: string; content: string; metadata: { title: string } };
     examPassage = { id: picked.id, title: picked.metadata.title ?? "Untitled", content: picked.content };
   }
 

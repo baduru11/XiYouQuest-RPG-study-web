@@ -9,10 +9,11 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { encodeWAV } from "@/lib/audio-utils";
-import { AudioRecorder } from "@/components/practice/audio-recorder";
+import { AudioRecorder, type AudioRecorderHandle } from "@/components/practice/audio-recorder";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { QuizQuestion } from "@/types/practice";
+import type { UnlockedAchievement } from "@/lib/achievements/types";
 
 // ============================================================
 // Hardcoded question subsets for the mock exam
@@ -107,7 +108,9 @@ function useExamTimer(totalSeconds: number, onTimeUp: () => void, autoStart = tr
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const onTimeUpRef = useRef(onTimeUp);
-  onTimeUpRef.current = onTimeUp;
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -291,7 +294,7 @@ interface ExamRunnerProps {
   topics?: string[];
 }
 
-export function ExamRunner({ characters, words, quizQuestions, passage, topics }: ExamRunnerProps) {
+export function ExamRunner({ character, characters, words, quizQuestions, passage, topics }: ExamRunnerProps) {
   const { showAchievementToasts } = useAchievementToast();
   // Randomize answer positions on client side
   const activeQuizQuestions = useMemo(() => {
@@ -308,6 +311,43 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
   const [assessmentProgress, setAssessmentProgress] = useState(0);
   const [examStartTime] = useState<number>(Date.now());
   const [mockExamAchChecked, setMockExamAchChecked] = useState(false);
+  const hasSavedRef = useRef(false);
+
+  // ---- Save progress for each component to persist XP ----
+  const saveAllProgress = useCallback(async (results: ComponentResult[]) => {
+    if (hasSavedRef.current) return;
+    hasSavedRef.current = true;
+
+    const savePromises = results
+      .filter((r) => r.score > 0 || r.xpEarned > 0)
+      .map((r) =>
+        fetchWithRetry("/api/progress/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            characterId: character.id,
+            component: r.componentNumber,
+            score: Math.round(r.score),
+            xpEarned: r.xpEarned,
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+      );
+
+    const responses = await Promise.allSettled(savePromises);
+
+    // Collect any new achievements from progress saves
+    const allNewAchievements: UnlockedAchievement[] = [];
+    for (const r of responses) {
+      if (r.status === "fulfilled" && r.value?.newAchievements?.length > 0) {
+        allNewAchievements.push(...r.value.newAchievements);
+      }
+    }
+    if (allNewAchievements.length > 0) {
+      showAchievementToasts(allNewAchievements);
+    }
+  }, [character.id, showAchievementToasts]);
 
   // ---- Assess all components after exam ----
   const runAllAssessments = useCallback(async (allRawData: ComponentRawData[]) => {
@@ -492,8 +532,9 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
     results.push(...allResults);
 
     setComponentResults(results);
+    saveAllProgress(results);
     setExamPhase("results");
-  }, [activeQuizQuestions]);
+  }, [activeQuizQuestions, saveAllProgress]);
 
   // ---- Component complete handler ----
   const handleComponentDone = useCallback((rawData: ComponentRawData) => {
@@ -1086,13 +1127,23 @@ interface PronunciationComponentProps {
 function PronunciationComponent({ componentNumber, items, timeLimitSeconds, componentLabel, onComplete }: PronunciationComponentProps) {
   const [isDone, setIsDone] = useState(false);
   const isMonosyllabic = items.length > 0 && items[0].length === 1;
+  const audioRecorderRef = useRef<AudioRecorderHandle>(null);
+  const isDoneRef = useRef(false);
 
   const handleTimeUp = useCallback(() => {
-    if (!isDone) {
-      setIsDone(true);
-      onComplete({ componentNumber });
-    }
-  }, [isDone, onComplete, componentNumber]);
+    if (isDoneRef.current) return;
+    // Try to harvest audio from an active recording
+    audioRecorderRef.current?.stop();
+    // If AudioRecorder wasn't recording, stop() is a no-op and
+    // onRecordingComplete won't fire, so fall back to completing with no audio
+    setTimeout(() => {
+      if (!isDoneRef.current) {
+        isDoneRef.current = true;
+        setIsDone(true);
+        onComplete({ componentNumber });
+      }
+    }, 50);
+  }, [onComplete, componentNumber]);
 
   const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
 
@@ -1101,7 +1152,8 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
   }, [timer]);
 
   const handleRecordingComplete = useCallback((audioBlob: Blob) => {
-    if (isDone) return;
+    if (isDoneRef.current) return;
+    isDoneRef.current = true;
     setIsDone(true);
     timer.stop();
     onComplete({
@@ -1110,7 +1162,7 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
       referenceText: items.join(" "),
       items,
     });
-  }, [isDone, timer, onComplete, componentNumber, items]);
+  }, [timer, onComplete, componentNumber, items]);
 
   if (isDone) {
     return (
@@ -1161,6 +1213,7 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
             {!timer.isRunning && " Timer starts when you begin recording."}
           </p>
           <AudioRecorder
+            ref={audioRecorderRef}
             onRecordingComplete={handleRecordingComplete}
             onRecordingStart={handleRecordingStart}
             disabled={false}
@@ -1535,6 +1588,7 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number>(0);
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1542,6 +1596,7 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = 0;
       if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
       if (audioContextRef.current?.state !== "closed") {
         audioContextRef.current?.close();
       }
@@ -1638,15 +1693,17 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
 
       await new Promise<void>((resolve) => {
         let remaining = 3;
-        const countdownInterval = setInterval(() => {
+        const interval = setInterval(() => {
           remaining--;
           if (remaining <= 0) {
-            clearInterval(countdownInterval);
+            clearInterval(interval);
+            countdownIntervalRef.current = null;
             resolve();
           } else {
             setCountdown(remaining);
           }
         }, 1000);
+        countdownIntervalRef.current = interval;
       });
 
       // Set up audio context
