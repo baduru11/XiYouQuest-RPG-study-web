@@ -67,11 +67,42 @@ async function verifyConditions(
       key === 'friend_added' ||
       key === 'mock_exam_complete' ||
       key === 'account_created' ||
-      key === 'clutch_clear' ||
-      key.startsWith('stage_') && key.endsWith('_cleared') && key !== 'all_stages_cleared' ||
-      key.startsWith('no_hit_stage_')
+      key.startsWith('stage_') && key.endsWith('_cleared') && key !== 'all_stages_cleared'
     ) {
       verified.push(key);
+      continue;
+    }
+
+    // no_hit_stage_X: verify the stage is actually cleared in DB
+    if (key.startsWith('no_hit_stage_')) {
+      const stageNum = parseInt(key.replace('no_hit_stage_', ''), 10);
+      if (!isNaN(stageNum)) {
+        const { data: stageRow } = await supabase
+          .from('quest_progress')
+          .select('is_cleared, best_score')
+          .eq('user_id', userId)
+          .eq('stage', stageNum)
+          .eq('is_cleared', true)
+          .single();
+
+        if (stageRow && stageRow.best_score > 0) {
+          verified.push(key);
+        }
+      }
+      continue;
+    }
+
+    // clutch_clear: verify user has at least one cleared stage in DB
+    if (key === 'clutch_clear') {
+      const { count } = await supabase
+        .from('quest_progress')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_cleared', true);
+
+      if (count !== null && count > 0) {
+        verified.push(key);
+      }
       continue;
     }
 
