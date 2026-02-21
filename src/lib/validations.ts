@@ -57,6 +57,16 @@ export const leaderboardQuerySchema = z.object({
   scope: z.enum(["global", "friends"]),
 });
 
+// --- Quest Progress API Schemas ---
+
+export const questProgressSchema = z.object({
+  stage: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]),
+  is_cleared: z.boolean(),
+  score: z.number().min(0).max(500),
+  damage_taken: z.number().int().min(0).max(9).optional(),
+  remaining_hp: z.number().int().min(0).max(9).optional(),
+});
+
 // --- Helpers ---
 
 /** Validate UUID format (for query params and array values) */
