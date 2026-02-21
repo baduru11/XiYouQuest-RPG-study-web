@@ -101,9 +101,9 @@ function getPSCGrade(score: number): { grade: string; description: string } {
 // Timer hook
 // ============================================================
 
-function useExamTimer(totalSeconds: number, onTimeUp: () => void) {
+function useExamTimer(totalSeconds: number, onTimeUp: () => void, autoStart = true) {
   const [timeRemaining, setTimeRemaining] = useState(totalSeconds);
-  const [isRunning, setIsRunning] = useState(true);
+  const [isRunning, setIsRunning] = useState(autoStart);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const onTimeUpRef = useRef(onTimeUp);
@@ -134,11 +134,15 @@ function useExamTimer(totalSeconds: number, onTimeUp: () => void) {
     if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
+  const start = useCallback(() => {
+    setIsRunning(true);
+  }, []);
+
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
   const formatTime = `${minutes}:${String(seconds).padStart(2, "0")}`;
 
-  return { timeRemaining, formatTime, stop };
+  return { timeRemaining, formatTime, stop, start, isRunning };
 }
 
 // ============================================================
@@ -221,6 +225,7 @@ interface ComponentRawData {
   items?: string[];
   quizAnswers?: number[];
   selectedTopic?: string;
+  spokenDurationSeconds?: number;
 }
 
 // Detailed results computed after exam
@@ -428,7 +433,7 @@ export function ExamRunner({ characters, words, quizQuestions, passage, topics }
           const formData = new FormData();
           formData.append("audio", raw.audioBlob, "recording.wav");
           formData.append("topic", raw.selectedTopic ?? "");
-          formData.append("spokenDurationSeconds", "180"); // Full exam time
+          formData.append("spokenDurationSeconds", String(raw.spokenDurationSeconds ?? 0));
 
           const c5Response = await fetchWithRetry("/api/speech/c5-assess", {
             method: "POST",
@@ -1089,7 +1094,11 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
     }
   }, [isDone, onComplete, componentNumber]);
 
-  const timer = useExamTimer(timeLimitSeconds, handleTimeUp);
+  const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
+
+  const handleRecordingStart = useCallback(() => {
+    timer.start();
+  }, [timer]);
 
   const handleRecordingComplete = useCallback((audioBlob: Blob) => {
     if (isDone) return;
@@ -1121,9 +1130,15 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
           <span className="text-sm text-muted-foreground">
             {componentLabel} ({items.length} items)
           </span>
-          <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "outline"}>
-            {timer.formatTime}
-          </Badge>
+          {timer.isRunning ? (
+            <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "outline"}>
+              {timer.formatTime}
+            </Badge>
+          ) : (
+            <Badge variant="outline">
+              {Math.floor(timeLimitSeconds / 60)}:{String(timeLimitSeconds % 60).padStart(2, "0")}
+            </Badge>
+          )}
         </div>
 
         {/* Word grid */}
@@ -1143,8 +1158,23 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
         <div className="flex flex-col items-center gap-3">
           <p className="text-sm text-muted-foreground text-center">
             Read all {items.length} {isMonosyllabic ? "characters" : "words"} aloud in one recording.
+            {!timer.isRunning && " Timer starts when you begin recording."}
           </p>
-          <AudioRecorder onRecordingComplete={handleRecordingComplete} disabled={false} />
+          <AudioRecorder
+            onRecordingComplete={handleRecordingComplete}
+            onRecordingStart={handleRecordingStart}
+            disabled={false}
+          />
+          {!timer.isRunning && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => { setIsDone(true); onComplete({ componentNumber }); }}
+            >
+              Skip Component
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -1328,7 +1358,7 @@ function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComp
     }
   }, [phase, isDone, onComplete, passage.content]);
 
-  const timer = useExamTimer(timeLimitSeconds, handleTimeUp);
+  const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
 
   const startRecording = useCallback(async () => {
     try {
@@ -1356,6 +1386,7 @@ function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComp
       silentGain.connect(audioContext.destination);
 
       setPhase("recording");
+      timer.start();
     } catch {
       setIsDone(true);
       timer.stop();
@@ -1407,9 +1438,15 @@ function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComp
         {/* Header */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">{passage.title}</span>
-          <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "outline"}>
-            {timer.formatTime}
-          </Badge>
+          {timer.isRunning ? (
+            <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "outline"}>
+              {timer.formatTime}
+            </Badge>
+          ) : (
+            <Badge variant="outline">
+              {Math.floor(timeLimitSeconds / 60)}:{String(timeLimitSeconds % 60).padStart(2, "0")}
+            </Badge>
+          )}
         </div>
 
         {/* Passage text */}
@@ -1426,11 +1463,24 @@ function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComp
         )}
 
         {/* Actions */}
-        <div className="flex justify-center gap-3">
+        <div className="flex flex-col items-center gap-2">
           {phase === "ready" && (
-            <Button onClick={startRecording} size="lg">
-              Start Reading
-            </Button>
+            <>
+              <p className="text-sm text-muted-foreground">
+                Timer starts when you begin recording.
+              </p>
+              <Button onClick={startRecording} size="lg">
+                Start Reading
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => { setIsDone(true); onComplete({ componentNumber: 4 }); }}
+              >
+                Skip Component
+              </Button>
+            </>
           )}
           {phase === "recording" && (
             <Button onClick={stopRecording} variant="destructive" size="lg">
@@ -1444,8 +1494,20 @@ function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComp
 }
 
 // ============================================================
-// Component 5: Prompted Speaking (choose topic, record only)
+// Component 5: Prompted Speaking (follows practice session C5 pattern)
 // ============================================================
+
+// Speaking structure template (matches practice session)
+const SPEAKING_TEMPLATE = {
+  opening: "开头（10-15秒）：我想谈谈……。对我来说……很重要/很有意义。",
+  body: [
+    "第一，……（原因/现象）+（例子）",
+    "第二，……（对比/经历）+（细节）",
+    "第三，……（观点/建议）+（总结）",
+  ],
+  bodyLabel: "主体（2分20秒左右）：",
+  closing: "结尾（10-15秒）：总之……。以后我会……，也希望……",
+};
 
 interface SpeakingComponentProps {
   topics: string[];
@@ -1456,32 +1518,70 @@ interface SpeakingComponentProps {
 function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingComponentProps) {
   const [topicChoices] = useState<string[]>(() => {
     const shuffled = [...topics].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 2);
+    return shuffled.slice(0, 6);
   });
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"choosing" | "ready" | "recording">("choosing");
+  const [phase, setPhase] = useState<"choosing" | "prepare" | "countdown" | "recording">("choosing");
   const [isDone, setIsDone] = useState(false);
-  const [timerStarted, setTimerStarted] = useState(false);
-  // PCM WAV recording refs (replaces MediaRecorder)
+  const [countdown, setCountdown] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const elapsedTimeRef = useRef(0);
+  const [volume, setVolume] = useState(0);
+
+  // PCM WAV recording refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Float32Array[]>([]);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Cleanup audio context on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+      if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
       if (audioContextRef.current?.state !== "closed") {
         audioContextRef.current?.close();
       }
       audioContextRef.current = null;
+      analyserRef.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
   }, []);
 
+  // Volume animation
+  const updateVolume = useCallback(() => {
+    if (!analyserRef.current) return;
+    const data = new Uint8Array(analyserRef.current.fftSize);
+    analyserRef.current.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    setVolume(Math.min(1, rms / 0.3));
+    animFrameRef.current = requestAnimationFrame(updateVolume);
+  }, []);
+
+  // Time-up handler: auto-stop recording when time limit reached
   const handleTimeUp = useCallback(() => {
     if (audioContextRef.current && phase === "recording") {
-      // Time's up while recording — stop and collect audio
+      // Stop volume animation
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+      setVolume(0);
+      analyserRef.current = null;
+
+      // Stop elapsed timer
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
+
       if (audioContextRef.current.state !== "closed") {
         audioContextRef.current.close();
       }
@@ -1503,33 +1603,65 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
         componentNumber: 5,
         audioBlob: wavBlob,
         selectedTopic: selectedTopic ?? undefined,
+        spokenDurationSeconds: elapsedTimeRef.current,
       });
       return;
     }
     if (!isDone) {
       setIsDone(true);
-      onComplete({ componentNumber: 5, selectedTopic: selectedTopic ?? undefined });
+      onComplete({
+        componentNumber: 5,
+        selectedTopic: selectedTopic ?? undefined,
+        spokenDurationSeconds: elapsedTimeRef.current,
+      });
     }
   }, [phase, isDone, onComplete, selectedTopic]);
 
-  const timer = useExamTimer(timeLimitSeconds, handleTimeUp);
+  const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
 
   const handleTopicSelect = useCallback((topic: string) => {
     setSelectedTopic(topic);
-    setPhase("ready");
+    setPhase("prepare");
   }, []);
 
   const startRecording = useCallback(async () => {
     try {
+      // Request mic access during countdown
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, sampleRate: 16000 },
       });
       streamRef.current = stream;
 
+      // 3-second countdown
+      setPhase("countdown");
+      setCountdown(3);
+
+      await new Promise<void>((resolve) => {
+        let remaining = 3;
+        const countdownInterval = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(countdownInterval);
+            resolve();
+          } else {
+            setCountdown(remaining);
+          }
+        }, 1000);
+      });
+
+      // Set up audio context
       const audioContext = new AudioContext({ sampleRate: 16000 });
       audioContextRef.current = audioContext;
 
       const source = audioContext.createMediaStreamSource(stream);
+
+      // Analyser for volume visualization
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+      source.connect(analyser);
+
+      // ScriptProcessor for PCM capture
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       chunksRef.current = [];
 
@@ -1544,17 +1676,42 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
       processor.connect(silentGain);
       silentGain.connect(audioContext.destination);
 
+      // Start volume animation
+      animFrameRef.current = requestAnimationFrame(updateVolume);
+
+      // Start elapsed time counter
+      setElapsedTime(0);
+      elapsedTimeRef.current = 0;
+      elapsedTimerRef.current = setInterval(() => {
+        setElapsedTime((prev) => {
+          const next = prev + 1;
+          elapsedTimeRef.current = next;
+          return next;
+        });
+      }, 1000);
+
       setPhase("recording");
-      setTimerStarted(true);
+      timer.start();
     } catch {
       setIsDone(true);
-      timer.stop();
-      onComplete({ componentNumber: 5, selectedTopic: selectedTopic ?? undefined });
+      onComplete({ componentNumber: 5, selectedTopic: selectedTopic ?? undefined, spokenDurationSeconds: 0 });
     }
-  }, [timer, onComplete, selectedTopic]);
+  }, [timer, onComplete, selectedTopic, updateVolume]);
 
   const stopRecording = useCallback(() => {
     if (audioContextRef.current && phase === "recording") {
+      // Stop volume animation
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+      setVolume(0);
+      analyserRef.current = null;
+
+      // Stop elapsed timer
+      if (elapsedTimerRef.current) {
+        clearInterval(elapsedTimerRef.current);
+        elapsedTimerRef.current = null;
+      }
+
       if (audioContextRef.current.state !== "closed") {
         audioContextRef.current.close();
       }
@@ -1577,9 +1734,17 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
         componentNumber: 5,
         audioBlob: wavBlob,
         selectedTopic: selectedTopic ?? undefined,
+        spokenDurationSeconds: elapsedTimeRef.current,
       });
     }
   }, [phase, timer, onComplete, selectedTopic]);
+
+  // Format seconds to mm:ss
+  function formatTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }
 
   if (isDone) {
     return (
@@ -1591,68 +1756,174 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
     );
   }
 
+  // Topic selection phase
+  if (phase === "choosing") {
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Prompted Speaking (命题说话)</span>
+            <Badge variant="outline">
+              {Math.floor(timeLimitSeconds / 60)}:{String(timeLimitSeconds % 60).padStart(2, "0")}
+            </Badge>
+          </div>
+          <p className="text-center text-muted-foreground">Choose one topic to speak about for 3 minutes:</p>
+          <div className="grid grid-cols-2 gap-3">
+            {topicChoices.map((topic, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleTopicSelect(topic)}
+                className="rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-colors p-4 sm:p-6 text-center cursor-pointer"
+              >
+                <p className="text-lg sm:text-2xl font-bold font-chinese">{topic}</p>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => { setIsDone(true); onComplete({ componentNumber: 5, spokenDurationSeconds: 0 }); }}
+            >
+              Skip Component
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Prepare, countdown, and recording phases
   return (
     <Card>
       <CardContent className="pt-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Prompted Speaking</span>
-          {timerStarted && (
+          <span className="text-sm text-muted-foreground">Prompted Speaking (命题说话)</span>
+          {phase === "recording" ? (
             <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "outline"}>
               {timer.formatTime}
+            </Badge>
+          ) : (
+            <Badge variant="outline">
+              {Math.floor(timeLimitSeconds / 60)}:{String(timeLimitSeconds % 60).padStart(2, "0")}
             </Badge>
           )}
         </div>
 
-        {/* Topic selection */}
-        {phase === "choosing" && (
-          <div className="space-y-4 py-4">
-            <p className="text-center text-muted-foreground">Choose one topic to speak about:</p>
-            <div className="grid grid-cols-1 gap-3">
-              {topicChoices.map((topic, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleTopicSelect(topic)}
-                  className="rounded-lg border-2 border-border hover:border-primary hover:bg-accent transition-colors p-6 text-center cursor-pointer"
-                >
-                  <p className="text-2xl font-bold font-chinese">{topic}</p>
-                </button>
-              ))}
+        {/* Topic display */}
+        <div className="text-center">
+          <Badge variant="outline" className="mb-2">Your Topic</Badge>
+          <p className="text-2xl sm:text-3xl font-bold font-chinese">{selectedTopic}</p>
+        </div>
+
+        {/* Speaking structure guide */}
+        {(phase === "prepare" || phase === "countdown") && (
+          <div className="rounded-lg border bg-muted/30 p-4 space-y-3 text-sm">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+              万能结构 Speaking Structure Guide
+            </h3>
+            <p className="font-medium">{SPEAKING_TEMPLATE.opening}</p>
+            <div>
+              <p className="font-medium">{SPEAKING_TEMPLATE.bodyLabel}</p>
+              <div className="pl-4 space-y-0.5">
+                {SPEAKING_TEMPLATE.body.map((point, index) => (
+                  <p key={index} className="text-muted-foreground">{point}</p>
+                ))}
+              </div>
             </div>
+            <p className="font-medium">{SPEAKING_TEMPLATE.closing}</p>
           </div>
         )}
 
-        {/* Selected topic display */}
-        {phase !== "choosing" && selectedTopic && (
-          <>
-            <div className="text-center py-4">
-              <Badge variant="outline" className="mb-3">Your Topic</Badge>
-              <p className="text-3xl font-bold sm:text-4xl font-chinese">{selectedTopic}</p>
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-              <p className="font-medium text-muted-foreground">Structure Guide:</p>
-              <p>Opening (10-15s): Introduce the topic</p>
-              <p>Body (~2m 20s): 2-3 main points with examples</p>
-              <p>Closing (10-15s): Summarize your thoughts</p>
-            </div>
-          </>
+        {/* Tips (prepare phase) */}
+        {phase === "prepare" && (
+          <div className="rounded-lg border p-3 bg-accent/30">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase mb-1">Tips</h4>
+            <ul className="text-xs text-muted-foreground space-y-0.5">
+              <li>Speak naturally and avoid long pauses.</li>
+              <li>Use specific examples and personal experiences.</li>
+              <li>Aim to fill the full 3 minutes.</li>
+              <li>Avoid filler words like 嗯、那个、就是.</li>
+            </ul>
+          </div>
         )}
 
-        {/* Recording indicator */}
+        {/* Countdown display */}
+        {phase === "countdown" && (
+          <div className="text-center space-y-2 py-4">
+            <p className="text-6xl font-bold font-mono text-primary animate-pulse">
+              {countdown}
+            </p>
+            <p className="text-sm text-muted-foreground">Get ready to speak...</p>
+          </div>
+        )}
+
+        {/* Recording: stopwatch + volume meter */}
         {phase === "recording" && (
-          <div className="flex items-center justify-center gap-2 py-2">
-            <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-sm text-red-600 font-medium">Recording...</span>
+          <div className="space-y-3">
+            {/* Stopwatch */}
+            <div className="text-center space-y-1">
+              <p className={`text-4xl font-bold font-mono transition-colors ${
+                elapsedTime >= timeLimitSeconds ? "text-green-600" : "text-orange-500"
+              }`}>
+                {formatTime(elapsedTime)}
+              </p>
+              <Progress
+                value={Math.min((elapsedTime / timeLimitSeconds) * 100, 100)}
+                className="h-2"
+              />
+              <p className={`text-xs font-medium ${
+                elapsedTime >= timeLimitSeconds ? "text-green-600" : "text-orange-500"
+              }`}>
+                {elapsedTime >= timeLimitSeconds
+                  ? "3 minutes reached! You can stop when ready."
+                  : `Speak for at least ${formatTime(timeLimitSeconds - elapsedTime)} more`}
+              </p>
+            </div>
+
+            {/* Volume visualization */}
+            <div className="flex items-end justify-center gap-[3px] h-8">
+              {Array.from({ length: 20 }).map((_, i) => {
+                const barActive = (i + 1) / 20 <= volume;
+                const barColor = barActive
+                  ? volume > 0.7 ? "#ef4444" : volume > 0.4 ? "#eab308" : "#22c55e"
+                  : "#d1d5db";
+                return (
+                  <div
+                    key={i}
+                    className="w-1.5 rounded-full transition-all duration-75"
+                    style={{
+                      height: barActive ? `${Math.max(4, volume * 32)}px` : "4px",
+                      backgroundColor: barColor,
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Actions */}
-        <div className="flex justify-center gap-3">
-          {phase === "ready" && (
-            <Button onClick={startRecording} size="lg">
-              Start Speaking
-            </Button>
+        {/* Action buttons */}
+        <div className="flex flex-col items-center gap-2">
+          {phase === "prepare" && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Timer starts after the 3-second countdown.
+              </p>
+              <Button onClick={startRecording} size="lg">
+                Start Speaking
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => { setIsDone(true); onComplete({ componentNumber: 5, selectedTopic: selectedTopic ?? undefined, spokenDurationSeconds: 0 }); }}
+              >
+                Skip Component
+              </Button>
+            </>
           )}
           {phase === "recording" && (
             <Button onClick={stopRecording} variant="destructive" size="lg">
