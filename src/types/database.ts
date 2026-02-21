@@ -10,6 +10,9 @@ export interface Profile {
   created_at: string;
   discord_id: string | null;
   friend_code: string | null;
+  audio_volume: number;
+  tts_volume: number;
+  audio_muted: boolean;
 }
 
 export interface UserProgress {

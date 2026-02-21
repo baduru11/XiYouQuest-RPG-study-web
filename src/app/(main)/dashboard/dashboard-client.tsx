@@ -17,6 +17,7 @@ import {
   Flame,
 } from "lucide-react";
 import { getUserLevel } from "@/lib/gamification/xp";
+import { useAudioSettings } from "@/components/shared/audio-settings";
 
 const MENU_ITEMS = [
   {
@@ -65,7 +66,7 @@ export function DashboardClient({
   musicSrc,
 }: DashboardClientProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [muted, setMuted] = useState(false);
+  const { effectiveMusicVolume, muted, toggleMuted } = useAudioSettings();
   const [entered, setEntered] = useState(false);
 
   const { level, name: levelName, xpToNext } = getUserLevel(totalXP);
@@ -83,7 +84,7 @@ export function DashboardClient({
   useEffect(() => {
     const audio = new Audio(musicSrc);
     audio.loop = true;
-    audio.volume = 0.3;
+    audio.volume = effectiveMusicVolume * 0.3;
     audio.preload = "auto";
     audioRef.current = audio;
 
@@ -99,8 +100,9 @@ export function DashboardClient({
 
   useEffect(() => {
     if (!audioRef.current) return;
+    audioRef.current.volume = effectiveMusicVolume * 0.3;
     audioRef.current.muted = muted;
-  }, [muted]);
+  }, [effectiveMusicVolume, muted]);
 
   const handleStart = () => {
     audioRef.current?.play().catch(() => {});
@@ -195,7 +197,7 @@ export function DashboardClient({
     <div className="mx-auto max-w-2xl space-y-2.5">
       {/* Mute button */}
       <button
-        onClick={() => setMuted((m) => !m)}
+        onClick={toggleMuted}
         className="fixed bottom-4 right-4 z-50 pixel-border bg-card p-2 hover:pixel-border-primary transition-all"
         aria-label={muted ? "Unmute music" : "Mute music"}
       >

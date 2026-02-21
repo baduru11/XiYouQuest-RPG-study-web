@@ -25,7 +25,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, LogOut, Trophy, User, Users } from "lucide-react";
+import { ArrowLeft, LogOut, Settings, Trophy, User, Users } from "lucide-react";
+import { SettingsDialog } from "./settings-dialog";
 import Image from "next/image";
 
 interface NavbarProps {
@@ -39,6 +40,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
   const router = useRouter();
   const pathname = usePathname();
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const showBackToHub = pathname !== "/dashboard";
   const isComponentPage = /^\/component-\d+/.test(pathname);
   const backHref = isComponentPage ? "/practice" : "/dashboard";
@@ -119,6 +121,10 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
                 <Trophy className="h-5 w-5" />
                 Achievements
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSettingsOpen(true)} className="text-lg font-bold px-3 py-2.5 gap-3">
+                <Settings className="h-5 w-5" />
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => setLogoutOpen(true)}
@@ -148,6 +154,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+    <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </TooltipProvider>
   );
 }
