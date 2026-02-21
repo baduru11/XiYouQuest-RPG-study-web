@@ -50,3 +50,12 @@ next-env.d.ts
 
 # Windows NUL device artifact
 NUL
+
+# Claude Code
+.mcp.json
+CLAUDE.md
+.claude/
+
+# vitest
+vitest.config.ts
+vitest.setup.ts
