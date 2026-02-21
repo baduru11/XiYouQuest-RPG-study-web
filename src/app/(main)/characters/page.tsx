@@ -18,7 +18,7 @@ export default async function CharactersPage() {
   const userId = user!.id;
 
   // Fetch all data in parallel
-  const [{ data: characters }, { data: userCharacters }, { data: profile }, { data: questProgress }] =
+  const [{ data: characters }, { data: userCharacters }, , { data: questProgress }] =
     await Promise.all([
       supabase
         .from("characters")
@@ -34,7 +34,6 @@ export default async function CharactersPage() {
       supabase.from("quest_progress").select("stage, is_cleared").eq("user_id", userId),
     ]);
 
-  const totalXP = profile?.total_xp ?? 0;
   const clearedStages = new Set(
     (questProgress ?? [])
       .filter((p: { is_cleared: boolean }) => p.is_cleared)

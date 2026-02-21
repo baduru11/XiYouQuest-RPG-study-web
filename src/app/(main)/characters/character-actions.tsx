@@ -20,7 +20,6 @@ export function CharacterActions({
   isSelected,
   unlockStage,
   stageCleared,
-  stageName,
 }: CharacterActionsProps) {
   const [loading, setLoading] = useState(false);
 
