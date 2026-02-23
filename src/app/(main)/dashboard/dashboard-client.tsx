@@ -15,6 +15,7 @@ import {
   VolumeX,
   Play,
   Flame,
+  Github,
 } from "lucide-react";
 import { getUserLevel } from "@/lib/gamification/xp";
 import { useAudioSettings } from "@/components/shared/audio-settings";
@@ -290,6 +291,17 @@ export function DashboardClient({
           </div>
         </Link>
       </div>
+
+      {/* GitHub link */}
+      <a
+        href="https://github.com/baduru11/XiYouQuest-RPG-study-web"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 pixel-border bg-card/90 px-4 py-2 font-pixel text-sm text-foreground hover:text-primary hover:bg-card transition-colors"
+      >
+        <Github className="h-5 w-5" />
+        View on GitHub
+      </a>
     </div>
   );
 }
