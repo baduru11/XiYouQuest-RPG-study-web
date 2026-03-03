@@ -119,3 +119,38 @@ export interface UserAchievement {
   achievement_id: string;
   unlocked_at: string;
 }
+
+export interface ChatScenario {
+  id: string;
+  stage_number: number;
+  title: string;
+  description: string;
+  system_prompt: string;
+  sort_order: number;
+}
+
+export interface ChatSession {
+  id: string;
+  user_id: string;
+  character_id: string;
+  scenario_id: string;
+  message_count: number;
+  avg_score: number | null;
+  xp_earned: number;
+  affection_earned: number;
+  created_at: string;
+  ended_at: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'companion';
+  content: string;
+  transcript: string | null;
+  pronunciation_score: number | null;
+  tone_score: number | null;
+  fluency_score: number | null;
+  image_url: string | null;
+  created_at: string;
+}
