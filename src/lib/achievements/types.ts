@@ -15,7 +15,8 @@ export type AchievementContext =
   | { type: 'session_complete'; characterName: string }
   | { type: 'friend_added' }
   | { type: 'mock_exam_complete' }
-  | { type: 'account_created' };
+  | { type: 'account_created' }
+  | { type: 'chat_complete'; characterName: string };
 
 export interface UnlockedAchievement {
   key: string;

@@ -33,6 +33,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: 'sessions_20_sanzang', name: 'Sanzang Master', description: 'Complete 20 practice sessions with Tang Sanzang', emoji: '⭐', tier: 'epic', sortOrder: 30 },
   { key: 'sessions_20_wujing', name: 'Wujing Master', description: 'Complete 20 practice sessions with Sha Wujing', emoji: '⭐', tier: 'epic', sortOrder: 31 },
   { key: 'sessions_20_bajie', name: 'Bajie Master', description: 'Complete 20 practice sessions with Zhu Bajie', emoji: '⭐', tier: 'epic', sortOrder: 32 },
+  { key: 'first_chat', name: 'First Words', description: 'Complete your first companion chat', emoji: '💬', tier: 'common', sortOrder: 33 },
+  { key: 'chat_messages_50', name: 'Chatterbox', description: 'Send 50 messages in companion chat', emoji: '🗣️', tier: 'uncommon', sortOrder: 34 },
+  { key: 'chat_all_companions', name: 'Polyglot', description: 'Chat with all 4 companions', emoji: '🌏', tier: 'rare', sortOrder: 35 },
+  { key: 'chat_sessions_10', name: 'Storyteller', description: 'Complete 10 companion chat sessions', emoji: '📖', tier: 'epic', sortOrder: 36 },
 ];
 
 export const ACHIEVEMENT_MAP = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.key, a]));

@@ -44,6 +44,8 @@ function getCandidateKeys(context: AchievementContext): string[] {
       return ['mock_exam_complete'];
     case 'account_created':
       return ['account_created'];
+    case 'chat_complete':
+      return ['first_chat', 'chat_messages_50', 'chat_all_companions', 'chat_sessions_10'];
   }
 }
 
@@ -70,6 +72,50 @@ async function verifyConditions(
       key.startsWith('stage_') && key.endsWith('_cleared') && key !== 'all_stages_cleared'
     ) {
       verified.push(key);
+      continue;
+    }
+
+    // first_chat: simple event-based
+    if (key === 'first_chat') {
+      verified.push(key);
+      continue;
+    }
+
+    // chat_messages_50: check total user messages across all chat sessions
+    if (key === 'chat_messages_50') {
+      const { count: msgCount } = await supabase.rpc('count_user_chat_messages', { p_user_id: userId });
+      if (msgCount !== null && msgCount >= 50) {
+        verified.push(key);
+      }
+      continue;
+    }
+
+    // chat_all_companions: check distinct character_ids in ended chat sessions
+    if (key === 'chat_all_companions') {
+      const { data: distinctChars } = await supabase
+        .from('chat_sessions')
+        .select('character_id')
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null);
+
+      const uniqueChars = new Set((distinctChars ?? []).map(r => r.character_id));
+      if (uniqueChars.size >= 4) {
+        verified.push(key);
+      }
+      continue;
+    }
+
+    // chat_sessions_10: check total completed chat sessions
+    if (key === 'chat_sessions_10') {
+      const { count } = await supabase
+        .from('chat_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .not('ended_at', 'is', null);
+
+      if (count !== null && count >= 10) {
+        verified.push(key);
+      }
       continue;
     }
 

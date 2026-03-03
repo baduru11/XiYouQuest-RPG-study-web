@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
         newAchievements = await checkAndUnlockAchievements(supabase, user.id, {
           type: "chat_complete",
           characterName: charData.name,
-        } as never); // Will type-check after Task 12
+        });
       }
     } catch (err) {
       console.error("[Chat] Achievement check error:", err);
