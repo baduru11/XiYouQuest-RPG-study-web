@@ -56,6 +56,9 @@ NUL
 CLAUDE.md
 .claude/
 
+# Git worktrees
+.worktrees/
+
 # vitest
 vitest.config.ts
 vitest.setup.ts
