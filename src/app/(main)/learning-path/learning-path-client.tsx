@@ -339,7 +339,10 @@ export default function LearningPathClient({
           scores={assessmentScores}
           examDate={examDate}
           error={generateError}
-          onSuccess={async () => {
+          onSuccess={async (achievements) => {
+            if (achievements?.length) {
+              showAchievementToasts(achievements);
+            }
             await refetchPlan();
             setGenerateError(null);
             setView("roadmap");
@@ -847,7 +850,7 @@ function GeneratingView({
   scores: Record<string, number>;
   examDate: string;
   error: string | null;
-  onSuccess: () => void;
+  onSuccess: (achievements?: UnlockedAchievement[]) => void;
   onError: (msg: string) => void;
   onRetry: () => void;
 }) {
@@ -869,7 +872,8 @@ function GeneratingView({
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || "Failed to generate plan");
         }
-        onSuccess();
+        const data = await res.json();
+        onSuccess(data.newAchievements);
       } catch (err) {
         onError((err as Error).message);
       }

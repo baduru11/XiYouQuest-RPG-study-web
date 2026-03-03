@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateCurriculum } from "@/lib/gemini/client";
 import type { CurriculumInput } from "@/lib/gemini/client";
+import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -133,11 +134,17 @@ export async function POST(request: NextRequest) {
       .eq("plan_id", plan.id)
       .order("sort_order", { ascending: true });
 
+    // Check for first-step achievement
+    const newAchievements = await checkAndUnlockAchievements(supabase, user.id, {
+      type: "learning_plan_created",
+    });
+
     return NextResponse.json({
       planId: plan.id,
       phases: curriculum.phases,
       totalNodes: curriculum.totalNodes,
       nodes: nodes ?? [],
+      newAchievements,
     });
   } catch (error) {
     console.error("Generate plan error:", error);

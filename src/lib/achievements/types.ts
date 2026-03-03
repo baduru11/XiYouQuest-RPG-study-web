@@ -17,6 +17,7 @@ export type AchievementContext =
   | { type: 'mock_exam_complete' }
   | { type: 'account_created' }
   | { type: 'chat_complete'; characterName: string }
+  | { type: 'learning_plan_created' }
   | { type: 'learning_checkpoint'; checkpointNumber: number }
   | { type: 'learning_complete' };
 

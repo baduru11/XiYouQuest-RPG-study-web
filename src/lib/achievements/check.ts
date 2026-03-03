@@ -46,6 +46,8 @@ function getCandidateKeys(context: AchievementContext): string[] {
       return ['account_created'];
     case 'chat_complete':
       return ['first_chat', 'chat_messages_50', 'chat_all_companions', 'chat_sessions_10'];
+    case 'learning_plan_created':
+      return ['learning_first_step'];
     case 'learning_checkpoint': {
       const keys = ['learning_on_track'];
       if (context.checkpointNumber >= 3) {
@@ -125,6 +127,12 @@ async function verifyConditions(
       if (count !== null && count >= 10) {
         verified.push(key);
       }
+      continue;
+    }
+
+    // learning_first_step: simple event-based (the plan creation event is proof)
+    if (key === 'learning_first_step') {
+      verified.push(key);
       continue;
     }
 
