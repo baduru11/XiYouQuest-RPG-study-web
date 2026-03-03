@@ -307,11 +307,11 @@ export function BattleScreen({
             {/* Scroll body */}
             <div
               className={`relative border-2 ${scrollAccent}
-                bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0]
+                bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0]
                 rounded-sm overflow-hidden`}
             >
               {/* Decorative top edge */}
-              <div className="h-1.5 sm:h-2 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+              <div className="h-1.5 sm:h-2 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
 
               {/* Speaker name banner */}
               {speakerName && (
@@ -387,7 +387,7 @@ export function BattleScreen({
               </div>
 
               {/* Decorative bottom edge */}
-              <div className="h-1.5 sm:h-2 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+              <div className="h-1.5 sm:h-2 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
             </div>
           </div>
         </div>

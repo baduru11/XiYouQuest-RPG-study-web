@@ -60,8 +60,8 @@ export function BossSprite({
       </div>
 
       {/* Boss info + hearts below sprite */}
-      <div className="relative border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[145px] sm:max-w-[260px] md:max-w-[432px]">
-        <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+      <div className="relative border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[145px] sm:max-w-[260px] md:max-w-[432px]">
+        <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
         <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
           <div className="flex justify-between items-baseline">
             <div className="min-w-0">
@@ -93,7 +93,7 @@ export function BossSprite({
             })}
           </div>
         </div>
-        <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+        <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
       </div>
     </div>
   );

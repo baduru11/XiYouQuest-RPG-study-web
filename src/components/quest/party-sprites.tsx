@@ -102,8 +102,8 @@ export function PartySprites({
         />
 
         {/* Player HP box with names + hearts below character */}
-        <div className="relative mt-1 border-2 border-amber-800/60 bg-gradient-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[150px] sm:max-w-[220px] md:max-w-[384px]">
-          <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+        <div className="relative mt-1 border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[150px] sm:max-w-[220px] md:max-w-[384px]">
+          <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
           <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
             <div>
               <p className="font-pixel text-[9px] sm:text-[10px] md:text-xs text-amber-900 text-center leading-relaxed">
@@ -132,7 +132,7 @@ export function PartySprites({
             })}
             </div>
           </div>
-          <div className="h-1 bg-gradient-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+          <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
         </div>
       </div>
     </div>
