@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { chatConversation } from "@/lib/gemini/client";
+import { aiInsightsSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,7 +13,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { progress, recentSessions, questProgress } = await request.json();
+    const body = await request.json();
+    const parsed = aiInsightsSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+    }
+    const { progress, recentSessions, questProgress } = parsed.data;
 
     const systemPrompt = `You are a PSC (Putonghua Proficiency Test) study advisor analyzing a student's practice data.
 Generate 3-5 actionable insights about their strengths, weaknesses, and recommended focus areas.
