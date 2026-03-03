@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateCurriculum } from "@/lib/gemini/client";
 import type { CurriculumInput } from "@/lib/gemini/client";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
+import { generatePlanSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -15,17 +16,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { scores, examDate } = body as {
-      scores?: Record<string, number>;
-      examDate?: string;
-    };
-
-    if (!scores || !examDate) {
+    const parsed = generatePlanSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields: scores and examDate" },
+        { error: "Invalid input" },
         { status: 400 }
       );
     }
+    const { scores, examDate } = parsed.data;
 
     // Calculate days remaining (minimum 1)
     const daysRemaining = Math.max(

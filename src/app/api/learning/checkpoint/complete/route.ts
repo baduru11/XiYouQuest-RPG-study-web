@@ -6,6 +6,13 @@ import {
 } from "@/lib/gemini/client";
 import type { CurriculumInput, CheckpointFeedbackInput } from "@/lib/gemini/client";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
+import { z } from "zod";
+
+const checkpointBodySchema = z.object({
+  planId: z.string().uuid(),
+  checkpointNumber: z.number().int().min(1).max(10),
+  scores: z.record(z.string(), z.number().min(0).max(100)),
+});
 
 const PSC_WEIGHTS: Record<string, number> = {
   c1: 0.1,
@@ -44,18 +51,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { planId, checkpointNumber, scores } = body as {
-      planId?: string;
-      checkpointNumber?: number;
-      scores?: Record<string, number>;
-    };
-
-    if (!planId || checkpointNumber == null || !scores) {
+    const parsed = checkpointBodySchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required fields: planId, checkpointNumber, scores" },
+        { error: "Invalid input", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
+    const { planId, checkpointNumber, scores } = parsed.data;
 
     // 3. Fetch plan and verify ownership
     const { data: plan, error: planError } = await supabase

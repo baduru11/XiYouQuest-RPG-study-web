@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
+import { nodeCompleteSchema } from "@/lib/validations";
+
+const MAX_NODE_XP = 200;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -13,19 +16,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { nodeId, score, xpEarned, durationSeconds } = body as {
-      nodeId?: string;
-      score?: number;
-      xpEarned?: number;
-      durationSeconds?: number;
-    };
-
-    if (!nodeId) {
+    const parsed = nodeCompleteSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required field: nodeId" },
+        { error: "Invalid input" },
         { status: 400 }
       );
     }
+    const { nodeId, score, durationSeconds } = parsed.data;
+    // Server-side XP cap
+    const xpEarned = Math.min(parsed.data.xpEarned ?? 0, MAX_NODE_XP);
 
     // Fetch the node
     const { data: node, error: nodeError } = await supabase

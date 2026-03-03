@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { nodeStartSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -12,14 +13,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { nodeId } = body as { nodeId?: string };
-
-    if (!nodeId) {
+    const parsed = nodeStartSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Missing required field: nodeId" },
+        { error: "Invalid input" },
         { status: 400 }
       );
     }
+    const { nodeId } = parsed.data;
 
     // Fetch the node
     const { data: node, error: nodeError } = await supabase
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Verify node is available
     if (node.status !== "available") {
       return NextResponse.json(
-        { error: `Node is not available (current status: ${node.status})` },
+        { error: "Node is not available" },
         { status: 400 }
       );
     }
