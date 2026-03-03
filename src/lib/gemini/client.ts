@@ -429,10 +429,15 @@ export async function generateCurriculum(input: CurriculumInput): Promise<Curric
   const systemPrompt = buildCurriculumPrompt(input);
   const userPrompt = "Generate the personalized learning curriculum based on the above analysis.";
 
-  const text = await retryWithBackoff(() =>
-    chatCompletion(systemPrompt, userPrompt)
-  );
-  return parseCurriculumOutput(text);
+  try {
+    const text = await retryWithBackoff(() =>
+      chatCompletion(systemPrompt, userPrompt)
+    );
+    return parseCurriculumOutput(text);
+  } catch (error) {
+    console.error("[AI] Curriculum generation failed after retries:", error);
+    throw new Error("AI curriculum generation temporarily unavailable. Please try again.");
+  }
 }
 
 export async function generateCheckpointFeedback(input: CheckpointFeedbackInput): Promise<string> {

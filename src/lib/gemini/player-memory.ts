@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { AFFECTION_LEVELS } from "@/types/gamification";
 
 const COMPONENT_NAMES: Record<number, string> = {
   1: "C1 (Monosyllabic)",
@@ -8,15 +9,6 @@ const COMPONENT_NAMES: Record<number, string> = {
   5: "C5 (Prompted Speaking)",
   6: "C6 (Cantonese Mistakes)",
   7: "C7 (Polyphonic)",
-};
-
-const AFFECTION_LABELS: Record<number, string> = {
-  0: "Stranger",
-  1: "Acquaintance",
-  2: "Friend",
-  3: "Close Friend",
-  4: "Trusted Ally",
-  5: "Soulbound",
 };
 
 /**
@@ -72,7 +64,7 @@ export async function buildPlayerMemory(
   // Relationship line
   if (relationship) {
     const level = relationship.affection_level ?? 0;
-    const label = AFFECTION_LABELS[level] ?? "Unknown";
+    const label = AFFECTION_LEVELS[level]?.name ?? "Stranger";
     const xp = relationship.affection_xp ?? 0;
     const charName =
       (relationship.characters as unknown as { name: string } | null)?.name ?? "companion";

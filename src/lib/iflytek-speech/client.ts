@@ -613,7 +613,7 @@ export async function assessPronunciation(
             resultChunks.join(""),
             "base64"
           ).toString("utf-8");
-          console.log("[ISE] XML result:", xmlStr.substring(0, 2000));
+          if (process.env.NODE_ENV === "development") console.log("[ISE] XML result:", xmlStr.substring(0, 500));
           finish(parseIseXml(xmlStr, category));
         } catch (err) {
           fail(new Error(`Failed to parse ISE result: ${err}`));
@@ -633,7 +633,7 @@ export async function assessPronunciation(
               resultChunks.join(""),
               "base64"
             ).toString("utf-8");
-            console.log("[ISE] XML result (on close):", xmlStr.substring(0, 2000));
+            if (process.env.NODE_ENV === "development") console.log("[ISE] XML result (on close):", xmlStr.substring(0, 500));
             finish(parseIseXml(xmlStr, category));
           } catch {
             fail(new Error("iFlytek ISE: closed with unparseable result"));
