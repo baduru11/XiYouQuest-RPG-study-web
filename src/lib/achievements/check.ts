@@ -169,19 +169,19 @@ async function verifyConditions(
       continue;
     }
 
-    // no_hit_stage_X: verify the stage is actually cleared in DB
+    // no_hit_stage_X: verify stage is cleared AND was cleared with zero damage
     if (key.startsWith('no_hit_stage_')) {
       const stageNum = parseInt(key.replace('no_hit_stage_', ''), 10);
       if (!isNaN(stageNum)) {
         const { data: stageRow } = await supabase
           .from('quest_progress')
-          .select('is_cleared, best_score')
+          .select('is_cleared, best_score, damage_taken')
           .eq('user_id', userId)
           .eq('stage', stageNum)
           .eq('is_cleared', true)
           .single();
 
-        if (stageRow && stageRow.best_score > 0) {
+        if (stageRow && stageRow.damage_taken === 0) {
           verified.push(key);
         }
       }

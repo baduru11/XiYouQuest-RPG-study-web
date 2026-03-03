@@ -17,9 +17,17 @@ export function CharacterDisplay({
   currentExpression,
   className = "",
 }: CharacterDisplayProps) {
+  const imageUrl = expressionImages[currentExpression] || expressionImages["neutral"] || "";
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
-  const imageUrl = expressionImages[currentExpression] || expressionImages["neutral"] || "";
+  const [prevUrl, setPrevUrl] = useState(imageUrl);
+
+  // Reset loaded/error state when image URL changes (React recommended pattern)
+  if (prevUrl !== imageUrl) {
+    setPrevUrl(imageUrl);
+    setLoaded(false);
+    setError(false);
+  }
 
   return (
     <div className={`relative flex flex-col items-center ${className}`}>

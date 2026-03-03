@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import type { UnlockedAchievement } from "@/lib/achievements/types";
 import { TIER_COLORS } from "@/lib/achievements/types";
 
@@ -25,6 +25,15 @@ interface ToastItem {
 export function AchievementToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const counterRef = useRef(0);
+  const timerIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    const timerIds = timerIdsRef.current;
+    return () => {
+      timerIds.forEach(clearTimeout);
+    };
+  }, []);
 
   const showAchievementToasts = useCallback((achievements: UnlockedAchievement[]) => {
     const newToasts = achievements.map((achievement, i) => {
@@ -32,17 +41,20 @@ export function AchievementToastProvider({ children }: { children: React.ReactNo
       const id = `ach-toast-${counterRef.current}`;
 
       // Stagger appearance
-      setTimeout(() => {
+      const t1 = setTimeout(() => {
         setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, visible: true } : t)));
       }, i * 300);
 
       // Auto-dismiss after 4 seconds
-      setTimeout(() => {
+      const t2 = setTimeout(() => {
         setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, visible: false } : t)));
-        setTimeout(() => {
+        const t3 = setTimeout(() => {
           setToasts((prev) => prev.filter((t) => t.id !== id));
         }, 400); // cleanup after fade-out
+        timerIdsRef.current.push(t3);
       }, 4000 + i * 300);
+
+      timerIdsRef.current.push(t1, t2);
 
       return { id, achievement, visible: false };
     });
