@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -229,6 +229,11 @@ export default function LearningPathClient({
       if (!res.ok) throw new Error("Failed to complete node");
       const data = await res.json();
 
+      // Show achievement toasts if any were unlocked
+      if (data.newAchievements?.length > 0) {
+        showAchievementToasts(data.newAchievements as UnlockedAchievement[]);
+      }
+
       // Check if checkpoint is ready
       if (data.isCheckpointReady) {
         const node = nodes.find((n) => n.id === activeNodeId);
@@ -247,7 +252,7 @@ export default function LearningPathClient({
       await refetchPlan();
       setView("roadmap");
     }
-  }, [activeNodeId, nodes, refetchPlan]);
+  }, [activeNodeId, nodes, refetchPlan, showAchievementToasts]);
 
   // ---- Submit checkpoint ----
   const submitCheckpoint = useCallback(async (scores: Record<string, number>) => {
@@ -849,7 +854,7 @@ function GeneratingView({
   const hasStarted = useRef(false);
 
   // Trigger generation on mount
-  useState(() => {
+  useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
 
@@ -869,7 +874,8 @@ function GeneratingView({
         onError((err as Error).message);
       }
     })();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (error) {
     return (
@@ -2087,7 +2093,7 @@ function FinalReportView({
   const hasFetched = useRef(false);
 
   // Fetch full report data
-  useState(() => {
+  useEffect(() => {
     if (hasFetched.current || !plan) return;
     hasFetched.current = true;
 
@@ -2107,7 +2113,8 @@ function FinalReportView({
         setLoading(false);
       }
     })();
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build growth trajectory
   const initialScores = (plan?.initial_scores ?? {}) as Record<string, number>;
