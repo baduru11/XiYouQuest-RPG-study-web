@@ -16,6 +16,7 @@ import {
   Play,
   Flame,
   Github,
+  MessageCircle,
 } from "lucide-react";
 import { getUserLevel } from "@/lib/gamification/xp";
 import { useAudioSettings } from "@/components/shared/audio-settings";
@@ -44,6 +45,12 @@ const MENU_ITEMS = [
     icon: Users,
     label: "Characters",
     description: "Gallery, unlocks, and affection",
+  },
+  {
+    href: "/companion-chat",
+    icon: MessageCircle,
+    label: "Companion Chat",
+    description: "Chat with companions in Journey to the West scenarios",
   },
 ];
 
