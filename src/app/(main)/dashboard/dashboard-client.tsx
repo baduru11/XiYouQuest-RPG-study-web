@@ -17,6 +17,7 @@ import {
   Flame,
   Github,
   MessageCircle,
+  GraduationCap,
 } from "lucide-react";
 import { getUserLevel } from "@/lib/gamification/xp";
 import { useAudioSettings } from "@/components/shared/audio-settings";
@@ -33,6 +34,12 @@ const MENU_ITEMS = [
     icon: ClipboardCheck,
     label: "Mock Exam",
     description: "Full 5-component exam simulation",
+  },
+  {
+    href: "/learning-path",
+    icon: GraduationCap,
+    label: "Learning Path",
+    description: "Personalized PSC study plan with adaptive curriculum",
   },
   {
     href: "/leaderboard",
