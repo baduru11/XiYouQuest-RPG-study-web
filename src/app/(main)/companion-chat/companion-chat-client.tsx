@@ -15,6 +15,8 @@ import {
   Trash2,
   Shield,
   ShieldOff,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
 import { Button } from "@/components/ui/button";
@@ -134,6 +136,11 @@ export default function CompanionChatClient({
   const [isResuming, setIsResuming] = useState(false);
   const [deletedSessionIds, setDeletedSessionIds] = useState<Set<string>>(new Set());
 
+  // Multi-select state
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Audio
   const { effectiveTtsVolume } = useAudioSettings();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -144,6 +151,8 @@ export default function CompanionChatClient({
 
   // Message scroll
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   // Achievement toast
   const { showAchievementToasts } = useAchievementToast();
@@ -169,6 +178,22 @@ export default function CompanionChatClient({
       document.body.style.isolation = "";
     };
   }, [phase]);
+
+  // ── Cleanup TTS blob URLs and audio on unmount ──
+  useEffect(() => {
+    const audioRef = currentAudioRef;
+    const cacheRef = ttsCacheRef;
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      for (const url of cacheRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      cacheRef.current.clear();
+    };
+  }, []);
 
   // ── Auto-scroll ──
   useEffect(() => {
@@ -228,7 +253,7 @@ export default function CompanionChatClient({
     const overlay = bgOverlayRef.current;
     const img = new window.Image();
     img.onload = () => {
-      overlay.style.backgroundImage = `url(${imageUrl})`;
+      overlay.style.backgroundImage = `url("${imageUrl.replace(/["\\]/g, "")}")`;
       requestAnimationFrame(() => { overlay.style.opacity = "1"; });
     };
     img.src = imageUrl;
@@ -335,8 +360,8 @@ export default function CompanionChatClient({
 
       // Generate image every 4 user turns (non-blocking)
       if (newTurnCount > 0 && newTurnCount % 3 === 0) {
-        // Build conversation summary from last 8 messages
-        const recentMsgs = messages.slice(-8).map(m =>
+        // Build conversation summary from last 8 messages (use ref for latest state)
+        const recentMsgs = messagesRef.current.slice(-8).map(m =>
           `${m.role === "user" ? "User" : selectedCharacter.name}: ${m.content}`
         ).join("\n");
 
@@ -370,7 +395,7 @@ export default function CompanionChatClient({
     } finally {
       setIsProcessing(false);
     }
-  }, [sessionId, selectedCharacter, selectedScenario, messages, playTTS, showBackgroundImage, softLimitDismissed, filterOffTopic]);
+  }, [sessionId, selectedCharacter, selectedScenario, playTTS, showBackgroundImage, softLimitDismissed, filterOffTopic]);
 
   // ── Reset to start ──
   const handleNewChat = useCallback(() => {
@@ -516,6 +541,58 @@ export default function CompanionChatClient({
       console.error("[Chat] Delete error:", err);
     }
   }, [historyDetail]);
+
+  // ── Multi-select helpers ──
+  const toggleSelectMode = useCallback(() => {
+    setIsSelecting(prev => {
+      if (prev) setSelectedIds(new Set());
+      return !prev;
+    });
+    // Close detail view when entering select mode
+    setHistoryDetail(null);
+  }, []);
+
+  const toggleSessionSelection = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} conversation(s)? This cannot be undone.`)) return;
+
+    setIsDeleting(true);
+    const ids = [...selectedIds];
+    const results = await Promise.allSettled(
+      ids.map(id =>
+        fetchWithRetry("/api/chat/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: id }),
+        })
+      )
+    );
+
+    setDeletedSessionIds(prev => {
+      const next = new Set(prev);
+      ids.forEach((id, i) => {
+        if (results[i].status === "fulfilled") next.add(id);
+      });
+      return next;
+    });
+
+    if (historyDetail && selectedIds.has(historyDetail.session.id)) {
+      setHistoryDetail(null);
+    }
+
+    setSelectedIds(new Set());
+    setIsSelecting(false);
+    setIsDeleting(false);
+  }, [selectedIds, historyDetail]);
 
   // ── Score helpers ──
   const formatAvgScore = (score: number | null) => {
