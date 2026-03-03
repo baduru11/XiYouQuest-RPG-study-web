@@ -33,9 +33,8 @@ export default async function SocialPage() {
     .eq("id", user.id)
     .single();
 
-  // Check if user logged in with Discord (has provider_token)
-  const { data: { session } } = await supabase.auth.getSession();
-  const hasDiscord = !!session?.provider_token;
+  // Check if user linked Discord by checking for discord identity
+  const hasDiscord = !!user.identities?.some(i => i.provider === "discord");
 
   return (
     <SocialClient
