@@ -67,6 +67,28 @@ export const questProgressSchema = z.object({
   remaining_hp: z.number().int().min(0).max(9).optional(),
 });
 
+// --- Chat API Schemas ---
+
+export const chatStartSchema = z.object({
+  characterId: uuid,
+  scenarioId: uuid,
+});
+
+export const chatEndSchema = z.object({
+  sessionId: uuid,
+});
+
+export const chatGenerateImageSchema = z.object({
+  sessionId: uuid,
+  conversationSummary: z.string().min(1).max(2000),
+});
+
+export const chatHistoryQuerySchema = z.object({
+  sessionId: uuid.optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(20),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+});
+
 // --- Helpers ---
 
 /** Validate UUID format (for query params and array values) */
