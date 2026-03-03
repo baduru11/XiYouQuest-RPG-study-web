@@ -87,8 +87,17 @@ export async function POST(request: NextRequest) {
     const totalCount = allPhaseNodes.length;
     const allPhaseComplete = completedCount >= totalCount;
 
-    // Determine if checkpoint is ready (all complete and not the last phase)
-    const isLastPhase = node.phase === 4;
+    // Determine the max phase dynamically from existing nodes
+    const { data: maxPhaseRow } = await supabase
+      .from("learning_nodes")
+      .select("phase")
+      .eq("plan_id", node.plan_id)
+      .order("phase", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const maxPhase = (maxPhaseRow?.phase as number) ?? node.phase;
+    const isLastPhase = node.phase >= maxPhase;
     const isCheckpointReady = allPhaseComplete && !isLastPhase;
 
     // Suppress unused variable warning - durationSeconds is accepted for future use
