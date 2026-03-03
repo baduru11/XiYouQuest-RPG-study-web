@@ -42,6 +42,7 @@ interface SpeakingSessionProps {
   };
   characterId?: string;
   component: ComponentNumber;
+  playerMemory?: string;
 }
 
 type SessionPhase =
@@ -65,7 +66,7 @@ interface C5SpeakingAnalysis {
   overallFeedback: string;
 }
 
-export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
+export function SpeakingSession({ topics, character, characterId, component, playerMemory }: SpeakingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
@@ -383,6 +384,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
             userAnswer: c5Result.transcript || "Prompted speaking attempt",
             pronunciationScore: c5Result.normalizedScore,
             isCorrect: isGood,
+            playerMemory,
           }),
         });
 

@@ -18,6 +18,7 @@ import {
   Github,
   MessageCircle,
   GraduationCap,
+  History,
 } from "lucide-react";
 import { getUserLevel } from "@/lib/gamification/xp";
 import { useAudioSettings } from "@/components/shared/audio-settings";
@@ -58,6 +59,12 @@ const MENU_ITEMS = [
     icon: MessageCircle,
     label: "Companion Chat",
     description: "Chat with companions in Journey to the West scenarios",
+  },
+  {
+    href: "/practice-history",
+    icon: History,
+    label: "Practice History",
+    description: "View your past sessions, trends, and AI insights",
   },
 ];
 

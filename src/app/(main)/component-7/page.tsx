@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
 import { loadSelectedCharacter } from "@/lib/character-loader";
+import { buildPlayerMemory } from "@/lib/gemini/player-memory";
 import { shuffle } from "@/lib/utils";
 import { QUIZ_SIZES } from "@/lib/constants";
 import type { QuizQuestion } from "@/types/practice";
@@ -47,6 +48,8 @@ export default async function Component7Page() {
       .limit(100),
   ]);
 
+  const playerMemory = await buildPlayerMemory(supabase, user!.id, character.id ?? "").catch(() => "");
+
   let questions: QuizQuestion[];
   if (dbQuestions && dbQuestions.length > 0) {
     const allParsed = dbQuestions
@@ -76,7 +79,7 @@ export default async function Component7Page() {
         </p>
       </div>
 
-      <QuizSession questions={questions} character={character} characterId={character.id} component={7} />
+      <QuizSession questions={questions} character={character} characterId={character.id} component={7} playerMemory={playerMemory} />
     </div>
   );
 }

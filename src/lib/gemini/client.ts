@@ -155,12 +155,13 @@ export async function generateFeedback(params: {
   userAnswer: string;
   pronunciationScore?: number;
   isCorrect: boolean;
+  playerMemory?: string;
 }) {
   const systemPrompt = `You ARE the following character. Stay fully in character at all times — use their speech patterns, catchphrases, metaphors, and personality traits in every response. Never break character.
 
 ${params.characterPrompt}
 
-CONTEXT: The student is practicing for the PSC (Putonghua Proficiency Test), Component ${params.component}.
+${params.playerMemory ? `${params.playerMemory}\n` : ''}CONTEXT: The student is practicing for the PSC (Putonghua Proficiency Test), Component ${params.component}.
 RULES:
 - Respond in a mix of Chinese and English, staying fully in character.
 - Keep responses to 2-4 sentences. Be concise but expressive.
@@ -194,11 +195,34 @@ export interface ChatTurnMessage {
   content: string;
 }
 
+export interface ChatResponseEnvelope {
+  type: "reply" | "redirect";
+  content: string;
+}
+
+export function parseChatResponse(text: string): ChatResponseEnvelope {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (
+        (parsed.type === "reply" || parsed.type === "redirect") &&
+        typeof parsed.content === "string"
+      ) {
+        return { type: parsed.type, content: parsed.content };
+      }
+    }
+  } catch {
+    // JSON parse failed — treat as plain text
+  }
+  return { type: "reply", content: text };
+}
+
 export async function chatConversation(
   messages: ChatTurnMessage[],
-): Promise<string> {
+): Promise<ChatResponseEnvelope> {
   try {
-    return await retryWithBackoff(async () => {
+    const raw = await retryWithBackoff(async () => {
       const res = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers: {
@@ -221,9 +245,10 @@ export async function chatConversation(
       if (!text) throw new Error("Empty response from OpenRouter");
       return text;
     });
+    return parseChatResponse(raw);
   } catch (error) {
     console.error("[AI] Chat conversation failed after retries:", error);
-    return "抱歉，我现在有点走神了。你刚才说什么？";
+    return { type: "reply", content: "抱歉，我现在有点走神了。你刚才说什么？" };
   }
 }
 

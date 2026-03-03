@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const [{ data: session }, { data: messages }] = await Promise.all([
       supabase
         .from("chat_sessions")
-        .select("*, characters(name), chat_scenarios(title)")
+        .select("*, characters(name, voice_id, image_url), chat_scenarios(title, category)")
         .eq("id", sessionId)
         .eq("user_id", user.id)
         .single(),
@@ -39,15 +39,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ session, messages: messages ?? [] });
   }
 
-  // Otherwise, return session list
+  // Otherwise, return session list (including active sessions)
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 50);
   const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
   const { data: sessions, error, count } = await supabase
     .from("chat_sessions")
-    .select("*, characters(name), chat_scenarios(title)", { count: "exact" })
+    .select("*, characters(name, voice_id, image_url), chat_scenarios(title, category)", { count: "exact" })
     .eq("user_id", user.id)
-    .not("ended_at", "is", null)
+    .order("ended_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

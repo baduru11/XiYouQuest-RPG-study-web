@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
     const { sessionId, conversationSummary } = parsed.data;
+    const characterName = body.characterName as string | undefined;
+    const scenarioTitle = body.scenarioTitle as string | undefined;
 
     // Verify session belongs to user
     const { data: session } = await supabase
@@ -31,16 +33,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // Fetch character name and scenario title
-    const [{ data: character }, { data: scenario }] = await Promise.all([
-      supabase.from("characters").select("name").eq("id", session.character_id).single(),
-      supabase.from("chat_scenarios").select("title").eq("id", session.scenario_id).single(),
-    ]);
+    // Only fetch from DB if not provided by client
+    let resolvedCharName: string = characterName ?? "";
+    let resolvedScenTitle: string = scenarioTitle ?? "";
+    if (!resolvedCharName || !resolvedScenTitle) {
+      const [{ data: character }, { data: scenario }] = await Promise.all([
+        !resolvedCharName ? supabase.from("characters").select("name").eq("id", session.character_id).single() : Promise.resolve({ data: null }),
+        !resolvedScenTitle ? supabase.from("chat_scenarios").select("title").eq("id", session.scenario_id).single() : Promise.resolve({ data: null }),
+      ]);
+      if (!resolvedCharName) resolvedCharName = character?.name ?? "Companion";
+      if (!resolvedScenTitle) resolvedScenTitle = scenario?.title ?? "Journey";
+    }
 
     // Generate image
     const imageResult = await generateSceneImage({
-      companionName: character?.name ?? "Companion",
-      scenarioTitle: scenario?.title ?? "Journey",
+      companionName: resolvedCharName,
+      scenarioTitle: resolvedScenTitle,
       conversationSummary,
     });
 

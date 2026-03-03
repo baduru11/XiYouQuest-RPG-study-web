@@ -25,11 +25,12 @@ interface QuizSessionProps {
   };
   characterId?: string;
   component: ComponentNumber;
+  playerMemory?: string;
 }
 
 type SessionPhase = "answering" | "result" | "complete";
 
-export function QuizSession({ questions, character, characterId, component }: QuizSessionProps) {
+export function QuizSession({ questions, character, characterId, component, playerMemory }: QuizSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   // Randomize answer positions on client side
   const randomizedQuestions = useMemo(() => {
@@ -140,6 +141,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
             questionText: currentQuestion.prompt + " " + currentQuestion.options.join(" / "),
             userAnswer: currentQuestion.options[answerIndex],
             isCorrect: false,
+            playerMemory,
           }),
         });
 

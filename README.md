@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss" alt="Tailwind" />
   <img src="https://img.shields.io/badge/iFlytek-ISE_+_TTS-FF6B35" alt="iFlytek" />
-  <img src="https://img.shields.io/badge/Gemini-2.0_Flash-4285F4?logo=google" alt="Gemini" />
+  <img src="https://img.shields.io/badge/DeepSeek-v3.2-5B6EE1" alt="DeepSeek" />
   <img src="https://img.shields.io/badge/Vercel-Deployed-000?logo=vercel" alt="Vercel" />
 </p>
 
@@ -71,7 +71,7 @@ XiYouQuest transforms Putonghua Proficiency Test (PSC / 普通话水平测试) p
 Every practice session flows through a multi-service pipeline:
 
 ```
-🎙️ Record → 📦 WAV Encode → 🌐 iFlytek ISE → 📊 XML Parse → 🤖 Gemini Feedback → 🎮 XP Award → 🏆 Achievement Check
+🎙️ Record → 📦 WAV Encode → 🌐 iFlytek ISE → 📊 XML Parse → 🤖 DeepSeek Feedback → 🎮 XP Award → 🏆 Achievement Check
 ```
 
 ---
@@ -84,7 +84,7 @@ Every practice session flows through a multi-service pipeline:
 | **Main Quest RPG** | 7-stage Journey to the West campaign with turn-based pronunciation battles against mythical bosses |
 | **Real-time Speech Scoring** | Phone-level accuracy, tone analysis, fluency metrics via iFlytek Intelligent Speech Evaluation |
 | **AI Companions** | 4 Journey to the West characters with unique personalities, expressions, and voice lines |
-| **Gemini Feedback** | Character-personalized, context-aware study tips powered by Google Gemini 2.0 Flash |
+| **AI Feedback** | Character-personalized, context-aware study tips powered by DeepSeek v3.2 via OpenRouter |
 | **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping (一级甲等 → 三级乙等) |
 | **TTS Playback** | Native Putonghua model audio for every word, sentence, and passage via iFlytek TTS |
 | **31 Achievements** | 4-tier achievement system (Common/Uncommon/Rare/Epic) with toast notifications and friend activity feed |
@@ -125,9 +125,9 @@ Every practice session flows through a multi-service pipeline:
 ├─────────┼────────────────┼───────────────┼───────────────┼──────────┤
 │         ▼                ▼               ▼               ▼          │
 │  ┌─────────────┐  ┌─────────────┐ ┌───────────┐  ┌────────────┐   │
-│  │ iFlytek ISE │  │ iFlytek TTS │ │  Google   │  │  Supabase  │   │
-│  │  + IST      │  │  WebSocket  │ │  Gemini   │  │ PostgreSQL │   │
-│  │ (wss://)    │  │ (wss://)    │ │ 2.0 Flash │  │  + RLS     │   │
+│  │ iFlytek ISE │  │ iFlytek TTS │ │  DeepSeek │  │  Supabase  │   │
+│  │  + IST      │  │  WebSocket  │ │   v3.2    │  │ PostgreSQL │   │
+│  │ (wss://)    │  │ (wss://)    │ │(OpenRouter)│  │  + RLS     │   │
 │  └─────────────┘  └─────────────┘ └───────────┘  └────────────┘   │
 │                                                                     │
 │       HMAC-SHA256 Auth         Retry + Backoff    Row Level Sec.   │
@@ -156,7 +156,7 @@ Client (PracticeSession):
      → iFlytek ISE WebSocket → SSB + AUW frames → base64 XML
      → Parse per-word accuracy, tone, dp_message, perr_msg
   5. 🎯 Score matching: filter insertions/omissions → sequential word match
-  6. 🤖 POST /api/ai/feedback → Gemini personality-driven feedback
+  6. 🤖 POST /api/ai/feedback → DeepSeek personality-driven feedback
   7. ✨ XP: ≥90→10, ≥60→5, <60→2 × streak multiplier
 
   After final group → POST /api/progress/update → achievement check
@@ -183,7 +183,7 @@ Multiple-choice quiz testing vocabulary accuracy and grammatical judgment — no
 | **measure-word** (量词搭配) | Choose the correct measure word | 一___书 → 本/个/条/只 |
 | **sentence-order** (语序判断) | Select the grammatically correct sentence | Reordered sentence options |
 
-5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct → 10 XP + static explanation. Wrong → 2 XP + Gemini-generated explanation.
+5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct → 10 XP + static explanation. Wrong → 2 XP + DeepSeek-generated explanation.
 
 ### C4: Passage Reading (朗读短文)
 
@@ -195,7 +195,7 @@ Phase 2 — READY: Interactive passage with per-sentence TTS playback
 Phase 3 — RECORD: Full passage recording via AudioRecorder
 Phase 4 — ASSESS: ISE read_chapter → sentence-level scores + word detail
 Phase 5 — FEEDBACK: Color-coded sentences (green ≥80, yellow ≥60, red <60)
-         → Gemini feedback → companion dialogue → progress update
+         → DeepSeek feedback → companion dialogue → progress update
 ```
 
 ### C5: Prompted Speaking (命题说话)
@@ -208,12 +208,12 @@ Step 1: ASR Transcription (iFlytek IST WebSocket)
 
 Step 2: Parallel Assessment (Promise.all)
   ├── ISE Pronunciation (read_chapter, auto-chunked if >90s)
-  └── Gemini Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
+  └── DeepSeek Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
 
 Step 3: calculateC5Score() — Official PSC rubric (30 pts → normalized 0-100)
   ├── Pronunciation (20 pts): error count + dialect detection
-  ├── Vocabulary/Grammar (5 pts): Gemini level 1-3
-  ├── Fluency (5 pts): 3-tier ISE/Gemini fallback
+  ├── Vocabulary/Grammar (5 pts): DeepSeek level 1-3
+  ├── Fluency (5 pts): 3-tier ISE/DeepSeek fallback
   └── Time penalty: -1/sec under 3 minutes
 ```
 
@@ -401,14 +401,14 @@ All TTS uses **iFlytek's WebSocket API** (`wss://tts-api-sg.xf-yun.com/v2/tts`) 
 
 ## AI Feedback Pipeline
 
-**Google Gemini 2.0 Flash** generates contextual, personality-driven feedback for every practice attempt.
+**DeepSeek v3.2** (via OpenRouter) generates contextual, personality-driven feedback for every practice attempt.
 
 ```
 Input:
   characterPrompt + component + questionText + score + isCorrect
                          │
                          ▼
-  Gemini System Prompt:
+  DeepSeek System Prompt:
     "{personality} helping a PSC student (Component X).
      Chinese+English mix. Under 3 sentences."
                          │
@@ -420,7 +420,7 @@ Input:
   Exhausted → fallback: "做得好！继续加油！" or "再试一次吧！"
 ```
 
-**C5 Content Analysis:** For prompted speaking, Gemini additionally returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
+**C5 Content Analysis:** For prompted speaking, DeepSeek additionally returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
 
 ---
 
@@ -510,7 +510,7 @@ Four Journey to the West (西游记) companions, unlocked through quest progress
 | Zhu Bajie | 猪八戒 | Stage 6 | The Pig — humorous, warm, celebrates small wins |
 
 Each character has:
-- **Unique personality prompt** for Gemini AI feedback personalization
+- **Unique personality prompt** for DeepSeek AI feedback personalization
 - **Expression images** (neutral, happy, proud, excited, thinking, encouraging, etc.) with fade transitions
 - **Voice ID** mapped to iFlytek TTS for dialogue voice lines
 - **Affection system** — 5 levels from Acquaintance to Soulmate
@@ -566,7 +566,7 @@ A multi-layer resilience stack ensures the app degrades gracefully under poor ne
 Layer 1 — Client: fetchWithRetry (3 retries, exponential backoff with jitter)
            Retryable: 429, 500, 502, 503  |  Non-retryable: 400, 401, 403, 404
 
-Layer 2 — Server: Gemini retryWithBackoff (3 retries, 1s/2s/4s + jitter)
+Layer 2 — Server: AI retryWithBackoff (3 retries, 1s/2s/4s + jitter)
 
 Layer 3 — Server: TTS in-memory LRU cache (500 entries)
 
@@ -590,7 +590,7 @@ All 24+ internal API fetch calls across all practice components are covered by `
 | **Language** | TypeScript (strict mode) | Type safety |
 | **Database** | Supabase (PostgreSQL + RLS) | Data persistence, auth, storage |
 | **Auth** | Supabase Auth | Email, Google OAuth, Discord OAuth |
-| **AI Feedback** | Google Gemini 2.0 Flash | Contextual feedback, content analysis |
+| **AI Feedback** | DeepSeek v3.2 (via OpenRouter) | Contextual feedback, content analysis |
 | **Speech Assessment** | iFlytek ISE (WebSocket) | Pronunciation scoring (zh-CN) |
 | **Speech Recognition** | iFlytek IST (WebSocket) | Speech-to-text for C5 |
 | **Text-to-Speech** | iFlytek TTS (WebSocket) | Native Putonghua audio synthesis |
@@ -612,7 +612,7 @@ All 24+ internal API fetch calls across all practice components are covered by `
 
 - [Node.js](https://nodejs.org) 18+
 - A [Supabase](https://supabase.com) project
-- API keys: iFlytek (ISE + TTS + IST), Google Gemini
+- API keys: iFlytek (ISE + TTS + IST), OpenRouter
 
 ### 1. Clone and Install
 
@@ -632,8 +632,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Google Gemini
-GEMINI_API_KEY=your_gemini_api_key
+# OpenRouter (DeepSeek v3.2)
+OPENROUTER_API_KEY=your_openrouter_api_key
 
 # iFlytek (shared by ISE, TTS, and IST)
 IFLYTEK_APP_ID=your_app_id
@@ -717,7 +717,7 @@ src/
 │   ├── supabase/                         # Browser + server Supabase clients
 │   ├── iflytek-speech/                   # ISE + IST WebSocket clients
 │   ├── voice/                            # TTS WebSocket client + pinyin lookup data
-│   ├── gemini/                           # Gemini with retry logic
+│   ├── gemini/                           # DeepSeek AI client (via OpenRouter) with retry logic
 │   ├── quest/                            # Battle logic, stage config, story text
 │   ├── achievements/                     # 31 achievement definitions + event-driven checks
 │   ├── gamification/                     # XP, levels, streaks, affection calculations

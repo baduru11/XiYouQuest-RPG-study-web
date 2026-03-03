@@ -10,8 +10,11 @@ import {
   ChevronDown,
   ChevronUp,
   LogOut,
-  RotateCcw,
   Loader2,
+  Play,
+  Trash2,
+  Shield,
+  ShieldOff,
 } from "lucide-react";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
 import { Button } from "@/components/ui/button";
@@ -39,16 +42,23 @@ interface Scenario {
   stage_number: number;
   title: string;
   description: string;
+  category: string;
 }
 
 interface HistorySession {
   id: string;
   characterName: string;
+  characterId: string;
+  characterVoiceId: string;
+  characterImage: string | null;
   scenarioTitle: string;
+  scenarioId: string;
+  scenarioCategory: string;
   messageCount: number;
   avgScore: number | null;
   xpEarned: number;
   createdAt: string;
+  endedAt: string | null;
 }
 
 interface ChatMessageUI {
@@ -60,18 +70,11 @@ interface ChatMessageUI {
   fluencyScore?: number;
   imageUrl?: string;
   expandedScore?: boolean;
-}
-
-interface SessionSummary {
-  messageCount: number;
-  avgScore: number;
-  xpEarned: number;
-  affectionEarned: number;
-  images: string[];
+  isRedirect?: boolean;
 }
 
 type ViewTab = "chat" | "history";
-type ChatPhase = "select_companion" | "select_scenario" | "chatting" | "summary";
+type ChatPhase = "select_companion" | "select_scenario" | "chatting";
 
 interface CompanionChatClientProps {
   characters: EnrichedCharacter[];
@@ -89,6 +92,12 @@ const STAGE_NAMES: Record<number, string> = {
   5: "火焰山 — Flaming Mountain",
   6: "盘丝洞 — Spider Cave",
   7: "雷音寺 — Thunder Monastery",
+};
+
+const CATEGORY_LABELS: Record<string, { zh: string; en: string }> = {
+  modern_daily: { zh: "现代生活", en: "Modern Daily Life" },
+  psc_exam: { zh: "PSC考试练习", en: "PSC Exam Practice" },
+  jttw: { zh: "西游记", en: "Journey to the West" },
 };
 
 // ── Component ──
@@ -109,15 +118,26 @@ export default function CompanionChatClient({
   const [messages, setMessages] = useState<ChatMessageUI[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const [summary, setSummary] = useState<SessionSummary | null>(null);
   const [turnCount, setTurnCount] = useState(0);
+  const [softLimitDismissed, setSoftLimitDismissed] = useState(false);
+  const [showSoftLimitDialog, setShowSoftLimitDialog] = useState(false);
+  const [filterOffTopic, setFilterOffTopic] = useState(true);
+
+  // Per-turn reward toast
+  const [rewardToast, setRewardToast] = useState<{ xp: number; affection: number } | null>(null);
+
+  // Loading step for start animation
+  const [loadingStep, setLoadingStep] = useState(0);
 
   // History state
   const [historyDetail, setHistoryDetail] = useState<{ session: HistorySession; messages: ChatMessageUI[] } | null>(null);
+  const [isResuming, setIsResuming] = useState(false);
+  const [deletedSessionIds, setDeletedSessionIds] = useState<Set<string>>(new Set());
 
   // Audio
   const { effectiveTtsVolume } = useAudioSettings();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsCacheRef = useRef<Map<string, string>>(new Map());
 
   // Background overlay (C4 pattern)
   const bgOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -136,6 +156,7 @@ export default function CompanionChatClient({
     const overlay = document.createElement("div");
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: -1;
+      background-color: #0a0a0a;
       background-size: cover; background-position: center; background-attachment: fixed;
       opacity: 0; transition: opacity 0.8s ease-in-out; pointer-events: none;
     `;
@@ -154,7 +175,14 @@ export default function CompanionChatClient({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ── TTS playback ──
+  // ── Reward toast auto-dismiss ──
+  useEffect(() => {
+    if (!rewardToast) return;
+    const timer = setTimeout(() => setRewardToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [rewardToast]);
+
+  // ── TTS playback (cached) ──
   const playTTS = useCallback(async (text: string, voiceId: string) => {
     try {
       // Stop any currently playing audio
@@ -163,22 +191,28 @@ export default function CompanionChatClient({
         currentAudioRef.current = null;
       }
 
-      const res = await fetchWithRetry("/api/tts/companion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voiceId, text }),
-      });
+      const cacheKey = `${voiceId}:${text}`;
+      let blobUrl = ttsCacheRef.current.get(cacheKey);
 
-      if (!res.ok) return;
+      if (!blobUrl) {
+        const res = await fetchWithRetry("/api/tts/companion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ voiceId, text }),
+        });
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
+        if (!res.ok) return;
+
+        const blob = await res.blob();
+        blobUrl = URL.createObjectURL(blob);
+        ttsCacheRef.current.set(cacheKey, blobUrl);
+      }
+
+      const audio = new Audio(blobUrl);
       audio.volume = effectiveTtsVolume;
       currentAudioRef.current = audio;
 
       audio.onended = () => {
-        URL.revokeObjectURL(url);
         currentAudioRef.current = null;
       };
 
@@ -195,7 +229,7 @@ export default function CompanionChatClient({
     const img = new window.Image();
     img.onload = () => {
       overlay.style.backgroundImage = `url(${imageUrl})`;
-      requestAnimationFrame(() => { overlay.style.opacity = "0.4"; });
+      requestAnimationFrame(() => { overlay.style.opacity = "1"; });
     };
     img.src = imageUrl;
   }, []);
@@ -217,6 +251,7 @@ export default function CompanionChatClient({
       const formData = new FormData();
       formData.append("sessionId", sessionId);
       formData.append("audio", audioBlob, "recording.wav");
+      formData.append("filterOffTopic", String(filterOffTopic));
 
       const res = await fetchWithRetry("/api/chat/respond", {
         method: "POST",
@@ -234,8 +269,42 @@ export default function CompanionChatClient({
       }
 
       const data = await res.json();
+
+      // Handle off-topic redirect
+      if (data.isRedirect) {
+        // Show user transcript + scores (they still practiced speaking)
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: data.userTranscript,
+          pronunciationScore: data.scores.pronunciation,
+          toneScore: data.scores.tone,
+          fluencyScore: data.scores.fluency,
+        }]);
+
+        // Show redirect with amber styling
+        setMessages(prev => [...prev, {
+          id: crypto.randomUUID(),
+          role: "companion",
+          content: data.companionReply,
+          isRedirect: true,
+        }]);
+
+        // Still play TTS for the redirect
+        playTTS(data.companionReply, selectedCharacter.voiceId);
+
+        // Do NOT update turnCount or trigger image generation
+        setIsProcessing(false);
+        return;
+      }
+
       const newTurnCount = data.turnNumber;
       setTurnCount(newTurnCount);
+
+      // Show per-turn reward toast
+      if (data.xpEarned > 0 || data.affectionEarned > 0) {
+        setRewardToast({ xp: data.xpEarned, affection: data.affectionEarned ?? 0 });
+      }
 
       // Add user message
       const userMsgId = crypto.randomUUID();
@@ -259,8 +328,13 @@ export default function CompanionChatClient({
       // Auto-play companion reply
       playTTS(data.companionReply, selectedCharacter.voiceId);
 
+      // Check soft limit
+      if (newTurnCount >= 20 && !softLimitDismissed) {
+        setShowSoftLimitDialog(true);
+      }
+
       // Generate image every 4 user turns (non-blocking)
-      if (newTurnCount > 0 && newTurnCount % 4 === 0) {
+      if (newTurnCount > 0 && newTurnCount % 3 === 0) {
         // Build conversation summary from last 8 messages
         const recentMsgs = messages.slice(-8).map(m =>
           `${m.role === "user" ? "User" : selectedCharacter.name}: ${m.content}`
@@ -272,6 +346,8 @@ export default function CompanionChatClient({
           body: JSON.stringify({
             sessionId,
             conversationSummary: recentMsgs,
+            characterName: selectedCharacter.name,
+            scenarioTitle: selectedScenario?.title,
           }),
         }).then(async (imgRes) => {
           if (imgRes.ok) {
@@ -294,36 +370,7 @@ export default function CompanionChatClient({
     } finally {
       setIsProcessing(false);
     }
-  }, [sessionId, selectedCharacter, messages, playTTS, showBackgroundImage]);
-
-  // ── End conversation ──
-  const handleEndChat = useCallback(async () => {
-    if (!sessionId) return;
-    if (!confirm("End this conversation?")) return;
-
-    setIsProcessing(true);
-    try {
-      const res = await fetchWithRetry("/api/chat/end", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setSummary(data.summary);
-        setPhase("summary");
-
-        if (data.newAchievements?.length > 0) {
-          showAchievementToasts(data.newAchievements);
-        }
-      }
-    } catch (err) {
-      console.error("[Chat] End error:", err);
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [sessionId, showAchievementToasts]);
+  }, [sessionId, selectedCharacter, selectedScenario, messages, playTTS, showBackgroundImage, softLimitDismissed, filterOffTopic]);
 
   // ── Reset to start ──
   const handleNewChat = useCallback(() => {
@@ -332,14 +379,96 @@ export default function CompanionChatClient({
     setSelectedScenario(null);
     setSessionId(null);
     setMessages([]);
-    setSummary(null);
     setTurnCount(0);
+    setSoftLimitDismissed(false);
+    setShowSoftLimitDialog(false);
+    setRewardToast(null);
+
+    // Free cached TTS blob URLs
+    for (const url of ttsCacheRef.current.values()) {
+      URL.revokeObjectURL(url);
+    }
+    ttsCacheRef.current.clear();
 
     // Fade out background
     if (bgOverlayRef.current) {
       bgOverlayRef.current.style.opacity = "0";
     }
   }, []);
+
+  // ── End conversation — just exit, rewards already given per turn ──
+  const handleEndChat = useCallback(async () => {
+    if (!sessionId) return;
+
+    setShowSoftLimitDialog(false);
+
+    // Fire-and-forget: mark session ended + check achievements server-side
+    const closingSessionId = sessionId;
+    fetchWithRetry("/api/chat/end", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: closingSessionId }),
+    }).then(async (res) => {
+      if (res.ok) {
+        const data = await res.json();
+        if (data.newAchievements?.length > 0) {
+          showAchievementToasts(data.newAchievements);
+        }
+      }
+    }).catch((err) => console.error("[Chat] End error:", err));
+
+    // Immediately go back to companion select
+    handleNewChat();
+  }, [sessionId, showAchievementToasts, handleNewChat]);
+
+  // ── Resume session ──
+  const handleResumeSession = useCallback(async (session: HistorySession) => {
+    setIsResuming(true);
+    try {
+      const res = await fetchWithRetry("/api/chat/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Failed to resume session");
+        return;
+      }
+
+      const data = await res.json();
+
+      // Find matching character from props
+      const char = characters.find(c => c.id === session.characterId);
+      const scen = scenarios.find(s => s.id === session.scenarioId);
+
+      if (char) setSelectedCharacter(char);
+      if (scen) setSelectedScenario(scen);
+
+      setSessionId(session.id);
+      setMessages((data.messages ?? []).map((m: { id: string; role: string; content: string; pronunciation_score: number | null; tone_score: number | null; fluency_score: number | null; image_url: string | null }) => ({
+        id: m.id,
+        role: m.role as "user" | "companion",
+        content: m.content,
+        pronunciationScore: m.pronunciation_score ?? undefined,
+        toneScore: m.tone_score ?? undefined,
+        fluencyScore: m.fluency_score ?? undefined,
+        imageUrl: m.image_url ?? undefined,
+      })));
+      setTurnCount(Math.floor((data.session.message_count ?? 0) / 2));
+      setSoftLimitDismissed(false);
+      setShowSoftLimitDialog(false);
+      setPhase("chatting");
+      setActiveTab("chat");
+      setHistoryDetail(null);
+    } catch (err) {
+      console.error("[Chat] Resume error:", err);
+      alert("Failed to resume session.");
+    } finally {
+      setIsResuming(false);
+    }
+  }, [characters, scenarios]);
 
   // ── View history detail ──
   const handleViewHistory = useCallback(async (session: HistorySession) => {
@@ -365,7 +494,35 @@ export default function CompanionChatClient({
     }
   }, []);
 
-  // ── Score color helper ──
+  // ── Delete session ──
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    if (!confirm("Delete this conversation? This cannot be undone.")) return;
+
+    try {
+      const res = await fetchWithRetry("/api/chat/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+
+      if (res.ok) {
+        setDeletedSessionIds(prev => new Set(prev).add(sessionId));
+        // If viewing this session's detail, go back to list
+        if (historyDetail?.session.id === sessionId) {
+          setHistoryDetail(null);
+        }
+      }
+    } catch (err) {
+      console.error("[Chat] Delete error:", err);
+    }
+  }, [historyDetail]);
+
+  // ── Score helpers ──
+  const formatAvgScore = (score: number | null) => {
+    if (score === null || score === undefined) return "—";
+    return Math.round(score).toString();
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 85) return "text-green-600";
     if (score >= 70) return "text-yellow-600";
@@ -409,6 +566,7 @@ export default function CompanionChatClient({
   // ── RENDER: History Tab ──
   if (activeTab === "history") {
     if (historyDetail) {
+      const isActive = historyDetail.session.endedAt === null;
       return (
         <div className="mx-auto max-w-2xl space-y-4">
           {renderTabBar()}
@@ -420,11 +578,45 @@ export default function CompanionChatClient({
           </button>
 
           <div className="pixel-border chinese-corner bg-card p-4">
-            <p className="font-pixel text-sm text-primary">{historyDetail.session.characterName}</p>
-            <p className="text-sm text-muted-foreground">{historyDetail.session.scenarioTitle}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {new Date(historyDetail.session.createdAt).toLocaleDateString()} · {historyDetail.session.messageCount} messages · Avg: {historyDetail.session.avgScore ?? "N/A"}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-pixel text-sm text-primary">{historyDetail.session.characterName}</p>
+                <p className="text-sm text-muted-foreground">{historyDetail.session.scenarioTitle}</p>
+              </div>
+              {isActive && (
+                <span className="px-2 py-0.5 text-[10px] font-pixel bg-green-100 text-green-700 border border-green-400 dark:bg-green-950 dark:text-green-400">
+                  Active
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+              <span>{new Date(historyDetail.session.createdAt).toLocaleDateString()}</span>
+              <span>{historyDetail.session.messageCount} messages</span>
+              {historyDetail.session.avgScore !== null && historyDetail.session.avgScore > 0 && (
+                <span className={getScoreColor(historyDetail.session.avgScore)}>
+                  Avg: {formatAvgScore(historyDetail.session.avgScore)}
+                </span>
+              )}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleResumeSession(historyDetail.session)}
+                disabled={isResuming}
+                className="pixel-btn text-xs"
+              >
+                {isResuming ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Play className="h-3 w-3 mr-1" />}
+                {isActive ? "Continue" : "Resume"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDeleteSession(historyDetail.session.id)}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3 w-3 mr-1" /> Delete
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -447,38 +639,74 @@ export default function CompanionChatClient({
       );
     }
 
+    // Session list — filter deleted, active sessions sort to top
+    const sortedSessions = [...recentSessions]
+      .filter(s => !deletedSessionIds.has(s.id))
+      .sort((a, b) => {
+        if (a.endedAt === null && b.endedAt !== null) return -1;
+        if (a.endedAt !== null && b.endedAt === null) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         {renderTabBar()}
         <h2 className="font-pixel text-sm text-foreground">Chat History</h2>
-        {recentSessions.length === 0 ? (
+        {sortedSessions.length === 0 ? (
           <div className="pixel-border bg-card p-8 text-center">
             <p className="text-muted-foreground">No conversations yet. Start chatting!</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {recentSessions.map((session) => (
-              <button
-                key={session.id}
-                onClick={() => handleViewHistory(session)}
-                className="w-full text-left pixel-border chinese-corner bg-card px-4 py-3 hover:pixel-border-primary transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-pixel text-sm text-foreground">{session.characterName}</p>
-                    <p className="text-sm text-muted-foreground">{session.scenarioTitle}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(session.createdAt).toLocaleDateString()}
-                    </p>
-                    <p className="font-pixel text-xs text-primary">
-                      {session.messageCount} msgs · Avg: {session.avgScore ? Math.round(session.avgScore) : "—"}
-                    </p>
+            {sortedSessions.map((session) => {
+              const isActive = session.endedAt === null;
+              return (
+                <div
+                  key={session.id}
+                  className={`pixel-border chinese-corner bg-card px-4 py-3 hover:pixel-border-primary transition-all ${
+                    isActive ? "border-green-400/50" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => isActive ? handleResumeSession(session) : handleViewHistory(session)}
+                      disabled={isResuming}
+                      className="flex-1 text-left disabled:opacity-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <p className="font-pixel text-sm text-foreground">{session.characterName}</p>
+                        {isActive && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-pixel bg-green-100 text-green-700 border border-green-400 dark:bg-green-950 dark:text-green-400">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{session.scenarioTitle}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(session.createdAt).toLocaleDateString()}
+                        </span>
+                        <span className="font-pixel text-xs text-primary">
+                          {session.messageCount} msgs
+                        </span>
+                        {session.avgScore !== null && session.avgScore > 0 && (
+                          <span className={`font-pixel text-xs ${getScoreColor(session.avgScore)}`}>
+                            Avg: {formatAvgScore(session.avgScore)}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSession(session.id)}
+                      className="ml-2 p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -538,13 +766,111 @@ export default function CompanionChatClient({
     );
   }
 
-  // Phase: Select Scenario
+  // Phase: Select Scenario — grouped by category
   if (phase === "select_scenario") {
-    // Group scenarios by stage
-    const grouped = scenarios.reduce<Record<number, Scenario[]>>((acc, s) => {
+    // Group by category, then by stage for jttw
+    const modernDaily = scenarios.filter(s => s.category === "modern_daily");
+    const pscExam = scenarios.filter(s => s.category === "psc_exam");
+    const jttw = scenarios.filter(s => s.category === "jttw");
+
+    // Group jttw by stage
+    const jttwByStage = jttw.reduce<Record<number, Scenario[]>>((acc, s) => {
       (acc[s.stage_number] ??= []).push(s);
       return acc;
     }, {});
+
+    const renderScenarioButton = (scenario: Scenario) => (
+      <button
+        key={scenario.id}
+        onClick={async () => {
+          setSelectedScenario(scenario);
+          setIsStarting(true);
+          setLoadingStep(0);
+          setTimeout(() => setLoadingStep(1), 1200);
+          setTimeout(() => setLoadingStep(2), 2800);
+          try {
+            const res = await fetchWithRetry("/api/chat/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                characterId: selectedCharacter!.id,
+                scenarioId: scenario.id,
+              }),
+            });
+            if (!res.ok) {
+              const err = await res.json();
+              alert(err.error || "Failed to start chat");
+              setIsStarting(false);
+              return;
+            }
+            const data = await res.json();
+            const openingMsgId = crypto.randomUUID();
+            setSessionId(data.sessionId);
+            setMessages([{
+              id: openingMsgId,
+              role: "companion",
+              content: data.openingMessage,
+            }]);
+            setTurnCount(0);
+            setSoftLimitDismissed(false);
+            setPhase("chatting");
+
+            // Play TTS from inline audio (no extra API call) or fall back
+            if (data.ttsAudio) {
+              try {
+                const binaryStr = atob(data.ttsAudio);
+                const bytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+                const blob = new Blob([bytes], { type: "audio/wav" });
+                const blobUrl = URL.createObjectURL(blob);
+                // Cache it for "Listen" replays
+                const cacheKey = `${selectedCharacter!.voiceId}:${data.openingMessage}`;
+                ttsCacheRef.current.set(cacheKey, blobUrl);
+                const audio = new Audio(blobUrl);
+                audio.volume = effectiveTtsVolume;
+                currentAudioRef.current = audio;
+                audio.onended = () => { currentAudioRef.current = null; };
+                await audio.play();
+              } catch { playTTS(data.openingMessage, selectedCharacter!.voiceId); }
+            } else {
+              playTTS(data.openingMessage, selectedCharacter!.voiceId);
+            }
+
+            // Generate initial scene image (non-blocking, pass names to skip DB lookups)
+            fetchWithRetry("/api/chat/generate-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sessionId: data.sessionId,
+                conversationSummary: `${selectedCharacter!.name}: ${data.openingMessage}\nScenario: ${scenario.title} — ${scenario.description}`,
+                characterName: selectedCharacter!.name,
+                scenarioTitle: scenario.title,
+              }),
+            }).then(async (imgRes) => {
+              if (imgRes.ok) {
+                const imgData = await imgRes.json();
+                if (imgData.imageUrl) {
+                  showBackgroundImage(imgData.imageUrl);
+                  setMessages(prev => prev.map(m =>
+                    m.id === openingMsgId ? { ...m, imageUrl: imgData.imageUrl } : m
+                  ));
+                }
+              }
+            }).catch(err => console.error("[Chat] Initial image gen error:", err));
+          } catch (err) {
+            console.error("[Chat] Start error:", err);
+            alert("Failed to start chat.");
+          } finally {
+            setIsStarting(false);
+          }
+        }}
+        disabled={isStarting}
+        className="w-full text-left pixel-border bg-card px-4 py-3 hover:pixel-border-primary transition-all disabled:opacity-50"
+      >
+        <p className="font-chinese text-base text-foreground">{scenario.title}</p>
+        <p className="font-chinese text-sm text-muted-foreground">{scenario.description}</p>
+      </button>
+    );
 
     return (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -568,67 +894,86 @@ export default function CompanionChatClient({
           </div>
         </div>
 
-        {Object.entries(grouped)
+        {/* Modern Daily Life */}
+        {modernDaily.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-pixel text-xs text-muted-foreground">
+              {CATEGORY_LABELS.modern_daily.zh} — {CATEGORY_LABELS.modern_daily.en}
+            </p>
+            {modernDaily.map(renderScenarioButton)}
+          </div>
+        )}
+
+        {/* PSC Exam */}
+        {pscExam.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-pixel text-xs text-muted-foreground">
+              {CATEGORY_LABELS.psc_exam.zh} — {CATEGORY_LABELS.psc_exam.en}
+            </p>
+            {pscExam.map(renderScenarioButton)}
+          </div>
+        )}
+
+        {/* Journey to the West — grouped by stage */}
+        {Object.entries(jttwByStage)
           .sort(([a], [b]) => Number(a) - Number(b))
           .map(([stage, stageScenarios]) => (
             <div key={stage} className="space-y-2">
               <p className="font-pixel text-xs text-muted-foreground">
                 Stage {stage}: {STAGE_NAMES[Number(stage)] ?? ""}
               </p>
-              {stageScenarios.map((scenario) => (
-                <button
-                  key={scenario.id}
-                  onClick={async () => {
-                    setSelectedScenario(scenario);
-                    setIsStarting(true);
-                    try {
-                      const res = await fetchWithRetry("/api/chat/start", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          characterId: selectedCharacter!.id,
-                          scenarioId: scenario.id,
-                        }),
-                      });
-                      if (!res.ok) {
-                        const err = await res.json();
-                        alert(err.error || "Failed to start chat");
-                        setIsStarting(false);
-                        return;
-                      }
-                      const data = await res.json();
-                      setSessionId(data.sessionId);
-                      setMessages([{
-                        id: crypto.randomUUID(),
-                        role: "companion",
-                        content: data.openingMessage,
-                      }]);
-                      setTurnCount(0);
-                      setPhase("chatting");
-                      playTTS(data.openingMessage, selectedCharacter!.voiceId);
-                    } catch (err) {
-                      console.error("[Chat] Start error:", err);
-                      alert("Failed to start chat.");
-                    } finally {
-                      setIsStarting(false);
-                    }
-                  }}
-                  disabled={isStarting}
-                  className="w-full text-left pixel-border bg-card px-4 py-3 hover:pixel-border-primary transition-all disabled:opacity-50"
-                >
-                  <p className="font-chinese text-base text-foreground">{scenario.title}</p>
-                  <p className="font-chinese text-sm text-muted-foreground">{scenario.description}</p>
-                </button>
-              ))}
+              {stageScenarios.map(renderScenarioButton)}
             </div>
           ))}
 
-        {isStarting && (
-          <div className="flex items-center justify-center gap-2 py-4">
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="font-pixel text-sm text-muted-foreground">Starting conversation...</span>
-          </div>
-        )}
+        {isStarting && (() => {
+          const steps = [
+            `Summoning ${selectedCharacter?.name ?? "companion"}...`,
+            `Setting the scene...`,
+            `Preparing dialogue...`,
+          ];
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-300">
+              <div className="flex flex-col items-center gap-6 px-8">
+                {/* Character image */}
+                {selectedCharacter?.image && (
+                  <div className="relative h-28 w-28 pixel-border bg-muted overflow-hidden animate-in zoom-in-75 duration-500">
+                    <Image src={selectedCharacter.image} alt="" fill className="object-contain" unoptimized />
+                  </div>
+                )}
+
+                {/* Scenario title */}
+                <div className="text-center space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <p className="font-pixel text-sm text-primary">{selectedCharacter?.name}</p>
+                  <p className="font-chinese text-base text-foreground">{selectedScenario?.title}</p>
+                </div>
+
+                {/* Loading steps */}
+                <div className="space-y-2 min-w-[200px]">
+                  {steps.map((step, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 text-xs font-pixel transition-all duration-500 ${
+                        i <= loadingStep ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+                      }`}
+                    >
+                      {i < loadingStep ? (
+                        <span className="h-3 w-3 text-green-500">✓</span>
+                      ) : i === loadingStep ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      ) : (
+                        <span className="h-3 w-3" />
+                      )}
+                      <span className={i <= loadingStep ? "text-foreground" : "text-muted-foreground"}>
+                        {step}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -648,7 +993,18 @@ export default function CompanionChatClient({
             <p className="font-pixel text-xs text-primary truncate">{selectedCharacter?.name}</p>
             <p className="font-chinese text-xs text-muted-foreground truncate">{selectedScenario?.title}</p>
           </div>
-          <span className="font-pixel text-xs text-muted-foreground">{turnCount}/20</span>
+          <span className="font-pixel text-xs text-muted-foreground">{turnCount} turns</span>
+          <button
+            onClick={() => setFilterOffTopic(prev => !prev)}
+            title={filterOffTopic ? "Topic filter: ON" : "Topic filter: OFF"}
+            className={`p-1.5 transition-colors ${
+              filterOffTopic
+                ? "text-primary hover:text-primary/70"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {filterOffTopic ? <Shield className="h-4 w-4" /> : <ShieldOff className="h-4 w-4" />}
+          </button>
           <Button
             variant="ghost"
             size="sm"
@@ -661,13 +1017,17 @@ export default function CompanionChatClient({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto py-4 px-1 space-y-3 bg-background/80 backdrop-blur-sm">
+        <div className="flex-1 overflow-y-auto py-4 px-1 space-y-3 bg-background/30 relative">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div className="max-w-[80%]">
                 {/* Companion messages */}
                 {msg.role === "companion" && (
-                  <div className="pixel-border bg-card/90 backdrop-blur-sm p-3">
+                  <div className={`pixel-border backdrop-blur-sm p-3 ${
+                    msg.isRedirect
+                      ? "bg-amber-50 border-amber-400 dark:bg-amber-950/30 dark:border-amber-600"
+                      : "bg-card/90"
+                  }`}>
                     {msg.content === "..." ? (
                       <div className="flex gap-1">
                         <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -676,6 +1036,11 @@ export default function CompanionChatClient({
                       </div>
                     ) : (
                       <>
+                        {msg.isRedirect && (
+                          <span className="inline-block mb-1 px-1.5 py-0.5 text-[10px] font-pixel bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200 border border-amber-400">
+                            Off-topic
+                          </span>
+                        )}
                         <p className="font-chinese text-sm leading-relaxed">{msg.content}</p>
                         <button
                           onClick={() => selectedCharacter && playTTS(msg.content, selectedCharacter.voiceId)}
@@ -690,7 +1055,7 @@ export default function CompanionChatClient({
 
                 {/* User messages */}
                 {msg.role === "user" && (
-                  <div className="pixel-border bg-primary/10 border-primary/30 p-3">
+                  <div className="pixel-border bg-card border-primary/30 p-3">
                     <p className="font-chinese text-sm leading-relaxed">{msg.content}</p>
                     {msg.pronunciationScore !== undefined && (() => {
                       const overall = Math.round(((msg.pronunciationScore ?? 0) + (msg.toneScore ?? 0) + (msg.fluencyScore ?? 0)) / 3);
@@ -721,7 +1086,39 @@ export default function CompanionChatClient({
             </div>
           ))}
           <div ref={messagesEndRef} />
+
+          {/* Per-turn reward toast */}
+          {rewardToast && (
+            <div className="sticky bottom-2 mx-auto w-fit px-3 py-1.5 rounded-full bg-primary/90 text-primary-foreground text-xs font-pixel shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300">
+              +{rewardToast.xp} XP  +{rewardToast.affection} Affection
+            </div>
+          )}
         </div>
+
+        {/* Soft limit dialog */}
+        {showSoftLimitDialog && (
+          <div className="pixel-border bg-card/95 backdrop-blur-sm p-4 mx-1 mb-1 shrink-0 space-y-3">
+            <p className="font-chinese text-sm text-foreground text-center">
+              Great conversation! You&apos;ve had {turnCount} turns.
+            </p>
+            <p className="text-xs text-muted-foreground text-center">
+              Leave the chat, or keep going?
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button size="sm" onClick={handleEndChat} disabled={isProcessing} className="pixel-btn text-xs">
+                <LogOut className="h-3 w-3 mr-1" /> Leave
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setShowSoftLimitDialog(false); setSoftLimitDismissed(true); }}
+                className="text-xs"
+              >
+                Keep Going
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Input bar */}
         <div className="pixel-border bg-card/90 backdrop-blur-sm p-3 shrink-0">
@@ -739,57 +1136,6 @@ export default function CompanionChatClient({
     );
   }
 
-  // Phase: Summary
-  if (phase === "summary" && summary) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <h2 className="font-pixel text-sm text-primary text-center">Conversation Complete</h2>
-        <p className="font-chinese text-center text-muted-foreground">对话结束</p>
-
-        <div className="pixel-border chinese-frame bg-card p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <p className="font-pixel text-2xl text-primary">{summary.messageCount}</p>
-              <p className="text-xs text-muted-foreground">Messages</p>
-            </div>
-            <div className="text-center">
-              <p className={`font-pixel text-2xl ${getScoreColor(summary.avgScore)}`}>{summary.avgScore}</p>
-              <p className="text-xs text-muted-foreground">Avg Score</p>
-            </div>
-            <div className="text-center">
-              <p className="font-pixel text-2xl text-primary">+{summary.xpEarned}</p>
-              <p className="text-xs text-muted-foreground">XP Earned</p>
-            </div>
-            <div className="text-center">
-              <p className="font-pixel text-2xl text-pink-500">+{summary.affectionEarned}</p>
-              <p className="text-xs text-muted-foreground">Affection</p>
-            </div>
-          </div>
-
-          {summary.images.length > 0 && (
-            <>
-              <div className="chinese-divider" />
-              <p className="font-pixel text-xs text-muted-foreground text-center">Generated Scenes</p>
-              <div className="grid grid-cols-2 gap-2">
-                {summary.images.map((url, i) => (
-                  <div key={i} className="pixel-border overflow-hidden">
-                    <Image src={url} alt={`Scene ${i + 1}`} width={300} height={200} className="w-full h-auto" unoptimized />
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="flex gap-3 justify-center">
-          <Button onClick={handleNewChat} className="pixel-btn">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            New Chat
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return null;
 }

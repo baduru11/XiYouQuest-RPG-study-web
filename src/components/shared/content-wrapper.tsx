@@ -33,6 +33,11 @@ export function ContentWrapper({ children }: { children: React.ReactNode }) {
   }
 
   const isPassageReading = pathname === "/component-4";
+  const isCompanionChat = pathname === "/companion-chat";
+
+  if (isCompanionChat) {
+    return <div className="py-4">{children}</div>;
+  }
 
   return (
     <div style={{ position: "relative", marginTop: 28, marginBottom: 32 }}>

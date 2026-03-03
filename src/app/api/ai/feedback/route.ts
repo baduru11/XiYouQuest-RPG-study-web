@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
-    const feedback = await generateFeedback(parsed.data);
+    const { playerMemory, ...feedbackParams } = parsed.data;
+    const feedback = await generateFeedback({ ...feedbackParams, playerMemory });
 
     return NextResponse.json({ feedback });
   } catch (error) {

@@ -15,5 +15,5 @@ export const IFLYTEK_APP_ID = requireEnv("IFLYTEK_APP_ID");
 export const IFLYTEK_API_KEY = requireEnv("IFLYTEK_API_KEY");
 export const IFLYTEK_API_SECRET = requireEnv("IFLYTEK_API_SECRET");
 
-// --- Google Gemini ---
-export const GEMINI_API_KEY = requireEnv("GEMINI_API_KEY");
+// --- OpenRouter (DeepSeek) ---
+export const OPENROUTER_API_KEY = requireEnv("OPENROUTER_API_KEY");

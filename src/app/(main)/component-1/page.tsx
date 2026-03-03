@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
 import { loadSelectedCharacter } from "@/lib/character-loader";
+import { buildPlayerMemory } from "@/lib/gemini/player-memory";
 import { shuffle } from "@/lib/utils";
 
 const PracticeSession = dynamic(() => import("./practice-session").then(m => m.PracticeSession), {
@@ -38,6 +39,8 @@ export default async function Component1Page() {
       .limit(50),
   ]);
 
+  const playerMemory = await buildPlayerMemory(supabase, userId, character.id ?? "").catch(() => "");
+
   const questions: string[] = shuffle(
     dbQuestions && dbQuestions.length > 0
       ? dbQuestions.map((q: { content: string }) => q.content)
@@ -55,7 +58,7 @@ export default async function Component1Page() {
         </p>
       </div>
 
-      <PracticeSession questions={questions} character={character} characterId={character.id} component={1} />
+      <PracticeSession questions={questions} character={character} characterId={character.id} component={1} playerMemory={playerMemory} />
     </div>
   );
 }
