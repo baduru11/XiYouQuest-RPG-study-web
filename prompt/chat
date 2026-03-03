@@ -1,0 +1,5 @@
+ i want to add a new feature that can be entered from dashboard home page. it is a companion chat feature where user is able to chat orally with one of our unlocked 4  
+  companions with unique personality and voice model. User first choose a certain situation they want to chat in(where situation is related to journey to the west        
+  context), the ui interface is like a ai chat, but companion's voice is automatically played along with text and listen again button, then user can respond to them by   
+  pressing record/stop button. then iflytek ise/asr is used to transcribe and assess the pronunciation/tone/fluency (like c5 logic) then companion answers the user       
+  based on what they said using llm(currently gemini)  
