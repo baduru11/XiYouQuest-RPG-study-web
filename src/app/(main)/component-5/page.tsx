@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
 import { loadSelectedCharacter } from "@/lib/character-loader";
+import { buildPlayerMemory } from "@/lib/gemini/player-memory";
 import { shuffle } from "@/lib/utils";
 
 const SpeakingSession = dynamic(() => import("./speaking-session").then(m => m.SpeakingSession), {
@@ -38,6 +39,8 @@ export default async function Component5Page() {
       .limit(150),
   ]);
 
+  const playerMemory = await buildPlayerMemory(supabase, user!.id, character.id ?? "").catch(() => "");
+
   // Use DB topics with shuffle, or fallback
   const topics: string[] = shuffle(
     dbTopics && dbTopics.length > 0
@@ -56,7 +59,7 @@ export default async function Component5Page() {
         </p>
       </div>
 
-      <SpeakingSession topics={topics} character={character} characterId={character.id} component={5} />
+      <SpeakingSession topics={topics} character={character} characterId={character.id} component={5} playerMemory={playerMemory} />
     </div>
   );
 }

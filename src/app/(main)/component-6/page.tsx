@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
 import { loadSelectedCharacter } from "@/lib/character-loader";
+import { buildPlayerMemory } from "@/lib/gemini/player-memory";
 import { shuffle } from "@/lib/utils";
 import { C6_GROUPS_PER_CATEGORY, C6_WORDS_PER_GROUP } from "@/lib/constants";
 
@@ -43,6 +44,8 @@ export default async function Component6Page() {
       .eq("component", 6)
       .limit(200),
   ]);
+
+  const playerMemory = await buildPlayerMemory(supabase, user!.id, character.id ?? "").catch(() => "");
 
   // Group by category, shuffle, and take subset
   const categoryWords: Record<string, string[]> = { zhcs: [], nng: [], ln: [] };
@@ -88,6 +91,7 @@ export default async function Component6Page() {
         characterId={character.id}
         component={6}
         categoryBoundaries={categoryBoundaries}
+        playerMemory={playerMemory}
       />
     </div>
   );

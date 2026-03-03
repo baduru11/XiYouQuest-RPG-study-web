@@ -28,6 +28,7 @@ interface PracticeSessionProps {
   };
   characterId?: string;
   component: ComponentNumber;
+  playerMemory?: string;
 }
 
 type SessionPhase = "ready" | "recording" | "assessing" | "feedback" | "complete";
@@ -45,7 +46,7 @@ interface GroupResult {
   groupXP: number;
 }
 
-export function PracticeSession({ questions, character, characterId, component }: PracticeSessionProps) {
+export function PracticeSession({ questions, character, characterId, component, playerMemory }: PracticeSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
@@ -315,6 +316,7 @@ export function PracticeSession({ questions, character, characterId, component }
             userAnswer: currentWords.join(" "),
             pronunciationScore: avgScore,
             isCorrect: isGood,
+            playerMemory,
           }),
         });
 

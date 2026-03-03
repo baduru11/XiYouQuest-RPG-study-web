@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import dynamic from "next/dynamic";
 import { loadSelectedCharacter } from "@/lib/character-loader";
+import { buildPlayerMemory } from "@/lib/gemini/player-memory";
 import { shuffle } from "@/lib/utils";
 
 const ReadingSession = dynamic(() => import("./reading-session").then(m => m.ReadingSession), {
@@ -50,6 +51,8 @@ export default async function Component4Page() {
       .limit(50),
   ]);
 
+  const playerMemory = await buildPlayerMemory(supabase, user!.id, character.id ?? "").catch(() => "");
+
   // Parse DB passages or use fallback
   let passages: Passage[];
   if (dbPassages && dbPassages.length > 0) {
@@ -74,7 +77,7 @@ export default async function Component4Page() {
         </p>
       </div>
 
-      <ReadingSession passages={passages} character={character} characterId={character.id} component={4} />
+      <ReadingSession passages={passages} character={character} characterId={character.id} component={4} playerMemory={playerMemory} />
     </div>
   );
 }

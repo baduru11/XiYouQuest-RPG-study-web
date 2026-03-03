@@ -33,6 +33,7 @@ interface ReadingSessionProps {
   };
   characterId?: string;
   component: ComponentNumber;
+  playerMemory?: string;
 }
 
 type SessionPhase =
@@ -55,7 +56,7 @@ function splitIntoSentences(content: string): string[] {
   return sentences;
 }
 
-export function ReadingSession({ passages, character, characterId, component }: ReadingSessionProps) {
+export function ReadingSession({ passages, character, characterId, component, playerMemory }: ReadingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [selectedPassage, setSelectedPassage] = useState<Passage | null>(null);
@@ -433,6 +434,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
             userAnswer: "Passage reading attempt",
             pronunciationScore,
             isCorrect: isGood,
+            playerMemory,
           }),
         });
 
