@@ -116,7 +116,7 @@ export default function CompanionChatClient({
   const [historyDetail, setHistoryDetail] = useState<{ session: HistorySession; messages: ChatMessageUI[] } | null>(null);
 
   // Audio
-  const { effectiveTTSVolume } = useAudioSettings();
+  const { effectiveTtsVolume } = useAudioSettings();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Background overlay (C4 pattern)
@@ -174,7 +174,7 @@ export default function CompanionChatClient({
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
-      audio.volume = effectiveTTSVolume;
+      audio.volume = effectiveTtsVolume;
       currentAudioRef.current = audio;
 
       audio.onended = () => {
@@ -186,7 +186,7 @@ export default function CompanionChatClient({
     } catch (err) {
       console.error("[Chat] TTS playback error:", err);
     }
-  }, [effectiveTTSVolume]);
+  }, [effectiveTtsVolume]);
 
   // ── Background image transition ──
   const showBackgroundImage = useCallback((imageUrl: string) => {
