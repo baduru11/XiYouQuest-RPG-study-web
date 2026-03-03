@@ -37,6 +37,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { key: 'chat_messages_50', name: 'Chatterbox', description: 'Send 50 messages in companion chat', emoji: '🗣️', tier: 'uncommon', sortOrder: 34 },
   { key: 'chat_all_companions', name: 'Polyglot', description: 'Chat with all 4 companions', emoji: '🌏', tier: 'rare', sortOrder: 35 },
   { key: 'chat_sessions_10', name: 'Storyteller', description: 'Complete 10 companion chat sessions', emoji: '📖', tier: 'epic', sortOrder: 36 },
+  { key: 'learning_first_step', name: 'First Step (学习启程)', description: 'Complete the initial learning path assessment', emoji: '📋', tier: 'common', sortOrder: 41 },
+  { key: 'learning_on_track', name: 'On Track (按部就班)', description: 'Complete the first mid-checkpoint', emoji: '📊', tier: 'uncommon', sortOrder: 42 },
+  { key: 'learning_adapting', name: 'Adapting (因材施教)', description: 'Complete all 3 mid-checkpoints', emoji: '🎯', tier: 'rare', sortOrder: 43 },
+  { key: 'learning_exam_ready', name: 'Exam Ready (胸有成竹)', description: 'Complete an entire learning plan', emoji: '🎓', tier: 'epic', sortOrder: 44 },
 ];
 
 export const ACHIEVEMENT_MAP = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.key, a]));

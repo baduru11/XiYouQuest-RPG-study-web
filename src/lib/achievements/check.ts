@@ -46,6 +46,15 @@ function getCandidateKeys(context: AchievementContext): string[] {
       return ['account_created'];
     case 'chat_complete':
       return ['first_chat', 'chat_messages_50', 'chat_all_companions', 'chat_sessions_10'];
+    case 'learning_checkpoint': {
+      const keys = ['learning_on_track'];
+      if (context.checkpointNumber >= 3) {
+        keys.push('learning_adapting');
+      }
+      return keys;
+    }
+    case 'learning_complete':
+      return ['learning_exam_ready'];
   }
 }
 
@@ -115,6 +124,39 @@ async function verifyConditions(
 
       if (count !== null && count >= 10) {
         verified.push(key);
+      }
+      continue;
+    }
+
+    // learning_on_track: simple event-based (the checkpoint event is proof)
+    if (key === 'learning_on_track') {
+      verified.push(key);
+      continue;
+    }
+
+    // learning_exam_ready: simple event-based (the learning_complete event is proof)
+    if (key === 'learning_exam_ready') {
+      verified.push(key);
+      continue;
+    }
+
+    // learning_adapting: need >= 3 total checkpoints across all user's learning plans
+    if (key === 'learning_adapting') {
+      const { data: plans } = await supabase
+        .from('learning_plans')
+        .select('id')
+        .eq('user_id', userId);
+
+      if (plans && plans.length > 0) {
+        const planIds = plans.map((p: { id: string }) => p.id);
+        const { count } = await supabase
+          .from('learning_checkpoints')
+          .select('*', { count: 'exact', head: true })
+          .in('plan_id', planIds);
+
+        if (count !== null && count >= 3) {
+          verified.push(key);
+        }
       }
       continue;
     }
