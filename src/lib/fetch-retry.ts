@@ -25,10 +25,14 @@ export async function fetchWithRetry(
       const response = await fetch(input, init);
 
       if (RETRYABLE_STATUSES.has(response.status) && attempt < maxRetries) {
+        // Drain response body to release the TCP connection
+        await response.body?.cancel().catch(() => {});
+
+        const MAX_RETRY_DELAY_MS = 30_000;
         const retryAfter = response.headers.get("Retry-After");
         const retryAfterSec = retryAfter ? parseInt(retryAfter, 10) : NaN;
         const delay = Number.isFinite(retryAfterSec) && retryAfterSec > 0
-          ? retryAfterSec * 1000
+          ? Math.min(retryAfterSec * 1000, MAX_RETRY_DELAY_MS)
           : baseDelayMs * 2 ** attempt * (0.5 + Math.random() * 0.5);
 
         console.warn(

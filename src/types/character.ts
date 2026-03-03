@@ -25,6 +25,7 @@ export interface CharacterWithDetails {
   voice_id: string;
   image_url: string;
   unlock_cost_xp: number;
+  unlock_stage: number | null;
   is_default: boolean;
   expressions: Record<ExpressionName, string>;
   skins: Array<{

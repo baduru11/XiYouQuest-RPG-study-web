@@ -1,5 +1,5 @@
 export interface XPEvent {
-  type: "question_correct" | "question_good" | "question_attempted" | "daily_login" | "streak_bonus";
+  type: "question_perfect" | "question_good" | "question_attempted" | "daily_login" | "streak_bonus";
   baseXP: number;
   multiplier: number;
   totalXP: number;

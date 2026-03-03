@@ -17,3 +17,6 @@ export const IFLYTEK_API_SECRET = requireEnv("IFLYTEK_API_SECRET");
 
 // --- OpenRouter (DeepSeek) ---
 export const OPENROUTER_API_KEY = requireEnv("OPENROUTER_API_KEY");
+
+// --- Supabase (service role — server-side only) ---
+export const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");

@@ -1,5 +1,6 @@
 // --- Progress / XP ---
 export const MAX_XP_PER_SESSION = 2000;
+export const MAX_XP_NO_QUESTIONS = 50;
 
 // --- Quiz sizes (Component 3 & 7) ---
 export const QUIZ_SIZES = {
