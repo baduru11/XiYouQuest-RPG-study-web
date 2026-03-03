@@ -725,10 +725,42 @@ export default function CompanionChatClient({
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
 
+    const allSelected = sortedSessions.length > 0 && sortedSessions.every(s => selectedIds.has(s.id));
+
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         {renderTabBar()}
-        <h2 className="font-pixel text-sm text-foreground">Chat History</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-pixel text-sm text-foreground">Chat History</h2>
+          {sortedSessions.length > 0 && (
+            <button
+              onClick={toggleSelectMode}
+              className="font-pixel text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              {isSelecting ? "Cancel" : "Select"}
+            </button>
+          )}
+        </div>
+        {isSelecting && sortedSessions.length > 0 && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                if (allSelected) {
+                  setSelectedIds(new Set());
+                } else {
+                  setSelectedIds(new Set(sortedSessions.map(s => s.id)));
+                }
+              }}
+              className="font-pixel text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
+            >
+              {allSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+              {allSelected ? "Deselect All" : "Select All"}
+            </button>
+            {selectedIds.size > 0 && (
+              <span className="font-pixel text-xs text-muted-foreground">{selectedIds.size} selected</span>
+            )}
+          </div>
+        )}
         {sortedSessions.length === 0 ? (
           <div className="pixel-border bg-card p-8 text-center">
             <p className="text-muted-foreground">No conversations yet. Start chatting!</p>
@@ -737,16 +769,36 @@ export default function CompanionChatClient({
           <div className="space-y-2">
             {sortedSessions.map((session) => {
               const isActive = session.endedAt === null;
+              const isSelected = selectedIds.has(session.id);
               return (
                 <div
                   key={session.id}
                   className={`pixel-border chinese-corner bg-card px-4 py-3 hover:pixel-border-primary transition-all ${
                     isActive ? "border-green-400/50" : ""
-                  }`}
+                  } ${isSelected ? "ring-2 ring-primary/50" : ""}`}
                 >
                   <div className="flex items-center justify-between">
+                    {isSelecting && (
+                      <button
+                        onClick={() => toggleSessionSelection(session.id)}
+                        className="mr-3 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {isSelected
+                          ? <CheckSquare className="h-5 w-5 text-primary" />
+                          : <Square className="h-5 w-5" />
+                        }
+                      </button>
+                    )}
                     <button
-                      onClick={() => isActive ? handleResumeSession(session) : handleViewHistory(session)}
+                      onClick={() => {
+                        if (isSelecting) {
+                          toggleSessionSelection(session.id);
+                        } else if (isActive) {
+                          handleResumeSession(session);
+                        } else {
+                          handleViewHistory(session);
+                        }
+                      }}
                       disabled={isResuming}
                       className="flex-1 text-left disabled:opacity-50"
                     >
@@ -773,17 +825,43 @@ export default function CompanionChatClient({
                         )}
                       </div>
                     </button>
-                    <button
-                      onClick={() => handleDeleteSession(session.id)}
-                      className="ml-2 p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {!isSelecting && (
+                      <button
+                        onClick={() => handleDeleteSession(session.id)}
+                        className="ml-2 p-1.5 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })}
+          </div>
+        )}
+        {isSelecting && selectedIds.size > 0 && (
+          <div className="sticky bottom-4 flex items-center justify-between pixel-border bg-card px-4 py-3 shadow-lg">
+            <span className="font-pixel text-sm text-foreground">{selectedIds.size} selected</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="font-pixel"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Delete
+                </>
+              )}
+            </Button>
           </div>
         )}
       </div>
