@@ -226,3 +226,200 @@ export async function chatConversation(
     return "抱歉，我现在有点走神了。你刚才说什么？";
   }
 }
+
+// ---------- Personalized Learning Path ----------
+
+export interface CurriculumInput {
+  scores: Record<string, number>;
+  daysRemaining: number;
+  availableQuestionIds: Record<number, string[]>;
+  recentQuestionTexts: string[];
+  previousCheckpoints?: {
+    scores: Record<string, number>;
+    completedNodes: { component: number; focusArea: string }[];
+  }[];
+}
+
+export interface CurriculumNode {
+  component: number;
+  focusArea: string;
+  focusDescription: string;
+  questionIds: string[];
+  estimatedMinutes: number;
+}
+
+export interface CurriculumPhase {
+  phase: number;
+  nodes: CurriculumNode[];
+}
+
+export interface CurriculumOutput {
+  phases: CurriculumPhase[];
+  totalNodes: number;
+}
+
+export interface CheckpointFeedbackInput {
+  originalScores: Record<string, number>;
+  currentScores: Record<string, number>;
+  completedNodes: { component: number; focusArea: string }[];
+  phaseNumber: number;
+}
+
+const COMPONENT_LABELS: Record<number, string> = {
+  1: "C1 单音节字词 (Single-syllable words)",
+  2: "C2 多音节词语 (Multi-syllable words)",
+  3: "C3 朗读短文 (Passage reading)",
+  4: "C4 选择判断 (Multiple choice)",
+  5: "C5 命题说话 (Prompted speaking)",
+  6: "C6 声调辨识 (Tone identification)",
+  7: "C7 拼音拼读 (Pinyin reading)",
+};
+
+export function buildCurriculumPrompt(input: CurriculumInput): string {
+  const recommendedNodes = Math.min(60, Math.max(8, Math.round(input.daysRemaining * 1.5)));
+
+  const scoreLines = Object.entries(input.scores)
+    .map(([key, val]) => `  - ${key}: ${val}/100`)
+    .join("\n");
+
+  const availableLines = Object.entries(input.availableQuestionIds)
+    .map(([comp, ids]) => `  - Component ${comp} (${COMPONENT_LABELS[Number(comp)] ?? `C${comp}`}): ${ids.length} questions available`)
+    .join("\n");
+
+  const recentSection = input.recentQuestionTexts.length > 0
+    ? `\nRecently practiced (avoid repeating these):\n${input.recentQuestionTexts.map(t => `  - "${t}"`).join("\n")}`
+    : "";
+
+  const checkpointSection = input.previousCheckpoints && input.previousCheckpoints.length > 0
+    ? `\nPrevious checkpoint history:\n${input.previousCheckpoints.map((cp, i) => {
+        const cpScores = Object.entries(cp.scores).map(([k, v]) => `${k}: ${v}`).join(", ");
+        const cpNodes = cp.completedNodes.map(n => `C${n.component}/${n.focusArea}`).join(", ");
+        return `  Phase ${i + 1}: Scores [${cpScores}], Completed [${cpNodes}]`;
+      }).join("\n")}`
+    : "";
+
+  return `You are a PSC (Putonghua Proficiency Test) curriculum designer AI.
+
+Given the student's current diagnostic scores and available question bank, generate a personalized learning curriculum.
+
+Student's current scores:
+${scoreLines}
+
+Days remaining until test: ${input.daysRemaining}
+Recommended total nodes: ${recommendedNodes}
+
+Available question bank:
+${availableLines}
+${recentSection}${checkpointSection}
+
+RULES:
+1. Create a phased curriculum. Each phase should have 3-6 nodes. A checkpoint will automatically follow each phase.
+2. Prioritize components with the lowest scores — these need the most practice.
+3. Each node must specify: component (1-7), focusArea (short label), focusDescription (1 sentence), questionIds (pick from available), estimatedMinutes (5-15).
+4. Distribute questionIds from the available bank. Each node should have 3-8 questions.
+5. Do NOT repeat questionIds across nodes.
+6. Total nodes across all phases should be approximately ${recommendedNodes}.
+7. Later phases should focus on maintaining strengths and revisiting weaknesses found in earlier phases.
+
+Respond with ONLY a valid JSON object (no markdown, no code fences):
+{
+  "phases": [
+    {
+      "phase": 1,
+      "nodes": [
+        {
+          "component": 1,
+          "focusArea": "tone_accuracy",
+          "focusDescription": "Practice first and second tone distinctions",
+          "questionIds": ["id1", "id2", "id3"],
+          "estimatedMinutes": 10
+        }
+      ]
+    }
+  ],
+  "totalNodes": ${recommendedNodes}
+}`;
+}
+
+export function buildCheckpointFeedbackPrompt(input: CheckpointFeedbackInput): string {
+  const deltaLines = Object.keys(input.currentScores).map((key) => {
+    const original = input.originalScores[key] ?? 0;
+    const current = input.currentScores[key] ?? 0;
+    const delta = current - original;
+    const sign = delta >= 0 ? "+" : "";
+    return `  - ${key}: ${original} → ${current} (${sign}${delta})`;
+  }).join("\n");
+
+  const completedLines = input.completedNodes
+    .map(n => `  - Component ${n.component} (${COMPONENT_LABELS[n.component] ?? `C${n.component}`}): ${n.focusArea}`)
+    .join("\n");
+
+  return `You are a PSC (Putonghua Proficiency Test) learning coach.
+
+The student has completed Phase ${input.phaseNumber} of their personalized learning path. Provide encouraging, actionable feedback.
+
+Score changes since the learning path began:
+${deltaLines}
+
+Nodes completed in this phase:
+${completedLines}
+
+RULES:
+1. Respond in a mix of Chinese and English (bilingual feedback).
+2. Keep the response to 3-5 sentences.
+3. Highlight the biggest improvements and areas still needing work.
+4. Suggest what to focus on in the next phase.
+5. Be encouraging but honest about remaining weaknesses.
+
+Respond with plain text feedback (no JSON, no markdown).`;
+}
+
+function parseCurriculumOutput(text: string): CurriculumOutput {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("No JSON found in curriculum response");
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  if (!Array.isArray(parsed.phases)) {
+    throw new Error("Invalid curriculum format: missing phases array");
+  }
+
+  const phases: CurriculumPhase[] = parsed.phases.map((p: Record<string, unknown>) => ({
+    phase: Number(p.phase),
+    nodes: (p.nodes as Record<string, unknown>[]).map((n: Record<string, unknown>) => ({
+      component: Number(n.component),
+      focusArea: String(n.focusArea || "general"),
+      focusDescription: String(n.focusDescription || ""),
+      questionIds: Array.isArray(n.questionIds) ? n.questionIds.map(String) : [],
+      estimatedMinutes: Number(n.estimatedMinutes) || 10,
+    })),
+  }));
+
+  const totalNodes = phases.reduce((sum, p) => sum + p.nodes.length, 0);
+
+  return { phases, totalNodes };
+}
+
+export async function generateCurriculum(input: CurriculumInput): Promise<CurriculumOutput> {
+  const systemPrompt = buildCurriculumPrompt(input);
+  const userPrompt = "Generate the personalized learning curriculum based on the above analysis.";
+
+  const text = await retryWithBackoff(() =>
+    chatCompletion(systemPrompt, userPrompt)
+  );
+  return parseCurriculumOutput(text);
+}
+
+export async function generateCheckpointFeedback(input: CheckpointFeedbackInput): Promise<string> {
+  const systemPrompt = buildCheckpointFeedbackPrompt(input);
+  const userPrompt = "Provide checkpoint feedback for this student based on the above data.";
+
+  try {
+    return await retryWithBackoff(() =>
+      chatCompletion(systemPrompt, userPrompt)
+    );
+  } catch (error) {
+    console.error("[AI] Checkpoint feedback generation failed after retries:", error);
+    return "评估完成。请继续努力练习，加油！";
+  }
+}
