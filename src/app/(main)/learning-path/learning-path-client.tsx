@@ -389,10 +389,12 @@ export default function LearningPathClient({
         />
       );
 
-    case "checkpoint":
+    case "checkpoint": {
+      const totalPhases = new Set(nodes.map((n) => n.phase)).size;
       return (
         <CheckpointView
           checkpointNumber={checkpointNumber}
+          totalCheckpoints={Math.max(1, totalPhases - 1)}
           assessmentData={assessmentData}
           loading={checkpointLoading}
           onComplete={(scores) => {
@@ -402,6 +404,7 @@ export default function LearningPathClient({
           onCancel={() => setView("roadmap")}
         />
       );
+    }
 
     case "checkpoint_report":
       return (
@@ -974,7 +977,7 @@ function CurriculumRoadmap({
           <div className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5 text-primary" />
             <span className="font-pixel text-sm text-foreground leading-relaxed">
-              Phase {plan.current_phase} of 4
+              Phase {plan.current_phase} of {phaseNumbers.length}
             </span>
           </div>
           <Badge variant="outline" className="font-pixel text-xs">
@@ -1905,12 +1908,14 @@ function SpeakingDrillSession({
 
 function CheckpointView({
   checkpointNumber,
+  totalCheckpoints,
   assessmentData,
   loading,
   onComplete,
   onCancel,
 }: {
   checkpointNumber: number;
+  totalCheckpoints: number;
   assessmentData: LearningPathClientProps["assessmentData"];
   loading: boolean;
   onComplete: (scores: Record<string, number>) => void;
@@ -1955,7 +1960,7 @@ function CheckpointView({
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-primary" />
           <span className="font-pixel text-sm text-foreground leading-relaxed">
-            Checkpoint {checkpointNumber} of 3
+            Checkpoint {checkpointNumber} of {totalCheckpoints}
           </span>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>
