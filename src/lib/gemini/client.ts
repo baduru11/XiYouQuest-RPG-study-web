@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { GEMINI_API_KEY } from "@/lib/env";
+import { OPENROUTER_API_KEY } from "@/lib/env";
 
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL = "deepseek/deepseek-v3.2";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
@@ -22,11 +22,41 @@ async function retryWithBackoff<T>(
     } catch (error) {
       if (attempt === retries) throw error;
       const delay = BASE_DELAY_MS * Math.pow(2, attempt) + Math.random() * 1000;
-      console.warn(`[Gemini] Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
+      console.warn(`[AI] Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw new Error("Unreachable");
+}
+
+async function chatCompletion(
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string> {
+  const res = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`OpenRouter API error ${res.status}: ${body}`);
+  }
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Empty response from OpenRouter");
+  return text;
 }
 
 // ---------- C5 Speaking Analysis ----------
@@ -90,8 +120,6 @@ export async function analyzeC5Speaking(params: {
   transcript: string;
   topic: string;
 }): Promise<GeminiC5Analysis> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const userPrompt = `Topic: "${params.topic}"
 
 Transcript of the student's 3-minute prompted speaking:
@@ -102,16 +130,12 @@ ${params.transcript}
 Analyze this speaking sample according to the PSC C5 rubric.`;
 
   try {
-    const result = await retryWithBackoff(() =>
-      model.generateContent({
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        systemInstruction: C5_ANALYSIS_SYSTEM_PROMPT,
-      })
+    const text = await retryWithBackoff(() =>
+      chatCompletion(C5_ANALYSIS_SYSTEM_PROMPT, userPrompt)
     );
-    return parseC5Analysis(result.response.text());
+    return parseC5Analysis(text);
   } catch (error) {
-    console.error("[Gemini] C5 analysis failed after retries:", error);
-    // Fallback to Level 2 defaults
+    console.error("[AI] C5 analysis failed after retries:", error);
     return {
       vocabularyLevel: 2,
       vocabularyNotes: "Unable to analyze vocabulary — defaulting to Level 2.",
@@ -132,8 +156,6 @@ export async function generateFeedback(params: {
   pronunciationScore?: number;
   isCorrect: boolean;
 }) {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
   const systemPrompt = `You ARE the following character. Stay fully in character at all times — use their speech patterns, catchphrases, metaphors, and personality traits in every response. Never break character.
 
 ${params.characterPrompt}
@@ -156,16 +178,51 @@ ${params.isCorrect ? "They got it right!" : "They got it wrong."}
 Respond in character with feedback.`;
 
   try {
-    const result = await retryWithBackoff(() =>
-      model.generateContent({
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        systemInstruction: systemPrompt,
-      })
+    return await retryWithBackoff(() =>
+      chatCompletion(systemPrompt, userPrompt)
     );
-    return result.response.text();
   } catch (error) {
-    console.error("[Gemini] Feedback generation failed after retries:", error);
+    console.error("[AI] Feedback generation failed after retries:", error);
     return getFallbackMessage(params.isCorrect);
   }
 }
 
+// ---------- Multi-Turn Conversation (Companion Chat) ----------
+
+export interface ChatTurnMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export async function chatConversation(
+  messages: ChatTurnMessage[],
+): Promise<string> {
+  try {
+    return await retryWithBackoff(async () => {
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`OpenRouter API error ${res.status}: ${body}`);
+      }
+
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) throw new Error("Empty response from OpenRouter");
+      return text;
+    });
+  } catch (error) {
+    console.error("[AI] Chat conversation failed after retries:", error);
+    return "抱歉，我现在有点走神了。你刚才说什么？";
+  }
+}
