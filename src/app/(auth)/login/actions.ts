@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+
 import { createClient } from "@/lib/supabase/server";
 
 export async function login(formData: FormData) {
@@ -47,17 +47,13 @@ export async function signup(formData: FormData) {
 
 export async function signInWithGoogle() {
   const supabase = await createClient();
-  const headersList = await headers();
-  const rawOrigin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  // Enforce HTTPS in production to prevent token leakage over plain HTTP
-  const origin = process.env.NODE_ENV === "production" && !rawOrigin.startsWith("https://")
-    ? rawOrigin.replace("http://", "https://")
-    : rawOrigin;
+  // Pin redirectTo to a trusted constant — never trust the Origin header
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/api/auth/callback`,
+      redirectTo: `${siteUrl}/api/auth/callback`,
     },
   });
 
@@ -72,17 +68,13 @@ export async function signInWithGoogle() {
 
 export async function signInWithDiscord() {
   const supabase = await createClient();
-  const headersList = await headers();
-  const rawOrigin = headersList.get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  // Enforce HTTPS in production to prevent token leakage over plain HTTP
-  const origin = process.env.NODE_ENV === "production" && !rawOrigin.startsWith("https://")
-    ? rawOrigin.replace("http://", "https://")
-    : rawOrigin;
+  // Pin redirectTo to a trusted constant — never trust the Origin header
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "discord",
     options: {
-      redirectTo: `${origin}/api/auth/callback`,
+      redirectTo: `${siteUrl}/api/auth/callback`,
       scopes: "identify email relationships.read",
     },
   });

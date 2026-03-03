@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(new Uint8Array(audioBuffer), {
       headers: {
         "Content-Type": "audio/wav",
-        "Cache-Control": "public, max-age=3600",
+        "Cache-Control": "private, max-age=3600",
       },
     });
   } catch (error) {

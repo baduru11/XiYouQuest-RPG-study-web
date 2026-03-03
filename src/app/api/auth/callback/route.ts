@@ -8,11 +8,14 @@ export async function GET(request: Request) {
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
-  // Handle OAuth provider errors
+  // Handle OAuth provider errors — sanitize before reflecting
   if (error) {
     console.error("[Auth Callback] OAuth error:", error, errorDescription);
+    const safeError = (errorDescription || error || "Authentication failed")
+      .replace(/[<>"'`]/g, "")
+      .substring(0, 200);
     const loginUrl = new URL("/login", origin);
-    loginUrl.searchParams.set("error", errorDescription || error);
+    loginUrl.searchParams.set("error", safeError);
     return NextResponse.redirect(loginUrl.toString());
   }
 
