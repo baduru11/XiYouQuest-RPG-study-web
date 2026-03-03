@@ -154,3 +154,41 @@ export interface ChatMessage {
   image_url: string | null;
   created_at: string;
 }
+
+// Learning Path types
+export interface LearningPlan {
+  id: string;
+  user_id: string;
+  exam_date: string;
+  initial_scores: Record<string, number>;
+  current_phase: number;
+  total_nodes: number;
+  status: "active" | "completed" | "abandoned";
+  created_at: string;
+}
+
+export interface LearningNode {
+  id: string;
+  plan_id: string;
+  phase: number;
+  component: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  node_type: "drill" | "mock_exam";
+  focus_area: string;
+  question_ids: string[];
+  sort_order: number;
+  status: "locked" | "available" | "completed";
+  score: number | null;
+  xp_earned: number;
+  completed_at: string | null;
+}
+
+export interface LearningCheckpoint {
+  id: string;
+  plan_id: string;
+  checkpoint_number: number;
+  scores: Record<string, number>;
+  score_deltas: Record<string, number>;
+  llm_feedback: string;
+  predicted_grade: string;
+  completed_at: string;
+}
