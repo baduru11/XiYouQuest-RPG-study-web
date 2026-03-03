@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { chatGenerateImageSchema } from "@/lib/validations";
 import { generateSceneImage } from "@/lib/image-gen/client";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/env";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -18,8 +19,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
     const { sessionId, conversationSummary } = parsed.data;
-    const characterName = body.characterName as string | undefined;
-    const scenarioTitle = body.scenarioTitle as string | undefined;
 
     // Verify session belongs to user
     const { data: session } = await supabase
@@ -33,17 +32,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // Only fetch from DB if not provided by client
-    let resolvedCharName: string = characterName ?? "";
-    let resolvedScenTitle: string = scenarioTitle ?? "";
-    if (!resolvedCharName || !resolvedScenTitle) {
-      const [{ data: character }, { data: scenario }] = await Promise.all([
-        !resolvedCharName ? supabase.from("characters").select("name").eq("id", session.character_id).single() : Promise.resolve({ data: null }),
-        !resolvedScenTitle ? supabase.from("chat_scenarios").select("title").eq("id", session.scenario_id).single() : Promise.resolve({ data: null }),
-      ]);
-      if (!resolvedCharName) resolvedCharName = character?.name ?? "Companion";
-      if (!resolvedScenTitle) resolvedScenTitle = scenario?.title ?? "Journey";
-    }
+    // Always fetch character/scenario from DB (never trust client-supplied names)
+    const [{ data: character }, { data: scenario }] = await Promise.all([
+      supabase.from("characters").select("name").eq("id", session.character_id).single(),
+      supabase.from("chat_scenarios").select("title").eq("id", session.scenario_id).single(),
+    ]);
+    const resolvedCharName = character?.name ?? "Companion";
+    const resolvedScenTitle = scenario?.title ?? "Journey";
 
     // Generate image
     const imageResult = await generateSceneImage({
@@ -59,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Upload to Supabase Storage using service role for storage operations
     const adminClient = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      SUPABASE_SERVICE_ROLE_KEY,
     );
 
     const fileName = `${user.id}/${sessionId}/${Date.now()}.png`;

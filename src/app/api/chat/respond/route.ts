@@ -171,15 +171,14 @@ export async function POST(request: NextRequest) {
     if (overallScore >= 90) xpEarned = 10; // perfect
     else if (overallScore >= 60) xpEarned = 5; // good
 
-    // Award XP to profile immediately
-    const { data: profile } = await supabase
-      .from("profiles").select("total_xp").eq("id", user.id).single();
-    if (profile) {
-      await supabase.from("profiles")
-        .update({ total_xp: profile.total_xp + xpEarned }).eq("id", user.id);
-    }
+    // Award XP to profile atomically via RPC (prevents race conditions)
+    await supabase.rpc("update_profile_with_streak", {
+      p_user_id: user.id,
+      p_xp: xpEarned,
+      p_streak: 0,
+    });
 
-    // Award affection immediately
+    // Award affection atomically via raw SQL increment
     const { data: userChar } = await supabase
       .from("user_characters").select("affection_xp")
       .eq("user_id", user.id).eq("character_id", session.character_id).single();

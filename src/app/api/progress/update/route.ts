@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserLevel, getAffectionLevel } from "@/lib/gamification/xp";
 import { XP_VALUES } from "@/types/gamification";
 import { progressUpdateSchema } from "@/lib/validations";
-import { MAX_XP_PER_SESSION } from "@/lib/constants";
+import { MAX_XP_PER_SESSION, MAX_XP_NO_QUESTIONS } from "@/lib/constants";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 /** Get today's date in Hong Kong time (YYYY-MM-DD) */
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
     } = parsed.data;
 
     // Server-side XP bounds validation — cap per-question (max 20 XP each: 10 base * 2.0x streak)
-    const perQuestionCap = questionsAttempted > 0 ? questionsAttempted * 20 : MAX_XP_PER_SESSION;
+    // When no questions attempted (e.g. C5 speaking), cap at a small session bonus
+    const perQuestionCap = questionsAttempted > 0 ? questionsAttempted * 20 : MAX_XP_NO_QUESTIONS;
     const clampedXpEarned = Math.max(0, Math.min(Math.floor(xpEarned), perQuestionCap, MAX_XP_PER_SESSION));
 
     // Anti-replay: reject duplicate submissions from same user+component within 10 seconds
