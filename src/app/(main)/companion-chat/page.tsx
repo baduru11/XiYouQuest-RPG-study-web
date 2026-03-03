@@ -40,9 +40,9 @@ export default async function CompanionChatPage() {
     supabase.from("quest_progress").select("stage, is_cleared").eq("user_id", userId).eq("is_cleared", true),
     supabase
       .from("chat_sessions")
-      .select("*, characters(name), chat_scenarios(title)")
+      .select("*, characters(name, voice_id, image_url), chat_scenarios(title, category)")
       .eq("user_id", userId)
-      .not("ended_at", "is", null)
+      .order("ended_at", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
@@ -63,9 +63,9 @@ export default async function CompanionChatPage() {
     affectionLevel: (userCharacters ?? []).find((uc) => uc.character_id === char.id)?.affection_level ?? 0,
   }));
 
-  // Group scenarios by stage, only include cleared stages + stage 1
+  // Include stage 0 (modern/PSC) + stage 1 + cleared stages
   const availableScenarios = (scenarios ?? []).filter(
-    (s) => s.stage_number === 1 || clearedStages.has(s.stage_number)
+    (s) => s.stage_number <= 1 || clearedStages.has(s.stage_number)
   );
 
   return (
@@ -74,12 +74,18 @@ export default async function CompanionChatPage() {
       scenarios={availableScenarios}
       recentSessions={(recentSessions ?? []).map((s) => ({
         id: s.id,
-        characterName: (s.characters as { name: string } | null)?.name ?? "Unknown",
-        scenarioTitle: (s.chat_scenarios as { title: string } | null)?.title ?? "Unknown",
+        characterName: (s.characters as { name: string; voice_id: string; image_url: string | null } | null)?.name ?? "Unknown",
+        characterId: s.character_id,
+        characterVoiceId: (s.characters as { name: string; voice_id: string; image_url: string | null } | null)?.voice_id ?? "",
+        characterImage: (s.characters as { name: string; voice_id: string; image_url: string | null } | null)?.image_url ?? null,
+        scenarioTitle: (s.chat_scenarios as { title: string; category: string } | null)?.title ?? "Unknown",
+        scenarioId: s.scenario_id,
+        scenarioCategory: (s.chat_scenarios as { title: string; category: string } | null)?.category ?? "jttw",
         messageCount: s.message_count,
         avgScore: s.avg_score,
         xpEarned: s.xp_earned,
         createdAt: s.created_at,
+        endedAt: s.ended_at,
       }))}
     />
   );
