@@ -3,9 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { transcribeAudio } from "@/lib/iflytek-speech/asr-client";
 import { assessPronunciation } from "@/lib/iflytek-speech/client";
 import { chatConversation, type ChatTurnMessage } from "@/lib/gemini/client";
+import { buildChatSystemPrompt } from "@/lib/chat/build-system-prompt";
 import { isValidUUID } from "@/lib/validations";
+import { getAffectionLevel } from "@/lib/gamification/xp";
 
-const MAX_MESSAGES_PER_SESSION = 40; // 20 exchanges = 40 messages (user + companion)
+const AFFECTION_PER_TURN = 3;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -18,6 +20,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const sessionId = formData.get("sessionId") as string;
     const audio = formData.get("audio") as File;
+    const filterOffTopic = formData.get("filterOffTopic") !== "false";
 
     if (!sessionId || !isValidUUID(sessionId) || !audio) {
       return NextResponse.json({ error: "Missing sessionId or audio" }, { status: 400 });
@@ -28,10 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Audio too large (max 10MB)" }, { status: 400 });
     }
 
-    // Verify session belongs to user and is still open
+    // Verify session belongs to user
     const { data: session } = await supabase
       .from("chat_sessions")
-      .select("id, character_id, scenario_id, message_count, ended_at")
+      .select("id, character_id, scenario_id, message_count, ended_at, xp_earned, affection_earned")
       .eq("id", sessionId)
       .eq("user_id", user.id)
       .single();
@@ -39,17 +42,17 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
+
+    // Auto-reopen ended sessions instead of rejecting
     if (session.ended_at) {
-      return NextResponse.json({ error: "Session already ended" }, { status: 400 });
-    }
-    if (session.message_count >= MAX_MESSAGES_PER_SESSION) {
-      return NextResponse.json({ error: "Maximum messages reached" }, { status: 400 });
+      await supabase.from("chat_sessions")
+        .update({ ended_at: null }).eq("id", sessionId);
     }
 
     // Fetch character + scenario for LLM context
     const [{ data: character }, { data: scenario }] = await Promise.all([
       supabase.from("characters").select("name, personality_prompt, voice_id").eq("id", session.character_id).single(),
-      supabase.from("chat_scenarios").select("system_prompt, title").eq("id", session.scenario_id).single(),
+      supabase.from("chat_scenarios").select("system_prompt, title, category").eq("id", session.scenario_id).single(),
     ]);
 
     if (!character || !scenario) {
@@ -94,7 +97,59 @@ export async function POST(request: NextRequest) {
 
     const overallScore = Math.round((pronunciationScore + toneScore + fluencyScore) / 3);
 
-    // Step 3: Save user message
+    // Step 3: Build conversation history for LLM (defer user save until after LLM responds)
+    const currentTurnCount = Math.floor((session.message_count ?? 0) / 2);
+
+    const { data: history } = await supabase
+      .from("chat_messages")
+      .select("role, content")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    const systemPrompt = buildChatSystemPrompt({
+      characterName: character.name,
+      personalityPrompt: character.personality_prompt,
+      scenarioPrompt: scenario.system_prompt,
+      overallScore,
+      category: scenario.category as 'jttw' | 'modern_daily' | 'psc_exam',
+      turnCount: currentTurnCount,
+      filterOffTopic,
+    });
+
+    const messages: ChatTurnMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...(history ?? []).map((msg) => ({
+        role: (msg.role === "companion" ? "assistant" : "user") as "assistant" | "user",
+        content: msg.content,
+      })),
+      // Append current user transcript in-memory (not yet saved)
+      { role: "user", content: transcript },
+    ];
+
+    // Step 4: Generate companion reply
+    console.log("[Chat] Step 3: Generating companion reply...");
+    const response = await chatConversation(messages);
+
+    // Step 5: Conditional save — only persist on-topic exchanges
+    if (response.type === "redirect") {
+      // Off-topic: return scores + redirect, no DB writes
+      return NextResponse.json({
+        userTranscript: transcript,
+        scores: {
+          pronunciation: pronunciationScore,
+          tone: toneScore,
+          fluency: fluencyScore,
+          overall: overallScore,
+        },
+        companionReply: response.content,
+        xpEarned: 0,
+        affectionEarned: 0,
+        turnNumber: currentTurnCount,
+        isRedirect: true,
+      });
+    }
+
+    // On-topic reply: save both messages
     await supabase.from("chat_messages").insert({
       session_id: sessionId,
       role: "user",
@@ -105,57 +160,43 @@ export async function POST(request: NextRequest) {
       fluency_score: fluencyScore,
     });
 
-    // Step 4: Build conversation history for LLM
-    const { data: history } = await supabase
-      .from("chat_messages")
-      .select("role, content")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: true });
-
-    const systemPrompt = `You ARE ${character.name}. Stay fully in character at all times.
-
-${character.personality_prompt}
-
-SCENE: ${scenario.system_prompt}
-
-RULES:
-- Respond in Mandarin Chinese (简体中文) only
-- Keep responses 1-3 sentences, natural conversational length
-- Stay in the Journey to the West scenario context
-- Be engaging — ask follow-up questions to keep conversation going
-- Adjust difficulty to match user's apparent Mandarin level
-- The user's latest pronunciation score was ${overallScore}/100${overallScore < 70 ? ". Gently encourage them." : ""}
-- Use vocabulary appropriate for PSC intermediate level`;
-
-    const messages: ChatTurnMessage[] = [
-      { role: "system", content: systemPrompt },
-      ...(history ?? []).map((msg) => ({
-        role: (msg.role === "companion" ? "assistant" : "user") as "assistant" | "user",
-        content: msg.content,
-      })),
-    ];
-
-    // Step 5: Generate companion reply
-    console.log("[Chat] Step 3: Generating companion reply...");
-    const companionReply = await chatConversation(messages);
-
-    // Step 6: Save companion message
     await supabase.from("chat_messages").insert({
       session_id: sessionId,
       role: "companion",
-      content: companionReply,
+      content: response.content,
     });
-
-    // Update message count
-    await supabase
-      .from("chat_sessions")
-      .update({ message_count: (session.message_count ?? 0) + 2 })
-      .eq("id", sessionId);
 
     // Calculate XP for this turn
     let xpEarned = 2; // attempted
     if (overallScore >= 90) xpEarned = 10; // perfect
     else if (overallScore >= 60) xpEarned = 5; // good
+
+    // Award XP to profile immediately
+    const { data: profile } = await supabase
+      .from("profiles").select("total_xp").eq("id", user.id).single();
+    if (profile) {
+      await supabase.from("profiles")
+        .update({ total_xp: profile.total_xp + xpEarned }).eq("id", user.id);
+    }
+
+    // Award affection immediately
+    const { data: userChar } = await supabase
+      .from("user_characters").select("affection_xp")
+      .eq("user_id", user.id).eq("character_id", session.character_id).single();
+    if (userChar) {
+      const newXP = userChar.affection_xp + AFFECTION_PER_TURN;
+      const { level } = getAffectionLevel(newXP);
+      await supabase.from("user_characters")
+        .update({ affection_xp: newXP, affection_level: level })
+        .eq("user_id", user.id).eq("character_id", session.character_id);
+    }
+
+    // Update session: message count + running totals
+    await supabase.from("chat_sessions").update({
+      message_count: (session.message_count ?? 0) + 2,
+      xp_earned: (session.xp_earned ?? 0) + xpEarned,
+      affection_earned: (session.affection_earned ?? 0) + AFFECTION_PER_TURN,
+    }).eq("id", sessionId);
 
     const turnNumber = Math.floor(((session.message_count ?? 0) + 2) / 2);
 
@@ -167,9 +208,11 @@ RULES:
         fluency: fluencyScore,
         overall: overallScore,
       },
-      companionReply,
+      companionReply: response.content,
       xpEarned,
+      affectionEarned: AFFECTION_PER_TURN,
       turnNumber,
+      isRedirect: false,
     });
   } catch (error) {
     console.error("[Chat] Respond error:", error);

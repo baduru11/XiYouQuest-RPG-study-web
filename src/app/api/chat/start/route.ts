@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { chatStartSchema } from "@/lib/validations";
 import { chatConversation } from "@/lib/gemini/client";
+import { buildChatSystemPrompt } from "@/lib/chat/build-system-prompt";
+import { synthesizeAcademic } from "@/lib/voice/client";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -18,29 +20,21 @@ export async function POST(request: NextRequest) {
     }
     const { characterId, scenarioId } = parsed.data;
 
-    // Validate character is unlocked
-    const { data: userChar } = await supabase
-      .from("user_characters")
-      .select("character_id")
-      .eq("user_id", user.id)
-      .eq("character_id", characterId)
-      .single();
-
-    if (!userChar) {
-      return NextResponse.json({ error: "Character not unlocked" }, { status: 403 });
-    }
-
-    // Fetch character details + scenario
-    const [{ data: character }, { data: scenario }] = await Promise.all([
+    // Parallelize all initial DB queries
+    const [{ data: userChar }, { data: character }, { data: scenario }] = await Promise.all([
+      supabase.from("user_characters").select("character_id").eq("user_id", user.id).eq("character_id", characterId).single(),
       supabase.from("characters").select("name, personality_prompt, voice_id").eq("id", characterId).single(),
       supabase.from("chat_scenarios").select("*").eq("id", scenarioId).single(),
     ]);
 
+    if (!userChar) {
+      return NextResponse.json({ error: "Character not unlocked" }, { status: 403 });
+    }
     if (!character || !scenario) {
       return NextResponse.json({ error: "Character or scenario not found" }, { status: 404 });
     }
 
-    // Validate scenario stage is cleared (Stage 1 always open)
+    // Validate scenario stage is cleared (stage 0-1 always open)
     if (scenario.stage_number > 1) {
       const { data: stageProgress } = await supabase
         .from("quest_progress")
@@ -55,53 +49,56 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create session
-    const { data: session, error: sessionError } = await supabase
-      .from("chat_sessions")
-      .insert({
+    // Create session + generate opening message in parallel
+    // (session creation doesn't depend on LLM output)
+    const systemPrompt = buildChatSystemPrompt({
+      characterName: character.name,
+      personalityPrompt: character.personality_prompt,
+      scenarioPrompt: scenario.system_prompt,
+      category: scenario.category as 'jttw' | 'modern_daily' | 'psc_exam',
+    });
+
+    const [{ data: session, error: sessionError }, openingEnvelope] = await Promise.all([
+      supabase.from("chat_sessions").insert({
         user_id: user.id,
         character_id: characterId,
         scenario_id: scenarioId,
-      })
-      .select("id")
-      .single();
+      }).select("id").single(),
+      chatConversation([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "（场景开始，请你先开口说话，用1-2句话开始对话）" },
+      ]),
+    ]);
 
     if (sessionError || !session) {
       console.error("[Chat] Session creation error:", sessionError);
       return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
     }
 
-    // Generate opening message
-    const systemPrompt = `You ARE ${character.name}. Stay fully in character at all times.
+    const openingMessage = openingEnvelope.content;
 
-${character.personality_prompt}
-
-SCENE: ${scenario.system_prompt}
-
-RULES:
-- Respond in Mandarin Chinese (简体中文) only
-- Keep responses 1-3 sentences, natural conversational length
-- Stay in the Journey to the West scenario context
-- Be engaging — ask a question to start the conversation
-- Use vocabulary appropriate for PSC intermediate level`;
-
-    const openingMessage = await chatConversation([
-      { role: "system", content: systemPrompt },
-      { role: "user", content: "（场景开始，请你先开口说话，用1-2句话开始对话）" },
+    // Save message + generate TTS in parallel
+    let ttsBase64: string | null = null;
+    const [, ttsResult] = await Promise.all([
+      // Fire-and-forget DB save (don't block response on it)
+      supabase.from("chat_messages").insert({
+        session_id: session.id,
+        role: "companion",
+        content: openingMessage,
+      }),
+      // Generate TTS audio
+      synthesizeAcademic({ voiceId: character.voice_id, text: openingMessage })
+        .then(buf => Buffer.from(buf).toString("base64"))
+        .catch(err => { console.error("[Chat] TTS in start failed:", err); return null; }),
     ]);
-
-    // Save opening message
-    await supabase.from("chat_messages").insert({
-      session_id: session.id,
-      role: "companion",
-      content: openingMessage,
-    });
+    ttsBase64 = ttsResult;
 
     return NextResponse.json({
       sessionId: session.id,
       openingMessage,
       characterVoiceId: character.voice_id,
       characterName: character.name,
+      ttsAudio: ttsBase64,
     });
   } catch (error) {
     console.error("[Chat] Start error:", error);
