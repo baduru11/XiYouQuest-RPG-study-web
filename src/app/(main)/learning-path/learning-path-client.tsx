@@ -15,7 +15,7 @@ import {
   Play,
   ChevronRight,
   ArrowLeft,
-  Star,
+  SkipForward,
   Trophy,
   Target,
   Loader2,
@@ -25,9 +25,12 @@ import {
   BookOpen,
 } from "lucide-react";
 import { AudioRecorder, type AudioRecorderHandle } from "@/components/practice/audio-recorder";
+import { encodeWAV } from "@/lib/audio-utils";
+import { matchWordScores } from "@/lib/scoring/word-scores";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
+import { useExamTimer } from "@/hooks/use-exam-timer";
 import type { QuizQuestion } from "@/types/practice";
 import type { LearningPlan, LearningNode, LearningCheckpoint } from "@/types/database";
 import type { UnlockedAchievement } from "@/lib/achievements/types";
@@ -101,12 +104,6 @@ function calculateWeightedScore(scores: Record<string, number>): number {
   return total;
 }
 
-/** Map self-assessment 1-5 rating to a 0-100 score */
-function selfAssessToScore(rating: number): number {
-  const map: Record<number, number> = { 1: 40, 2: 55, 3: 70, 4: 85, 5: 95 };
-  return map[rating] ?? 70;
-}
-
 function scoreColor(score: number): string {
   if (score >= 80) return "text-green-600";
   if (score >= 60) return "text-yellow-600";
@@ -121,6 +118,207 @@ function scoreBgColor(score: number): string {
 
 function daysUntil(dateStr: string): number {
   return Math.max(0, Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+}
+
+function formatTimerDisplay(totalSeconds: number): string {
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+// ============================================================
+// Assessment Utilities
+// ============================================================
+
+interface AssessmentRawData {
+  componentNumber: 1 | 2 | 3 | 4 | 5;
+  audioBlob?: Blob;
+  referenceText?: string;
+  items?: string[];
+  quizScore?: number;
+  selectedTopic?: string;
+  spokenDurationSeconds?: number;
+}
+
+// useExamTimer is imported from @/hooks/use-exam-timer
+
+function useRawRecording() {
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Float32Array[]>([]);
+
+  const startCapture = useCallback(async (existingStream?: MediaStream) => {
+    const stream = existingStream ?? await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, sampleRate: 16000 },
+    });
+    streamRef.current = stream;
+
+    const audioContext = new AudioContext({ sampleRate: 16000 });
+    audioContextRef.current = audioContext;
+
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    chunksRef.current = [];
+
+    processor.onaudioprocess = (e) => {
+      const inputData = e.inputBuffer.getChannelData(0);
+      chunksRef.current.push(new Float32Array(inputData));
+    };
+
+    source.connect(processor);
+    const silentGain = audioContext.createGain();
+    silentGain.gain.value = 0;
+    processor.connect(silentGain);
+    silentGain.connect(audioContext.destination);
+  }, []);
+
+  const stopAndEncode = useCallback((): Blob | null => {
+    if (audioContextRef.current?.state !== "closed") {
+      audioContextRef.current?.close();
+    }
+    audioContextRef.current = null;
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+
+    const totalLength = chunksRef.current.reduce((sum, c) => sum + c.length, 0);
+    if (totalLength === 0) return null;
+
+    const merged = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunksRef.current) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    chunksRef.current = [];
+    return encodeWAV(merged, 16000);
+  }, []);
+
+  const cleanup = useCallback(() => {
+    if (audioContextRef.current?.state !== "closed") {
+      audioContextRef.current?.close();
+    }
+    audioContextRef.current = null;
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    chunksRef.current = [];
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanup;
+  }, [cleanup]);
+
+  return { audioContextRef, streamRef, startCapture, stopAndEncode, cleanup };
+}
+
+async function processAssessmentResults(
+  rawData: AssessmentRawData[],
+  setProgress: (p: number) => void,
+): Promise<Record<string, number>> {
+  const scores: Record<string, number> = {};
+  const apiSteps = rawData.filter(d => d.audioBlob).length;
+  let completed = 0;
+
+  const updateProgress = () => {
+    completed++;
+    setProgress(Math.round((completed / Math.max(apiSteps, 1)) * 100));
+  };
+
+  const promises: Promise<void>[] = [];
+
+  for (const raw of rawData) {
+    if (raw.quizScore !== undefined) {
+      scores[`c${raw.componentNumber}`] = raw.quizScore;
+      continue;
+    }
+
+    if (!raw.audioBlob) {
+      scores[`c${raw.componentNumber}`] = 0;
+      continue;
+    }
+
+    if (raw.componentNumber === 1 || raw.componentNumber === 2) {
+      const p = (async () => {
+        try {
+          const category = raw.componentNumber === 1 ? "read_syllable" : "read_word";
+          const formData = new FormData();
+          formData.append("audio", raw.audioBlob!, "recording.wav");
+          formData.append("referenceText", raw.referenceText ?? "");
+          formData.append("category", category);
+
+          const res = await fetchWithRetry("/api/speech/assess", {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error("Assessment failed");
+          const data = await res.json();
+
+          if (raw.items && data.words) {
+            const wordScores = matchWordScores(raw.items, data.words);
+            const validScores = wordScores.filter(w => w.score !== null).map(w => w.score!);
+            scores[`c${raw.componentNumber}`] = validScores.length > 0
+              ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+              : Math.round(data.pronunciationScore ?? 0);
+          } else {
+            scores[`c${raw.componentNumber}`] = Math.round(data.pronunciationScore ?? 0);
+          }
+        } catch {
+          scores[`c${raw.componentNumber}`] = 0;
+        }
+        updateProgress();
+      })();
+      promises.push(p);
+    } else if (raw.componentNumber === 4) {
+      const p = (async () => {
+        try {
+          const formData = new FormData();
+          formData.append("audio", raw.audioBlob!, "recording.wav");
+          formData.append("referenceText", raw.referenceText ?? "");
+          formData.append("category", "read_chapter");
+
+          const res = await fetchWithRetry("/api/speech/assess", {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error("Assessment failed");
+          const data = await res.json();
+          scores.c4 = Math.round(data.pronunciationScore ?? 0);
+        } catch {
+          scores.c4 = 0;
+        }
+        updateProgress();
+      })();
+      promises.push(p);
+    } else if (raw.componentNumber === 5) {
+      const p = (async () => {
+        try {
+          const formData = new FormData();
+          formData.append("audio", raw.audioBlob!, "recording.wav");
+          formData.append("topic", raw.selectedTopic ?? "");
+          formData.append("spokenDurationSeconds", String(raw.spokenDurationSeconds ?? 0));
+
+          const res = await fetchWithRetry("/api/speech/c5-assess", {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error("C5 assessment failed");
+          const data = await res.json();
+          scores.c5 = Math.round(data.normalizedScore ?? 0);
+        } catch {
+          scores.c5 = 0;
+        }
+        updateProgress();
+      })();
+      promises.push(p);
+    }
+  }
+
+  await Promise.all(promises);
+
+  for (const c of [1, 2, 3, 4, 5]) {
+    if (scores[`c${c}`] === undefined) scores[`c${c}`] = 0;
+  }
+
+  setProgress(100);
+  return scores;
 }
 
 // ============================================================
@@ -471,12 +669,136 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 }
 
 // ============================================================
-// 2. Assessment View (simplified: C3 quiz + self-assessment)
+// 2. Assessment View (real mini-exam with audio recording)
 // ============================================================
 
-type AssessmentStep = "c1" | "c2" | "c3" | "c4" | "c5";
+type AssessmentPhase = "c1_recording" | "c2_recording" | "c3_quiz" | "c4_recording" | "c5_recording" | "assessing";
 
-const ASSESSMENT_STEPS: AssessmentStep[] = ["c1", "c2", "c3", "c4", "c5"];
+const ASSESSMENT_PHASE_ORDER: AssessmentPhase[] = ["c1_recording", "c2_recording", "c3_quiz", "c4_recording", "c5_recording"];
+
+// ---- Shared mini-exam flow (used by AssessmentView + CheckpointView) ----
+function MiniExamFlow({
+  assessmentData,
+  assessingTitle,
+  stepLabel,
+  header,
+  onComplete,
+}: {
+  assessmentData: LearningPathClientProps["assessmentData"];
+  assessingTitle: string;
+  stepLabel: string;
+  header?: React.ReactNode;
+  onComplete: (scores: Record<string, number>) => void;
+}) {
+  const [phase, setPhase] = useState<AssessmentPhase>("c1_recording");
+  const rawDataRef = useRef<AssessmentRawData[]>([]);
+  const [assessProgress, setAssessProgress] = useState(0);
+  const processingRef = useRef(false);
+
+  const randomizedQuiz = useMemo(() => {
+    return (assessmentData.quizQuestions ?? []).map(randomizeAnswerPositions);
+  }, [assessmentData.quizQuestions]);
+
+  const currentIndex = ASSESSMENT_PHASE_ORDER.indexOf(phase);
+  const progressPercent = phase === "assessing" ? 100 : ((currentIndex) / ASSESSMENT_PHASE_ORDER.length) * 100;
+
+  const shouldSkipPhase = useCallback((p: AssessmentPhase): boolean => {
+    if (p === "c4_recording" && !assessmentData.passage) return true;
+    if (p === "c5_recording" && (!assessmentData.topics || assessmentData.topics.length === 0)) return true;
+    return false;
+  }, [assessmentData.passage, assessmentData.topics]);
+
+  const advancePhase = useCallback((data: AssessmentRawData) => {
+    rawDataRef.current = [...rawDataRef.current, data];
+    setPhase(prev => {
+      let idx = ASSESSMENT_PHASE_ORDER.indexOf(prev);
+      // Advance to next phase, skipping phases with missing data
+      do {
+        idx++;
+        if (idx >= ASSESSMENT_PHASE_ORDER.length) return "assessing";
+      } while (shouldSkipPhase(ASSESSMENT_PHASE_ORDER[idx]));
+      return ASSESSMENT_PHASE_ORDER[idx];
+    });
+  }, [shouldSkipPhase]);
+
+  useEffect(() => {
+    if (phase !== "assessing" || processingRef.current) return;
+    processingRef.current = true;
+    processAssessmentResults(rawDataRef.current, setAssessProgress).then(onComplete);
+  }, [phase, onComplete]);
+
+  if (phase === "assessing") {
+    return (
+      <div className="pixel-border chinese-corner bg-card p-6 space-y-6">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
+          <h2 className="font-pixel text-sm text-primary leading-relaxed">{assessingTitle}</h2>
+          <p className="font-chinese text-muted-foreground">正在分析测评结果...</p>
+          <div className="max-w-xs mx-auto">
+            <Progress value={assessProgress} className="h-3" />
+            <p className="text-xs text-muted-foreground mt-2">{Math.round(assessProgress)}% complete</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {header}
+
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <span>{stepLabel}: Step {currentIndex + 1} of {ASSESSMENT_PHASE_ORDER.length}</span>
+        <Progress value={progressPercent} className="flex-1 h-2" />
+      </div>
+
+      {phase === "c1_recording" && (
+        <MiniExamPronunciation
+          componentNumber={1}
+          items={assessmentData.characters}
+          timeLimitSeconds={90}
+          onComplete={(data) => advancePhase(data)}
+          onSkip={() => advancePhase({ componentNumber: 1 })}
+        />
+      )}
+
+      {phase === "c2_recording" && (
+        <MiniExamPronunciation
+          componentNumber={2}
+          items={assessmentData.words}
+          timeLimitSeconds={90}
+          onComplete={(data) => advancePhase(data)}
+          onSkip={() => advancePhase({ componentNumber: 2 })}
+        />
+      )}
+
+      {phase === "c3_quiz" && (
+        <QuizAssessment
+          questions={randomizedQuiz}
+          onComplete={(score) => advancePhase({ componentNumber: 3, quizScore: score })}
+        />
+      )}
+
+      {phase === "c4_recording" && assessmentData.passage && (
+        <MiniExamPassage
+          passage={assessmentData.passage}
+          timeLimitSeconds={240}
+          onComplete={(data) => advancePhase(data)}
+          onSkip={() => advancePhase({ componentNumber: 4 })}
+        />
+      )}
+
+      {phase === "c5_recording" && assessmentData.topics && assessmentData.topics.length > 0 && (
+        <MiniExamSpeaking
+          topics={assessmentData.topics}
+          timeLimitSeconds={180}
+          onComplete={(data) => advancePhase(data)}
+          onSkip={() => advancePhase({ componentNumber: 5 })}
+        />
+      )}
+    </div>
+  );
+}
 
 function AssessmentView({
   assessmentData,
@@ -485,126 +807,439 @@ function AssessmentView({
   assessmentData: LearningPathClientProps["assessmentData"];
   onComplete: (scores: Record<string, number>) => void;
 }) {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const step = ASSESSMENT_STEPS[stepIndex];
-
-  // Randomize quiz answers once
-  const randomizedQuiz = useMemo(() => {
-    return (assessmentData.quizQuestions ?? []).map(randomizeAnswerPositions);
-  }, [assessmentData.quizQuestions]);
-
-  const handleStepComplete = useCallback((key: string, score: number) => {
-    const newScores = { ...scores, [key]: score };
-    setScores(newScores);
-
-    if (stepIndex + 1 >= ASSESSMENT_STEPS.length) {
-      onComplete(newScores);
-    } else {
-      setStepIndex(stepIndex + 1);
-    }
-  }, [scores, stepIndex, onComplete]);
-
   return (
-    <div className="space-y-3">
-      {/* Progress header */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Assessment: Step {stepIndex + 1} of {ASSESSMENT_STEPS.length}</span>
-        <Progress value={((stepIndex) / ASSESSMENT_STEPS.length) * 100} className="flex-1 h-2" />
-      </div>
-
-      <p className="text-xs text-muted-foreground italic">
-        For more accurate pronunciation scores, complete a Mock Exam first.
-      </p>
-
-      {step === "c3" ? (
-        <QuizAssessment
-          questions={randomizedQuiz}
-          onComplete={(score) => handleStepComplete("c3", score)}
-        />
-      ) : (
-        <SelfAssessment
-          componentKey={step}
-          componentNumber={parseInt(step.replace("c", ""))}
-          onComplete={(score) => handleStepComplete(step, score)}
-        />
-      )}
-    </div>
+    <MiniExamFlow
+      assessmentData={assessmentData}
+      assessingTitle="Analyzing Your Results"
+      stepLabel="Assessment"
+      onComplete={onComplete}
+    />
   );
 }
 
-// ---- Self-Assessment for pronunciation components ----
-function SelfAssessment({
+// ---- Mini-Exam: Pronunciation Assessment (C1/C2) ----
+function MiniExamPronunciation({
   componentNumber,
+  items,
+  timeLimitSeconds,
   onComplete,
+  onSkip,
 }: {
-  componentKey: string;
-  componentNumber: number;
-  onComplete: (score: number) => void;
+  componentNumber: 1 | 2;
+  items: string[];
+  timeLimitSeconds: number;
+  onComplete: (data: AssessmentRawData) => void;
+  onSkip: () => void;
 }) {
-  const [rating, setRating] = useState(3);
   const info = COMPONENT_INFO[componentNumber];
+  const recorderRef = useRef<AudioRecorderHandle>(null);
+  const isDoneRef = useRef(false);
 
-  const RATING_LABELS: Record<number, string> = {
-    1: "Beginner — I struggle significantly",
-    2: "Below Average — I make frequent errors",
-    3: "Average — I'm okay with some mistakes",
-    4: "Good — I'm fairly confident",
-    5: "Excellent — I rarely make mistakes",
-  };
+  const handleTimeUp = useCallback(() => {
+    if (isDoneRef.current) return;
+    recorderRef.current?.stop();
+    setTimeout(() => {
+      if (!isDoneRef.current) {
+        isDoneRef.current = true;
+        onComplete({ componentNumber });
+      }
+    }, 50);
+  }, [onComplete, componentNumber]);
+
+  const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
+
+  const handleRecordingStart = useCallback(() => {
+    timer.start();
+  }, [timer]);
+
+  const handleRecordingComplete = useCallback((audioBlob: Blob) => {
+    if (isDoneRef.current) return;
+    isDoneRef.current = true;
+    timer.stop();
+    onComplete({
+      componentNumber,
+      audioBlob,
+      referenceText: items.join(" "),
+      items,
+    });
+  }, [timer, onComplete, componentNumber, items]);
 
   return (
     <Card>
-      <CardContent className="pt-6 space-y-5">
-        <div className="text-center space-y-1">
+      <CardContent className="pt-6 space-y-4">
+        <div className="flex items-center justify-between">
           <Badge variant="outline" className="text-sm px-3 py-1">
             {info?.short}: {info?.name}
           </Badge>
-          <p className="font-chinese text-sm text-muted-foreground">{info?.chineseName}</p>
+          <Badge variant={timer.isRunning && timer.timeRemaining <= 10 ? "destructive" : "secondary"}>
+            {timer.isRunning ? timer.formatTime : formatTimerDisplay(timeLimitSeconds)}
+          </Badge>
+        </div>
+        <p className="font-chinese text-sm text-center text-muted-foreground">{info?.chineseName}</p>
+
+        <p className="text-sm text-center text-muted-foreground">
+          Read all {componentNumber === 1 ? "characters" : "words"} aloud in a single recording:
+        </p>
+
+        <div className={`grid gap-2 ${componentNumber === 1 ? "grid-cols-5" : "grid-cols-3"} max-h-[250px] overflow-y-auto rounded-lg border bg-muted/30 p-3`}>
+          {items.map((item, i) => (
+            <div key={i} className="text-center rounded border bg-card p-2">
+              <span className={`font-chinese ${componentNumber === 1 ? "text-xl" : "text-base"}`}>
+                {item}
+              </span>
+            </div>
+          ))}
         </div>
 
-        <div className="space-y-3">
-          <p className="text-sm text-center text-muted-foreground">
-            Rate your current ability for this component:
-          </p>
-
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((r) => (
-              <button
-                key={r}
-                onClick={() => setRating(r)}
-                className={`w-full text-left px-4 py-2.5 rounded-lg border transition-all ${
-                  rating === r
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border hover:border-primary/50 text-muted-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-4 w-4 ${i < r ? "text-yellow-500 fill-yellow-500" : "text-muted"}`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm">{RATING_LABELS[r]}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="text-center text-sm text-muted-foreground">
-          Estimated score: <span className={`font-bold ${scoreColor(selfAssessToScore(rating))}`}>
-            {selfAssessToScore(rating)}
-          </span>
-        </div>
+        <AudioRecorder
+          ref={recorderRef}
+          onRecordingComplete={handleRecordingComplete}
+          onRecordingStart={handleRecordingStart}
+        />
 
         <div className="flex justify-center">
-          <Button onClick={() => onComplete(selfAssessToScore(rating))} size="lg">
-            Confirm & Continue
-            <ChevronRight className="h-4 w-4 ml-1" />
+          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+            <SkipForward className="h-4 w-4 mr-1" />
+            Skip this step
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Mini-Exam: Passage Reading (C4) ----
+function MiniExamPassage({
+  passage,
+  timeLimitSeconds,
+  onComplete,
+  onSkip,
+}: {
+  passage: { id: string; title: string; content: string };
+  timeLimitSeconds: number;
+  onComplete: (data: AssessmentRawData) => void;
+  onSkip: () => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  const [isDone, setIsDone] = useState(false);
+  const isDoneRef = useRef(false);
+  const { audioContextRef, startCapture, stopAndEncode } = useRawRecording();
+
+  const finishRecording = useCallback(() => {
+    if (isDoneRef.current) return;
+    isDoneRef.current = true;
+    setIsDone(true);
+    const wavBlob = stopAndEncode();
+    if (!wavBlob) {
+      onComplete({ componentNumber: 4 });
+      return;
+    }
+    onComplete({
+      componentNumber: 4,
+      audioBlob: wavBlob,
+      referenceText: passage.content,
+    });
+  }, [onComplete, passage.content, stopAndEncode]);
+
+  const handleTimeUp = useCallback(() => {
+    if (audioContextRef.current) finishRecording();
+    else if (!isDoneRef.current) {
+      isDoneRef.current = true;
+      setIsDone(true);
+      onComplete({ componentNumber: 4 });
+    }
+  }, [finishRecording, onComplete, audioContextRef]);
+
+  const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
+
+  const startRecording = useCallback(async () => {
+    try {
+      await startCapture();
+      setRecording(true);
+      timer.start();
+    } catch {
+      isDoneRef.current = true;
+      setIsDone(true);
+      onComplete({ componentNumber: 4 });
+    }
+  }, [timer, onComplete, startCapture]);
+
+  const stopRecording = useCallback(() => {
+    timer.stop();
+    setRecording(false);
+    finishRecording();
+  }, [timer, finishRecording]);
+
+  return (
+    <Card>
+      <CardContent className="pt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <Badge variant="outline" className="text-sm px-3 py-1">
+            C4: Passage Reading
+          </Badge>
+          <Badge variant={timer.isRunning && timer.timeRemaining <= 30 ? "destructive" : "secondary"}>
+            {timer.isRunning ? timer.formatTime : formatTimerDisplay(timeLimitSeconds)}
+          </Badge>
+        </div>
+        <p className="font-chinese text-sm text-center text-muted-foreground">朗读短文</p>
+
+        <h3 className="font-chinese text-center text-lg font-bold">{passage.title}</h3>
+        <div className="rounded-lg border bg-muted/30 p-4 max-h-[300px] overflow-y-auto">
+          <p className="font-chinese text-base leading-relaxed">{passage.content}</p>
+        </div>
+
+        <div className="flex justify-center gap-3">
+          {!recording ? (
+            <Button onClick={startRecording} size="lg">
+              <Mic className="h-4 w-4 mr-2" />
+              Start Reading
+            </Button>
+          ) : (
+            <Button onClick={stopRecording} variant="destructive" size="lg">
+              <Mic className="h-4 w-4 mr-2 animate-pulse" />
+              Stop Recording
+            </Button>
+          )}
+        </div>
+
+        {!recording && !isDone && (
+          <div className="flex justify-center">
+            <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+              <SkipForward className="h-4 w-4 mr-1" />
+              Skip this step
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---- Mini-Exam: Speaking Assessment (C5) ----
+function MiniExamSpeaking({
+  topics,
+  timeLimitSeconds,
+  onComplete,
+  onSkip,
+}: {
+  topics: string[];
+  timeLimitSeconds: number;
+  onComplete: (data: AssessmentRawData) => void;
+  onSkip: () => void;
+}) {
+  const [topicChoices] = useState<string[]>(() => {
+    const shuffled = [...topics].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 6);
+  });
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const selectedTopicRef = useRef<string | null>(null);
+  const [speakPhase, setSpeakPhase] = useState<"choosing" | "prepare" | "countdown" | "recording">("choosing");
+  const [countdown, setCountdown] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const elapsedTimeRef = useRef(0);
+  const isDoneRef = useRef(false);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { audioContextRef, streamRef, startCapture, stopAndEncode } = useRawRecording();
+
+  const finishRecording = useCallback(() => {
+    if (isDoneRef.current) return;
+    isDoneRef.current = true;
+
+    if (elapsedTimerRef.current) {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+    }
+
+    const wavBlob = stopAndEncode();
+    if (!wavBlob) {
+      onComplete({ componentNumber: 5, selectedTopic: selectedTopicRef.current ?? undefined, spokenDurationSeconds: 0 });
+      return;
+    }
+    onComplete({
+      componentNumber: 5,
+      audioBlob: wavBlob,
+      selectedTopic: selectedTopicRef.current ?? undefined,
+      spokenDurationSeconds: elapsedTimeRef.current,
+    });
+  }, [onComplete, stopAndEncode]);
+
+  const handleTimeUp = useCallback(() => {
+    if (audioContextRef.current) finishRecording();
+    else if (!isDoneRef.current) {
+      isDoneRef.current = true;
+      onComplete({ componentNumber: 5, selectedTopic: selectedTopicRef.current ?? undefined, spokenDurationSeconds: 0 });
+    }
+  }, [finishRecording, onComplete, audioContextRef]);
+
+  const timer = useExamTimer(timeLimitSeconds, handleTimeUp, false);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, sampleRate: 16000 },
+      });
+      streamRef.current = stream;
+
+      setSpeakPhase("countdown");
+      setCountdown(3);
+
+      await new Promise<void>((resolve) => {
+        let remaining = 3;
+        const interval = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(interval);
+            countdownIntervalRef.current = null;
+            resolve();
+          } else {
+            setCountdown(remaining);
+          }
+        }, 1000);
+        countdownIntervalRef.current = interval;
+      });
+
+      await startCapture(stream);
+
+      setElapsedTime(0);
+      elapsedTimeRef.current = 0;
+      elapsedTimerRef.current = setInterval(() => {
+        setElapsedTime(prev => {
+          const next = prev + 1;
+          elapsedTimeRef.current = next;
+          return next;
+        });
+      }, 1000);
+
+      setSpeakPhase("recording");
+      timer.start();
+    } catch {
+      isDoneRef.current = true;
+      onComplete({ componentNumber: 5, selectedTopic: selectedTopicRef.current ?? undefined, spokenDurationSeconds: 0 });
+    }
+  }, [timer, onComplete, streamRef, startCapture]);
+
+  const stopRecording = useCallback(() => {
+    timer.stop();
+    finishRecording();
+  }, [timer, finishRecording]);
+
+  const handleTopicSelect = useCallback((topic: string) => {
+    setSelectedTopic(topic);
+    selectedTopicRef.current = topic;
+    setSpeakPhase("prepare");
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (elapsedTimerRef.current) clearInterval(elapsedTimerRef.current);
+    };
+  }, []);
+
+  if (speakPhase === "countdown") {
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4 text-center">
+          <Badge variant="outline" className="text-sm px-3 py-1">C5: Prompted Speaking</Badge>
+          <p className="font-chinese text-lg font-bold">{selectedTopic}</p>
+          <p className="text-6xl font-bold text-primary animate-pulse">{countdown}</p>
+          <p className="text-sm text-muted-foreground">Get ready to speak...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (speakPhase === "recording") {
+    const mins = Math.floor(elapsedTime / 60);
+    const secs = elapsedTime % 60;
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <Badge variant="outline">C5: Prompted Speaking</Badge>
+            <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "secondary"}>
+              {timer.formatTime}
+            </Badge>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="font-chinese text-lg font-bold">{selectedTopic}</p>
+            <div className="flex items-center justify-center gap-2">
+              <Mic className="h-5 w-5 text-red-500 animate-pulse" />
+              <span className="text-lg font-mono">{mins}:{String(secs).padStart(2, "0")}</span>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <Button onClick={stopRecording} variant="destructive" size="lg">
+              <Mic className="h-4 w-4 mr-2" />
+              Stop Recording
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (speakPhase === "prepare") {
+    return (
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <Badge variant="outline" className="text-sm px-3 py-1">C5: Prompted Speaking</Badge>
+            <Badge variant="secondary">
+              {formatTimerDisplay(timeLimitSeconds)}
+            </Badge>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-sm text-muted-foreground">Your topic:</p>
+            <p className="font-chinese text-xl font-bold text-foreground">{selectedTopic}</p>
+            <p className="text-xs text-muted-foreground">Speak for 2-3 minutes. A 3-second countdown will start.</p>
+          </div>
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => { setSelectedTopic(null); selectedTopicRef.current = null; setSpeakPhase("choosing"); }}>
+              Change Topic
+            </Button>
+            <Button onClick={startRecording} size="lg">
+              <Mic className="h-4 w-4 mr-2" />
+              Start Speaking
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // choosing phase
+  return (
+    <Card>
+      <CardContent className="pt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <Badge variant="outline" className="text-sm px-3 py-1">C5: Prompted Speaking</Badge>
+          <Badge variant="secondary">
+            {formatTimerDisplay(timeLimitSeconds)}
+          </Badge>
+        </div>
+        <p className="font-chinese text-sm text-center text-muted-foreground">命题说话</p>
+
+        <p className="text-sm text-center text-muted-foreground">
+          Choose a topic, then speak for 2-3 minutes:
+        </p>
+        <div className="space-y-2">
+          {topicChoices.map((topic, i) => (
+            <button
+              key={i}
+              onClick={() => handleTopicSelect(topic)}
+              className="w-full text-left px-4 py-3 rounded-lg border border-border hover:border-primary transition-all"
+            >
+              <span className="font-chinese text-base">{topic}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-center">
+          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+            <SkipForward className="h-4 w-4 mr-1" />
+            Skip this step
           </Button>
         </div>
       </CardContent>
@@ -1921,25 +2556,6 @@ function CheckpointView({
   onComplete: (scores: Record<string, number>) => void;
   onCancel: () => void;
 }) {
-  const [step, setStep] = useState(0);
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const steps: AssessmentStep[] = ["c1", "c2", "c3", "c4", "c5"];
-
-  const randomizedQuiz = useMemo(() => {
-    return (assessmentData.quizQuestions ?? []).map(randomizeAnswerPositions);
-  }, [assessmentData.quizQuestions]);
-
-  const handleStepComplete = useCallback((key: string, score: number) => {
-    const newScores = { ...scores, [key]: score };
-    setScores(newScores);
-
-    if (step + 1 >= steps.length) {
-      onComplete(newScores);
-    } else {
-      setStep(step + 1);
-    }
-  }, [scores, step, steps.length, onComplete]);
-
   if (loading) {
     return (
       <div className="pixel-border bg-card p-6 space-y-4">
@@ -1951,45 +2567,26 @@ function CheckpointView({
     );
   }
 
-  const currentStep = steps[step];
-
   return (
-    <div className="space-y-3">
-      {/* Checkpoint header */}
-      <div className="pixel-border bg-card p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          <span className="font-pixel text-sm text-foreground leading-relaxed">
-            Checkpoint {checkpointNumber} of {totalCheckpoints}
-          </span>
+    <MiniExamFlow
+      assessmentData={assessmentData}
+      assessingTitle="Analyzing Checkpoint Results"
+      stepLabel="Checkpoint"
+      header={
+        <div className="pixel-border bg-card p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            <span className="font-pixel text-sm text-foreground leading-relaxed">
+              Checkpoint {checkpointNumber} of {totalCheckpoints}
+            </span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Step {step + 1} of {steps.length}</span>
-        <Progress value={(step / steps.length) * 100} className="flex-1 h-2" />
-      </div>
-
-      <p className="text-xs text-muted-foreground italic">
-        Quick assessment to track your progress since Phase {checkpointNumber}.
-      </p>
-
-      {currentStep === "c3" ? (
-        <QuizAssessment
-          questions={randomizedQuiz}
-          onComplete={(score) => handleStepComplete("c3", score)}
-        />
-      ) : (
-        <SelfAssessment
-          componentKey={currentStep}
-          componentNumber={parseInt(currentStep.replace("c", ""))}
-          onComplete={(score) => handleStepComplete(currentStep, score)}
-        />
-      )}
-    </div>
+      }
+      onComplete={onComplete}
+    />
   );
 }
 

@@ -9,9 +9,11 @@ import { Progress } from "@/components/ui/progress";
 import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { encodeWAV } from "@/lib/audio-utils";
+import { matchWordScores } from "@/lib/scoring/word-scores";
 import { AudioRecorder, type AudioRecorderHandle } from "@/components/practice/audio-recorder";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
+import { useExamTimer } from "@/hooks/use-exam-timer";
 import type { QuizQuestion } from "@/types/practice";
 import type { UnlockedAchievement } from "@/lib/achievements/types";
 
@@ -96,122 +98,6 @@ function getPSCGrade(score: number): { grade: string; description: string } {
   if (score >= 70) return { grade: "三级甲等", description: "Third Class, Grade A" };
   if (score >= 60) return { grade: "三级乙等", description: "Third Class, Grade B" };
   return { grade: "不达标", description: "Below Standard" };
-}
-
-// ============================================================
-// Timer hook
-// ============================================================
-
-function useExamTimer(totalSeconds: number, onTimeUp: () => void, autoStart = true) {
-  const [timeRemaining, setTimeRemaining] = useState(totalSeconds);
-  const [isRunning, setIsRunning] = useState(autoStart);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const onTimeUpRef = useRef(onTimeUp);
-  useEffect(() => {
-    onTimeUpRef.current = onTimeUp;
-  }, [onTimeUp]);
-
-  useEffect(() => {
-    if (!isRunning) return;
-
-    timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          setIsRunning(false);
-          setTimeout(() => onTimeUpRef.current(), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isRunning]);
-
-  const stop = useCallback(() => {
-    setIsRunning(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-  }, []);
-
-  const start = useCallback(() => {
-    setIsRunning(true);
-  }, []);
-
-  const minutes = Math.floor(timeRemaining / 60);
-  const seconds = timeRemaining % 60;
-  const formatTime = `${minutes}:${String(seconds).padStart(2, "0")}`;
-
-  return { timeRemaining, formatTime, stop, start, isRunning };
-}
-
-// ============================================================
-// 3-tier score matching (reused for C1/C2 assessment)
-// ============================================================
-
-function matchWordScores(
-  items: string[],
-  words: Array<{ word: string; accuracyScore: number; errorType: string }>
-): { word: string; score: number | null }[] {
-  const filteredWords = words.filter(
-    (w) => w.errorType !== "Insertion" && w.errorType !== "Omission"
-  );
-
-  const usedIndices = new Set<number>();
-  let searchFrom = 0;
-
-  return items.map((word) => {
-    // Strategy 1: exact match (forward search)
-    let idx = -1;
-    for (let i = searchFrom; i < filteredWords.length; i++) {
-      if (filteredWords[i].word === word && !usedIndices.has(i)) {
-        idx = i;
-        break;
-      }
-    }
-    if (idx < 0) {
-      idx = filteredWords.findIndex(
-        (w, i) => w.word === word && !usedIndices.has(i)
-      );
-    }
-    if (idx >= 0) {
-      usedIndices.add(idx);
-      searchFrom = idx + 1;
-      return { word, score: filteredWords[idx]?.accuracyScore ?? null };
-    }
-
-    // Strategy 2: character-level aggregation for multi-char words
-    if (word.length > 1 && filteredWords.length > 0) {
-      const charScores: number[] = [];
-      let charSearchFrom = searchFrom;
-      for (const char of word) {
-        let charIdx = -1;
-        for (let i = charSearchFrom; i < filteredWords.length; i++) {
-          if (filteredWords[i].word === char && !usedIndices.has(i)) {
-            charIdx = i;
-            break;
-          }
-        }
-        if (charIdx >= 0) {
-          usedIndices.add(charIdx);
-          charSearchFrom = charIdx + 1;
-          charScores.push(filteredWords[charIdx].accuracyScore ?? 0);
-        }
-      }
-      if (charScores.length > 0) {
-        searchFrom = charSearchFrom;
-        return {
-          word,
-          score: Math.round(charScores.reduce((a, b) => a + b, 0) / charScores.length),
-        };
-      }
-    }
-
-    return { word, score: null };
-  });
 }
 
 // ============================================================
