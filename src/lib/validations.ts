@@ -36,6 +36,7 @@ export const aiFeedbackSchema = z.object({
   userAnswer: z.string(),
   pronunciationScore: z.number().min(0).max(100).optional(),
   isCorrect: z.boolean(),
+  playerMemory: z.string().optional(),
 });
 
 // --- TTS API Schemas ---
@@ -75,6 +76,10 @@ export const chatStartSchema = z.object({
 });
 
 export const chatEndSchema = z.object({
+  sessionId: uuid,
+});
+
+export const chatResumeSchema = z.object({
   sessionId: uuid,
 });
 

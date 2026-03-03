@@ -10,24 +10,41 @@ import {
   calculateBossDamage,
   calculateQuestXP,
   getUnlockedCharacters,
+  splitRecordingGroups,
 } from "../battle-logic";
+import { STAGE_QUESTIONS } from "../stage-questions";
+import type { StageNumber } from "../types";
+
+/** Helper: get split recording groups for a stage */
+function getSplitGroups(stage: StageNumber) {
+  return splitRecordingGroups(STAGE_QUESTIONS[stage].recordingGroups);
+}
+
+/** Wukong + 1 companion = HP 5 */
+const WITH_ONE_COMPANION = ["Son Wukong", "Sam Jang"];
+/** Wukong only = HP 3 */
+const WUKONG_ONLY = ["Son Wukong"];
 
 describe("generateBattleRounds", () => {
-  it("generates correct rounds for stage 1 (1 recording, 5 MCQ)", () => {
-    const rounds = generateBattleRounds(1);
+  it("generates correct rounds for stage 1", () => {
+    const rounds = generateBattleRounds(1, getSplitGroups(1));
 
-    // Stage 1: 1 recording group, 5 MCQ questions
-    // => 1 round with all 5 MCQs + 1 recording
-    expect(rounds).toHaveLength(1);
-    expect(rounds[0].mcqIndices).toEqual([0, 1, 2, 3, 4]);
+    // Stage 1: 1 recording group of 10 monosyllabic words → split into 2 groups of 5
+    // 5 MCQ questions, MCQ per round = ceil(5 / 2) = 3
+    // Round 0: MCQ [0,1,2], recording 0
+    // Round 1: MCQ [3,4], recording 1
+    expect(rounds).toHaveLength(2);
+    expect(rounds[0].mcqIndices).toEqual([0, 1, 2]);
     expect(rounds[0].recordingGroupIndex).toBe(0);
+    expect(rounds[1].mcqIndices).toEqual([3, 4]);
+    expect(rounds[1].recordingGroupIndex).toBe(1);
   });
 
   it("distributes MCQ evenly across recording groups for stage 2", () => {
-    const rounds = generateBattleRounds(2);
+    const rounds = generateBattleRounds(2, getSplitGroups(2));
 
-    // Stage 2: 4 recording groups, 10 MCQ questions
-    // MCQ per round = ceil(10 / 4) = 3
+    // Stage 2: 2 groups of 10 words each → split into 4 groups of 5
+    // 10 MCQ questions, MCQ per round = ceil(10 / 4) = 3
     // Round 0: MCQ [0,1,2], recording 0
     // Round 1: MCQ [3,4,5], recording 1
     // Round 2: MCQ [6,7,8], recording 2
@@ -45,44 +62,46 @@ describe("generateBattleRounds", () => {
   });
 
   it("distributes MCQ across recording groups for stage 3", () => {
-    const rounds = generateBattleRounds(3);
+    const rounds = generateBattleRounds(3, getSplitGroups(3));
 
-    // Stage 3: 3 recording groups, 10 MCQ questions
-    // MCQ per round = ceil(10 / 3) = 4
-    // Round 0: MCQ [0,1,2,3], recording 0
-    // Round 1: MCQ [4,5,6,7], recording 1
-    // Round 2: MCQ [8,9], recording 2 (only 2 remaining)
-    expect(rounds).toHaveLength(3);
-    expect(rounds[0].mcqIndices).toEqual([0, 1, 2, 3]);
-    expect(rounds[1].mcqIndices).toEqual([4, 5, 6, 7]);
-    expect(rounds[2].mcqIndices).toEqual([8, 9]);
+    // Stage 3: mono(10) + multi(10) + passage(1) → split: 2+2+1 = 5 groups
+    // 10 MCQ questions, MCQ per round = ceil(10 / 5) = 2
+    expect(rounds).toHaveLength(5);
+    expect(rounds[0].mcqIndices).toEqual([0, 1]);
+    expect(rounds[1].mcqIndices).toEqual([2, 3]);
+    expect(rounds[2].mcqIndices).toEqual([4, 5]);
+    expect(rounds[3].mcqIndices).toEqual([6, 7]);
+    expect(rounds[4].mcqIndices).toEqual([8, 9]);
   });
 
   it("distributes MCQ across recording groups for stage 6", () => {
-    const rounds = generateBattleRounds(6);
+    const rounds = generateBattleRounds(6, getSplitGroups(6));
 
-    // Stage 6: 3 recording groups, 15 MCQ questions
-    // MCQ per round = ceil(15 / 3) = 5
-    // Round 0: MCQ [0,1,2,3,4], recording 0
-    // Round 1: MCQ [5,6,7,8,9], recording 1
-    // Round 2: MCQ [10,11,12,13,14], recording 2
-    expect(rounds).toHaveLength(3);
-    expect(rounds[0].mcqIndices).toEqual([0, 1, 2, 3, 4]);
-    expect(rounds[1].mcqIndices).toEqual([5, 6, 7, 8, 9]);
-    expect(rounds[2].mcqIndices).toEqual([10, 11, 12, 13, 14]);
+    // Stage 6: 3 groups of 10 words → split into 6 groups of 5
+    // 15 MCQ questions, MCQ per round = ceil(15 / 6) = 3
+    expect(rounds).toHaveLength(6);
+    expect(rounds[0].mcqIndices).toEqual([0, 1, 2]);
+    expect(rounds[1].mcqIndices).toEqual([3, 4, 5]);
+    expect(rounds[2].mcqIndices).toEqual([6, 7, 8]);
+    expect(rounds[3].mcqIndices).toEqual([9, 10, 11]);
+    expect(rounds[4].mcqIndices).toEqual([12, 13, 14]);
+    expect(rounds[5].mcqIndices).toEqual([]); // All MCQs assigned
   });
 });
 
 describe("createBattleState", () => {
-  it("initializes with correct HP for stage 1", () => {
-    const state = createBattleState(1, false);
+  it("initializes with correct HP and recordings for stage 1", () => {
+    const state = createBattleState(1, false, WITH_ONE_COMPANION);
 
-    expect(state.playerHP).toBe(5); // Stage 1 playerMaxHP = 5
-    expect(state.bossHP).toBe(100); // bossMaxHP = 100
+    expect(state.playerHP).toBe(5); // 3 base + 1 companion * 2
+    expect(state.playerMaxHP).toBe(5);
+    expect(state.bossHP).toBe(100);
     expect(state.currentRound).toBe(0);
     expect(state.currentMCQInRound).toBe(0);
     expect(state.recordingsCompleted).toBe(0);
-    expect(state.totalRecordings).toBe(1);
+    // 10 monosyllabic words split into 2 groups of 5
+    expect(state.totalRecordings).toBe(2);
+    expect(state.phase).toBe("player_menu");
     expect(state.isRetry).toBe(false);
     expect(state.results.mcqCorrect).toBe(0);
     expect(state.results.mcqTotal).toBe(0);
@@ -91,24 +110,22 @@ describe("createBattleState", () => {
   });
 
   it("marks retry flag", () => {
-    const state = createBattleState(1, true);
+    const state = createBattleState(1, true, WITH_ONE_COMPANION);
     expect(state.isRetry).toBe(true);
   });
 
-  it("initializes with correct HP for stage 5", () => {
-    const state = createBattleState(5, false);
-    expect(state.playerHP).toBe(3); // Stage 5 playerMaxHP = 3
-    expect(state.totalRecordings).toBe(3); // Stage 5 has 3 recording groups
+  it("initializes with correct HP for Wukong only", () => {
+    const state = createBattleState(5, false, WUKONG_ONLY);
+    expect(state.playerHP).toBe(3); // 3 base + 0 companions
   });
 
-  it("sets initial phase to boss_attack when first round has MCQs", () => {
-    const state = createBattleState(1, false);
-    // Stage 1 has 5 MCQs, so first round has MCQs
-    expect(state.phase).toBe("boss_attack");
+  it("initializes phase to player_menu", () => {
+    const state = createBattleState(1, false, WITH_ONE_COMPANION);
+    expect(state.phase).toBe("player_menu");
   });
 
   it("includes stage config in state", () => {
-    const state = createBattleState(3, false);
+    const state = createBattleState(3, false, WUKONG_ONLY);
     expect(state.stage.stage).toBe(3);
     expect(state.stage.name).toBe("Desert of Illusion");
     expect(state.stage.bossName).toBe("Lady of Bleached Bones");
@@ -117,7 +134,7 @@ describe("createBattleState", () => {
 
 describe("processMCQAnswer", () => {
   it("does not reduce HP on correct answer", () => {
-    const state = createBattleState(1, false);
+    const state = createBattleState(1, false, WITH_ONE_COMPANION);
     const newState = processMCQAnswer(state, true);
 
     expect(newState.playerHP).toBe(state.playerHP);
@@ -126,7 +143,7 @@ describe("processMCQAnswer", () => {
   });
 
   it("reduces HP by 1 on wrong answer", () => {
-    const state = createBattleState(1, false);
+    const state = createBattleState(1, false, WITH_ONE_COMPANION);
     const newState = processMCQAnswer(state, false);
 
     expect(newState.playerHP).toBe(state.playerHP - 1);
@@ -135,7 +152,7 @@ describe("processMCQAnswer", () => {
   });
 
   it("does not reduce HP below 0", () => {
-    let state = createBattleState(1, false);
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
     // Drain HP to 0
     for (let i = 0; i < 10; i++) {
       state = processMCQAnswer(state, false);
@@ -144,7 +161,7 @@ describe("processMCQAnswer", () => {
   });
 
   it("tracks multiple answers correctly", () => {
-    let state = createBattleState(1, false);
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, false);
     state = processMCQAnswer(state, true);
@@ -174,8 +191,8 @@ describe("calculateBossDamage", () => {
 
 describe("processRecordingComplete", () => {
   it("reduces boss HP by damage amount", () => {
-    const state = createBattleState(2, false);
-    // Stage 2 has 4 recording groups, boss HP 100
+    const state = createBattleState(2, false, WUKONG_ONLY);
+    // Stage 2: 4 recording groups (2 groups of 10 split into 4×5), boss HP 100
     // damage = ceil(100/4) = 25
     const newState = processRecordingComplete(state, 85);
 
@@ -184,7 +201,7 @@ describe("processRecordingComplete", () => {
   });
 
   it("calculates average pronunciation score", () => {
-    let state = createBattleState(2, false);
+    let state = createBattleState(2, false, WUKONG_ONLY);
     state = processRecordingComplete(state, 80);
     state = processRecordingComplete(state, 90);
 
@@ -193,17 +210,19 @@ describe("processRecordingComplete", () => {
   });
 
   it("does not reduce boss HP below 0", () => {
-    const state = createBattleState(1, false);
-    // Stage 1 has 1 recording group, damage = ceil(100/1) = 100
+    let state = createBattleState(1, false, WUKONG_ONLY);
+    // Stage 1: 2 groups, damage = ceil(100/2) = 50
+    // Manually set bossHP to less than one damage increment
+    state = { ...state, bossHP: 10 };
     const newState = processRecordingComplete(state, 90);
 
-    expect(newState.bossHP).toBe(0);
+    expect(newState.bossHP).toBe(0); // Clamped, not -40
   });
 });
 
 describe("advanceBattle", () => {
   it("returns defeat when playerHP is 0", () => {
-    let state = createBattleState(1, false);
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
     const initialHP = state.playerHP; // 5
     // Drain all HP
     for (let i = 0; i < initialHP; i++) {
@@ -215,72 +234,82 @@ describe("advanceBattle", () => {
     expect(result.outcome).toBe("defeat");
   });
 
-  it("advances to next MCQ within a round", () => {
-    const state = createBattleState(1, false);
-    // Stage 1 round 0 has 5 MCQs, we are at MCQ 0
-    expect(state.phase).toBe("boss_attack");
-    expect(state.currentMCQInRound).toBe(0);
+  it("does nothing from player_menu phase", () => {
+    const state = createBattleState(1, false, WITH_ONE_COMPANION);
+    expect(state.phase).toBe("player_menu");
 
+    const result = advanceBattle(state);
+    expect(result.outcome).toBe("continue");
+    // Phase unchanged — UI handles the menu → attack transition
+    expect(result.state.phase).toBe("player_menu");
+  });
+
+  it("advances to next MCQ within boss_attack phase", () => {
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
+    // Manually set to boss_attack phase
+    state = { ...state, phase: "boss_attack", currentMCQInRound: 0 };
+
+    // Stage 1 round 0 has 3 MCQs [0,1,2]
     const result = advanceBattle(state);
     expect(result.outcome).toBe("continue");
     expect(result.state.currentMCQInRound).toBe(1);
     expect(result.state.phase).toBe("boss_attack");
   });
 
-  it("transitions to player_attack after all MCQs in a round", () => {
-    let state = createBattleState(1, false);
-    // Advance through all 5 MCQs (indices 0-4)
-    for (let i = 0; i < 4; i++) {
-      const result = advanceBattle(state);
-      state = result.state;
-    }
-    // Now at MCQ index 4 (the last one)
-    expect(state.currentMCQInRound).toBe(4);
+  it("advances to next round after all MCQs in boss_attack", () => {
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
+    // Round 0 has 3 MCQs [0,1,2]. Set to last MCQ.
+    state = { ...state, phase: "boss_attack", currentMCQInRound: 2 };
 
     const result = advanceBattle(state);
     expect(result.outcome).toBe("continue");
-    expect(result.state.phase).toBe("player_attack");
+    // Advances to next round with player_menu
+    expect(result.state.currentRound).toBe(1);
+    expect(result.state.phase).toBe("player_menu");
   });
 
-  it("returns victory when all rounds are done", () => {
-    let state = createBattleState(1, false);
-    // Stage 1: 1 round. Advance through MCQs then player_attack.
-    // Go through 5 MCQ advances
-    for (let i = 0; i < 5; i++) {
-      state = advanceBattle(state).state;
-    }
-    // Now in player_attack, last round (round 0 of 1 total)
-    expect(state.phase).toBe("player_attack");
+  it("transitions from player_attack to boss_attack", () => {
+    let state = createBattleState(2, false, WUKONG_ONLY);
+    // Stage 2 round 0 has MCQs — put in player_attack
+    state = { ...state, phase: "player_attack", currentRound: 0 };
 
     const result = advanceBattle(state);
-    expect(result.outcome).toBe("victory");
+    expect(result.outcome).toBe("continue");
+    expect(result.state.phase).toBe("boss_attack");
+    expect(result.state.currentMCQInRound).toBe(0);
   });
 
-  it("returns victory when boss HP reaches 0", () => {
-    let state = createBattleState(2, false);
-    // Set phase to player_attack and bossHP to 0
+  it("returns victory when boss HP reaches 0 from player_attack", () => {
+    let state = createBattleState(2, false, WUKONG_ONLY);
     state = { ...state, phase: "player_attack", bossHP: 0 };
 
     const result = advanceBattle(state);
     expect(result.outcome).toBe("victory");
   });
 
-  it("advances to next round from player_attack phase", () => {
-    let state = createBattleState(2, false);
-    // Stage 2: 4 rounds. Put into player_attack of round 0.
-    state = { ...state, phase: "player_attack", currentRound: 0 };
+  it("returns victory or defeat from boss_attack on last round", () => {
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
+    // Stage 1: 2 rounds (index 0 and 1). Last round is index 1.
+    // Round 1 has 2 MCQs [3,4]. Set to last MCQ of last round.
+    const lastRoundIdx = state.rounds.length - 1;
+    const lastMCQIdx = state.rounds[lastRoundIdx].mcqIndices.length - 1;
+    state = {
+      ...state,
+      phase: "boss_attack",
+      currentRound: lastRoundIdx,
+      currentMCQInRound: lastMCQIdx,
+      bossHP: 0,
+    };
 
     const result = advanceBattle(state);
-    expect(result.outcome).toBe("continue");
-    expect(result.state.currentRound).toBe(1);
-    expect(result.state.phase).toBe("boss_attack"); // Next round has MCQs
+    expect(result.outcome).toBe("victory");
   });
 });
 
 describe("calculateQuestXP", () => {
   it("calculates XP for a complete battle", () => {
-    let state = createBattleState(1, false);
-    // Simulate: 3 correct MCQs, 1 recording at score 80
+    let state = createBattleState(1, false, WITH_ONE_COMPANION);
+    // Stage 1: totalRecordings = 2 (10 words split into 2 groups)
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
@@ -288,15 +317,15 @@ describe("calculateQuestXP", () => {
 
     const xp = calculateQuestXP(state);
     // mcqBonus = 3 * 5 = 15
-    // pronBonus = round(80 / 10) * 1 = 8 * 1 = 8
+    // pronBonus = round(80 / 10) * 2 = 8 * 2 = 16
     // stageBonus = 1 * 10 = 10
-    // total = 33
-    expect(xp).toBe(33);
+    // total = 41
+    expect(xp).toBe(41);
   });
 
   it("calculates XP with multiple recordings", () => {
-    let state = createBattleState(2, false);
-    // 4 correct MCQs, 2 recordings at avg 75
+    let state = createBattleState(2, false, WUKONG_ONLY);
+    // Stage 2: totalRecordings = 4
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
@@ -313,10 +342,10 @@ describe("calculateQuestXP", () => {
   });
 
   it("gives 0 pronBonus when no recordings done", () => {
-    const state = createBattleState(1, false);
+    const state = createBattleState(1, false, WITH_ONE_COMPANION);
     const xp = calculateQuestXP(state);
     // mcqBonus = 0
-    // pronBonus = round(0/10) * 1 = 0
+    // pronBonus = round(0/10) * 2 = 0
     // stageBonus = 1 * 10 = 10
     expect(xp).toBe(10);
   });

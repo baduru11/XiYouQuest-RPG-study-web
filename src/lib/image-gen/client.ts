@@ -1,7 +1,7 @@
 import { OPENROUTER_API_KEY } from "@/lib/env";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const IMAGE_MODEL = "google/gemini-3.1-flash-image-preview";
+const IMAGE_MODEL = "google/gemini-2.5-flash-image:nitro";
 
 /**
  * Generate a pixel-art scene image based on conversation context.
@@ -31,6 +31,10 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
         messages: [
           { role: "user", content: prompt },
         ],
+        modalities: ["image", "text"],
+        image_config: {
+          aspect_ratio: "16:9",
+        },
       }),
     });
 
@@ -41,33 +45,53 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
     }
 
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content;
+    const message = data.choices?.[0]?.message;
 
-    // Gemini image preview returns inline_data in parts
-    if (Array.isArray(content)) {
-      for (const part of content) {
-        if (part.type === "image_url" && part.image_url?.url) {
-          // data:image/png;base64,... format
-          const match = part.image_url.url.match(/^data:(image\/\w+);base64,(.+)$/);
-          if (match) {
-            return { base64: match[2], mimeType: match[1] };
-          }
+    // Format 1: message.images[] array (OpenRouter standard)
+    if (Array.isArray(message?.images)) {
+      for (const img of message.images) {
+        const url = img?.image_url?.url ?? img?.url;
+        if (url) {
+          const parsed = parseDataUrl(url);
+          if (parsed) return parsed;
         }
       }
     }
 
-    // Alternative: check for inline base64 in text content
-    if (typeof content === "string" && content.includes("base64")) {
-      const match = content.match(/data:(image\/\w+);base64,([A-Za-z0-9+/=]+)/);
-      if (match) {
-        return { base64: match[2], mimeType: match[1] };
+    // Format 2: content is an array of parts (multimodal content)
+    const content = message?.content;
+    if (Array.isArray(content)) {
+      for (const part of content) {
+        // OpenAI-style image_url part
+        if (part.type === "image_url" && part.image_url?.url) {
+          const parsed = parseDataUrl(part.image_url.url);
+          if (parsed) return parsed;
+        }
+        // Gemini-style inline_data part
+        if (part.inline_data?.data && part.inline_data?.mime_type) {
+          return { base64: part.inline_data.data, mimeType: part.inline_data.mime_type };
+        }
       }
     }
 
-    console.warn("[ImageGen] No image data found in response");
+    // Format 3: content is a string containing a data URL
+    if (typeof content === "string") {
+      const parsed = parseDataUrl(content);
+      if (parsed) return parsed;
+    }
+
+    console.warn("[ImageGen] No image data found in response. Keys:", JSON.stringify(Object.keys(message ?? {})));
     return null;
   } catch (error) {
     console.error("[ImageGen] Generation failed:", error);
     return null;
   }
+}
+
+function parseDataUrl(str: string): { base64: string; mimeType: string } | null {
+  const match = str.match(/data:(image\/[\w+]+);base64,([A-Za-z0-9+/=]+)/);
+  if (match) {
+    return { base64: match[2], mimeType: match[1] };
+  }
+  return null;
 }
