@@ -76,7 +76,7 @@ function detectTrickyElements(word: string): string[] {
   return elements;
 }
 
-export function PracticeSession({ questions, character, characterId, component, playerMemory }: PracticeSessionProps) {
+export function PracticeSession({ questions, character, characterId, component }: PracticeSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
@@ -370,13 +370,12 @@ export function PracticeSession({ questions, character, characterId, component, 
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            characterPrompt: character.personalityPrompt,
+            characterId,
             component: 2,
             questionText: currentWords.join(", "),
             userAnswer: currentWords.join(" "),
             pronunciationScore: avgScore,
             isCorrect: isGood,
-            playerMemory,
           }),
         });
 
@@ -429,7 +428,7 @@ export function PracticeSession({ questions, character, characterId, component, 
         },
       ]);
     }
-  }, [currentWords, character.personalityPrompt, streak, character.name]);
+  }, [currentWords, characterId, streak, character.name]);
 
   const handleSkip = useCallback(() => {
     // Revoke cached audio URLs for this group to free memory

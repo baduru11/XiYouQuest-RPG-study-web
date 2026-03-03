@@ -53,7 +53,7 @@ interface GroupResult {
   groupXP: number;
 }
 
-export function PracticeSession({ questions, character, characterId, component, categoryBoundaries, playerMemory }: PracticeSessionProps) {
+export function PracticeSession({ questions, character, characterId, component, categoryBoundaries }: PracticeSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
@@ -330,13 +330,12 @@ export function PracticeSession({ questions, character, characterId, component, 
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            characterPrompt: character.personalityPrompt,
+            characterId,
             component,
             questionText: currentWords.join(", "),
             userAnswer: currentWords.join(" "),
             pronunciationScore: avgScore,
             isCorrect: isGood,
-            playerMemory,
           }),
         });
 
@@ -378,7 +377,7 @@ export function PracticeSession({ questions, character, characterId, component, 
         { words: currentWords, wordScores: currentWords.map(w => ({ word: w, score: null })), groupXP: 0 },
       ]);
     }
-  }, [currentWords, character.personalityPrompt, streak, component, character.name]);
+  }, [currentWords, characterId, streak, component, character.name]);
 
   const handleSkip = useCallback(() => {
     setGroupResults(prev => [

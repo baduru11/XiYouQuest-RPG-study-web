@@ -56,7 +56,7 @@ function splitIntoSentences(content: string): string[] {
   return sentences;
 }
 
-export function ReadingSession({ passages, character, characterId, component, playerMemory }: ReadingSessionProps) {
+export function ReadingSession({ passages, character, characterId, component }: ReadingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [selectedPassage, setSelectedPassage] = useState<Passage | null>(null);
@@ -428,13 +428,12 @@ export function ReadingSession({ passages, character, characterId, component, pl
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            characterPrompt: character.personalityPrompt,
+            characterId,
             component: 4,
             questionText: `Passage: "${selectedPassage.title}" - ${selectedPassage.content.substring(0, 100)}...`,
             userAnswer: "Passage reading attempt",
             pronunciationScore,
             isCorrect: isGood,
-            playerMemory,
           }),
         });
 
@@ -474,7 +473,7 @@ export function ReadingSession({ passages, character, characterId, component, pl
       setOverallScore(null);
       setFeedbackText("Assessment failed");
     }
-  }, [selectedPassage, sentences, character.personalityPrompt, character.name]);
+  }, [selectedPassage, sentences, characterId, character.name]);
 
   // Select a passage
   const handleSelectPassage = useCallback((passage: Passage) => {

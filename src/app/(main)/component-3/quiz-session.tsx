@@ -30,7 +30,7 @@ interface QuizSessionProps {
 
 type SessionPhase = "answering" | "result" | "complete";
 
-export function QuizSession({ questions, character, characterId, component, playerMemory }: QuizSessionProps) {
+export function QuizSession({ questions, character, characterId, component }: QuizSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   // Randomize answer positions on client side
   const randomizedQuestions = useMemo(() => {
@@ -136,12 +136,11 @@ export function QuizSession({ questions, character, characterId, component, play
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            characterPrompt: character.personalityPrompt,
+            characterId,
             component,
             questionText: currentQuestion.prompt + " " + currentQuestion.options.join(" / "),
             userAnswer: currentQuestion.options[answerIndex],
             isCorrect: false,
-            playerMemory,
           }),
         });
 
@@ -168,7 +167,7 @@ export function QuizSession({ questions, character, characterId, component, play
         xpEarned: xpResult.totalXP,
       },
     ]);
-  }, [phase, currentQuestion, streak, character.personalityPrompt, component]);
+  }, [phase, currentQuestion, streak, characterId, component]);
 
   const handleNext = useCallback(() => {
     if (currentIndex + 1 >= randomizedQuestions.length) {

@@ -66,7 +66,7 @@ interface C5SpeakingAnalysis {
   overallFeedback: string;
 }
 
-export function SpeakingSession({ topics, character, characterId, component, playerMemory }: SpeakingSessionProps) {
+export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
   const { showAchievementToasts } = useAchievementToast();
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
@@ -90,6 +90,7 @@ export function SpeakingSession({ topics, character, characterId, component, pla
   const animFrameRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasPlayedGreeting = useRef(false);
+  const handleRecordingCompleteRef = useRef<(blob: Blob) => void>(() => {});
 
   // Pick 6 random topics on mount
   useEffect(() => {
@@ -331,8 +332,8 @@ export function SpeakingSession({ topics, character, characterId, component, pla
     const wavBlob = encodeWAV(merged, 16000);
 
     setIsRecording(false);
-    handleRecordingComplete(wavBlob);
-  }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
+    handleRecordingCompleteRef.current(wavBlob);
+  }, [isRecording]);
 
   // Handle completed recording
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
@@ -378,13 +379,12 @@ export function SpeakingSession({ topics, character, characterId, component, pla
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            characterPrompt: character.personalityPrompt,
+            characterId,
             component: 5,
             questionText: `Topic: "${selectedTopic}". Score: ${c5Result.totalScore}/30. Spoken for ${Math.floor(spokenTime / 60)}m ${spokenTime % 60}s.`,
             userAnswer: c5Result.transcript || "Prompted speaking attempt",
             pronunciationScore: c5Result.normalizedScore,
             isCorrect: isGood,
-            playerMemory,
           }),
         });
 
@@ -419,7 +419,12 @@ export function SpeakingSession({ topics, character, characterId, component, pla
       setDialogue(getDialogue(character.name, "c5_error"));
       setAnalysis(null);
     }
-  }, [selectedTopic, character.personalityPrompt, character.name]);
+  }, [selectedTopic, characterId, character.name]);
+
+  // Keep ref in sync so stopRecording always calls the latest version
+  useEffect(() => {
+    handleRecordingCompleteRef.current = handleRecordingComplete;
+  }, [handleRecordingComplete]);
 
   // Back to topic selection
   const handleBackToSelection = useCallback(() => {
