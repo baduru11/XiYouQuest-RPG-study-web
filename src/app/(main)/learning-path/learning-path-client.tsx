@@ -242,7 +242,13 @@ export default function LearningPathClient({
         await refetchPlan();
         setView("checkpoint");
       } else if (data.isLastPhase && data.allPhaseComplete) {
-        await refetchPlan();
+        // Plan is now "completed" — update local state directly instead of
+        // refetching (GET /plan only returns active plans, so refetch would null it)
+        setPlan((prev) => prev ? { ...prev, status: "completed" } : prev);
+        // Mark the completed node locally so FinalReportView has up-to-date nodes
+        setNodes((prev) => prev.map((n) =>
+          n.id === activeNodeId ? { ...n, status: "completed" as const } : n
+        ));
         setView("final_report");
       } else {
         await refetchPlan();
