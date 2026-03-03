@@ -127,6 +127,7 @@ export interface ChatScenario {
   description: string;
   system_prompt: string;
   sort_order: number;
+  category: 'jttw' | 'modern_daily' | 'psc_exam';
 }
 
 export interface ChatSession {
