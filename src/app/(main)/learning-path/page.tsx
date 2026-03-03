@@ -1,20 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import dynamic from "next/dynamic";
 import { loadSelectedCharacter } from "@/lib/character-loader";
 import { shuffle } from "@/lib/utils";
 import type { QuizQuestion } from "@/types/practice";
 import type { LearningPlan, LearningNode, LearningCheckpoint } from "@/types/database";
-
-const LearningPathClient = dynamic(() => import("./learning-path-client"), {
-  ssr: false,
-  loading: () => (
-    <div className="rounded-lg border p-6 space-y-4 animate-pulse">
-      <div className="h-24 w-24 mx-auto rounded-full bg-muted" />
-      <div className="h-6 w-64 mx-auto rounded bg-muted" />
-      <div className="h-10 w-40 mx-auto rounded bg-muted" />
-    </div>
-  ),
-});
+import LearningPathClient from "./learning-path-client";
 
 // Fallbacks if DB has no questions (100 monosyllabic characters for C1)
 const FALLBACK_CHARACTERS = [
