@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -93,6 +94,21 @@ export async function POST(request: NextRequest) {
     // Suppress unused variable warning - durationSeconds is accepted for future use
     void durationSeconds;
 
+    // If Phase 4 is complete, mark the plan as completed and trigger achievement
+    let newAchievements: { key: string; name: string; emoji: string; tier: string }[] = [];
+    if (isLastPhase && allPhaseComplete) {
+      await supabase
+        .from("learning_plans")
+        .update({ status: "completed" })
+        .eq("id", node.plan_id);
+
+      newAchievements = await checkAndUnlockAchievements(
+        supabase,
+        user.id,
+        { type: "learning_complete" }
+      );
+    }
+
     return NextResponse.json({
       xpEarned: xpEarned ?? 0,
       phaseProgress: {
@@ -102,6 +118,7 @@ export async function POST(request: NextRequest) {
       isCheckpointReady,
       isLastPhase,
       allPhaseComplete,
+      newAchievements,
     });
   } catch (error) {
     console.error("Node complete error:", error);

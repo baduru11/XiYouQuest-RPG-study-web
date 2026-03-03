@@ -303,16 +303,11 @@ export async function POST(request: NextRequest) {
       .eq("plan_id", planId)
       .order("sort_order", { ascending: true });
 
-    // Achievement check - AchievementContext doesn't have a learning checkpoint type,
-    // so we wrap in try/catch and pass empty array if incompatible
-    let newAchievements: unknown[] = [];
-    try {
-      newAchievements = await checkAndUnlockAchievements(supabase, user.id, {
-        type: "mock_exam_complete",
-      });
-    } catch {
-      newAchievements = [];
-    }
+    // Achievement check for learning checkpoint milestones
+    const newAchievements = await checkAndUnlockAchievements(supabase, user.id, {
+      type: "learning_checkpoint",
+      checkpointNumber,
+    });
 
     // 15. Return response
     return NextResponse.json({
