@@ -19,9 +19,9 @@ interface NavbarClientProps {
 
 function NavbarSkeleton() {
   return (
-    <nav className="border-b-3 border-border bg-card pixel-border">
-      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-6 lg:px-10">
-        <div className="flex items-center gap-3">
+    <nav className="border-b-3 border-border bg-card chinese-frame">
+      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-10">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/img/background/Logo.webp"
@@ -31,10 +31,11 @@ function NavbarSkeleton() {
             className="object-contain"
           />
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-28 border-2 border-border bg-muted" />
-          </div>
+        <div className="hidden md:flex items-center gap-1.5">
+          <div className="h-5 w-56 bg-muted rounded" />
+        </div>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="h-5 w-28 border-2 border-border bg-muted" />
         </div>
       </div>
     </nav>

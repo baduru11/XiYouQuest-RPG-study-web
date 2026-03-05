@@ -20,7 +20,7 @@ export function XPBar({ totalXP }: { totalXP: number }) {
           <span className="font-pixel text-sm text-primary pixel-glow">
             Lv.{level}
           </span>
-          <div className="relative h-5 w-28 border-2 border-border bg-muted overflow-hidden">
+          <div className="relative h-5 w-20 sm:w-28 border-2 border-border bg-muted overflow-hidden">
             <div
               className="h-full bg-pixel-green transition-all duration-500"
               style={{ width: `${progress}%` }}

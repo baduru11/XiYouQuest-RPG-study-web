@@ -4,6 +4,7 @@ import { NavbarClient } from "@/components/shared/navbar-client";
 import { ContentWrapper } from "@/components/shared/content-wrapper";
 import { AchievementToastProvider } from "@/components/shared/achievement-toast";
 import { AudioSettingsProvider } from "@/components/shared/audio-settings";
+import { BGMProvider } from "@/components/shared/bgm-provider";
 
 export default async function MainLayout({
   children,
@@ -36,8 +37,9 @@ export default async function MainLayout({
       initialTtsVolume={profile?.tts_volume ?? 1}
       initialMuted={profile?.audio_muted ?? false}
     >
+      <BGMProvider>
       <AchievementToastProvider>
-        <div className="min-h-screen">
+        <div className="min-h-screen overflow-x-hidden">
           <NavbarClient
             totalXP={profile?.total_xp ?? 0}
             displayName={profile?.display_name ?? null}
@@ -49,6 +51,7 @@ export default async function MainLayout({
           </main>
         </div>
       </AchievementToastProvider>
+      </BGMProvider>
     </AudioSettingsProvider>
   );
 }

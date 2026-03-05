@@ -70,7 +70,7 @@ export function AchievementToastProvider({ children }: { children: React.ReactNo
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto pixel-border bg-card p-3 flex items-center gap-3 min-w-[280px] max-w-[340px] transition-all duration-400 ${
+            className={`pointer-events-auto pixel-border bg-card p-3 flex items-center gap-3 min-w-[240px] max-w-[calc(100vw-2rem)] sm:min-w-[280px] sm:max-w-[340px] transition-all duration-400 ${
               toast.visible
                 ? "translate-x-0 opacity-100"
                 : "translate-x-full opacity-0"
