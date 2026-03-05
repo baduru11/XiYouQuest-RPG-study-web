@@ -62,3 +62,6 @@ CLAUDE.md
 # vitest
 vitest.config.ts
 vitest.setup.ts
+
+# local docs / question data
+doc/
