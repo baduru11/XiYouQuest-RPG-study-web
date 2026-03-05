@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
@@ -29,6 +30,7 @@ interface PracticeSessionProps {
   characterId?: string;
   component: ComponentNumber;
   playerMemory?: string;
+  lpNodeId?: string;
 }
 
 type SessionPhase = "ready" | "recording" | "assessing" | "feedback" | "complete";
@@ -76,7 +78,8 @@ function detectTrickyElements(word: string): string[] {
   return elements;
 }
 
-export function PracticeSession({ questions, character, characterId, component }: PracticeSessionProps) {
+export function PracticeSession({ questions, character, characterId, component, lpNodeId }: PracticeSessionProps) {
+  const router = useRouter();
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [wordGroups, setWordGroups] = useState<string[][]>([]);
@@ -171,6 +174,25 @@ export function PracticeSession({ questions, character, characterId, component }
         }
       } catch (err) {
         console.error("Failed to save progress:", err);
+      }
+
+      // Complete learning path node if launched from learning path
+      if (lpNodeId) {
+        try {
+          await fetchWithRetry("/api/learning/node/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nodeId: lpNodeId,
+              score: avgScore,
+              xpEarned: totalXPEarned,
+            }),
+          });
+        } catch (err) {
+          console.error("Failed to complete LP node:", err);
+        }
+        router.push("/learning-path");
+        return;
       }
     };
 
@@ -515,7 +537,7 @@ export function PracticeSession({ questions, character, characterId, component }
           <CardContent className="pt-6 space-y-4">
             <h2 className="font-pixel text-sm text-center">Practice Complete!</h2>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 sm:grid-cols-4">
               <div className="text-center">
                 <p className="text-3xl font-bold">{totalScored}</p>
                 <p className="text-sm text-muted-foreground">Words</p>
@@ -663,7 +685,7 @@ export function PracticeSession({ questions, character, characterId, component }
         <div className="flex-1 md:w-[70%]">
           <Card className="h-full">
             <CardContent className="flex flex-col items-center justify-center gap-6 py-8">
-              <p className="self-start text-2xl text-muted-foreground">🔊 Tap any word to listen</p>
+              <p className="self-start text-lg sm:text-2xl text-muted-foreground">🔊 Tap any word to listen</p>
               <div className="flex items-center gap-2">
                 <Button
                   variant={showPinyin ? "default" : "outline"}
@@ -675,7 +697,7 @@ export function PracticeSession({ questions, character, characterId, component }
               </div>
 
               {/* 5-word grid display */}
-              <div className="grid grid-cols-5 gap-4 w-full max-w-4xl">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 w-full max-w-4xl">
                 {currentWords.map((word, idx) => (
                   <div key={idx} className="space-y-2">
                     <button
@@ -684,10 +706,10 @@ export function PracticeSession({ questions, character, characterId, component }
                       className={`w-full flex items-center justify-center rounded-lg border-2 p-6 transition-colors cursor-pointer
                         ${playingWordIndex === idx ? "border-primary bg-primary/10" : "border-muted hover:border-primary"}`}
                     >
-                      <p className="text-4xl font-bold font-chinese">{word}</p>
+                      <p className="text-2xl sm:text-4xl font-bold font-chinese">{word}</p>
                     </button>
                     {showPinyin && (
-                      <p className="text-center text-2xl text-muted-foreground italic">
+                      <p className="text-center text-base sm:text-2xl text-muted-foreground italic">
                         {lookupPinyinDisplay(word) ?? "—"}
                       </p>
                     )}
@@ -709,7 +731,7 @@ export function PracticeSession({ questions, character, characterId, component }
               {wordScores.length > 0 && phase === "feedback" && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4 w-full max-w-4xl">
                   {/* Individual word scores */}
-                  <div className="grid grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                     {wordScores.map((item, idx) => (
                       <div key={idx} className="text-center space-y-2">
                         <p className="text-3xl font-bold font-chinese">{item.word}</p>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { encodeWAV } from "@/lib/audio-utils";
 import { shuffle } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
+import { useBGM } from "@/components/shared/bgm-provider";
 import type { ExpressionName } from "@/types/character";
 import type { ComponentNumber } from "@/types/practice";
 
@@ -43,6 +45,7 @@ interface SpeakingSessionProps {
   characterId?: string;
   component: ComponentNumber;
   playerMemory?: string;
+  lpNodeId?: string;
 }
 
 type SessionPhase =
@@ -66,8 +69,10 @@ interface C5SpeakingAnalysis {
   overallFeedback: string;
 }
 
-export function SpeakingSession({ topics, character, characterId, component }: SpeakingSessionProps) {
+export function SpeakingSession({ topics, character, characterId, component, lpNodeId }: SpeakingSessionProps) {
+  const router = useRouter();
   const { showAchievementToasts } = useAchievementToast();
+  const { setLearningActive } = useBGM();
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [displayTopics, setDisplayTopics] = useState<string[]>([]);
   const [phase, setPhase] = useState<SessionPhase>("select");
@@ -167,6 +172,25 @@ export function SpeakingSession({ topics, character, characterId, component }: S
         }
       } catch (err) {
         console.error("Failed to save progress:", err);
+      }
+
+      // Complete learning path node if launched from learning path
+      if (lpNodeId) {
+        try {
+          await fetchWithRetry("/api/learning/node/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nodeId: lpNodeId,
+              score: analysis.normalizedScore,
+              xpEarned: totalXPEarned,
+            }),
+          });
+        } catch (err) {
+          console.error("Failed to complete LP node:", err);
+        }
+        router.push("/learning-path");
+        return;
       }
     };
 
@@ -284,6 +308,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       animFrameRef.current = requestAnimationFrame(updateVolume);
 
       setIsRecording(true);
+      setLearningActive(true);
       setPhase("recording");
       setElapsedTime(0);
       setExpression("listening");
@@ -292,7 +317,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
       setExpression("surprised");
       setDialogue(getDialogue(character.name, "c5_mic_error"));
     }
-  }, [updateVolume, character.name]);
+  }, [updateVolume, character.name, setLearningActive]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
@@ -332,8 +357,9 @@ export function SpeakingSession({ topics, character, characterId, component }: S
     const wavBlob = encodeWAV(merged, 16000);
 
     setIsRecording(false);
+    setLearningActive(false);
     handleRecordingCompleteRef.current(wavBlob);
-  }, [isRecording]);
+  }, [isRecording, setLearningActive]);
 
   // Handle completed recording
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
@@ -535,7 +561,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
                 {/* Total PSC score */}
                 <div className="text-center">
                   <p
-                    className={`text-5xl font-bold ${
+                    className={`text-4xl sm:text-5xl font-bold ${
                       analysis.totalScore >= 25
                         ? "text-green-600"
                         : analysis.totalScore >= 18
@@ -686,7 +712,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
           {/* Countdown display */}
           {phase === "countdown" && (
             <div className="text-center space-y-2">
-              <p className="text-6xl font-bold font-mono text-primary animate-pulse">
+              <p className="text-4xl sm:text-6xl font-bold font-mono text-primary animate-pulse">
                 {countdown}
               </p>
               <p className="text-sm text-muted-foreground">Get ready to speak...</p>
@@ -696,7 +722,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
           {/* Stopwatch display */}
           {phase === "recording" && (
             <div className="text-center space-y-2">
-              <p className={`text-4xl font-bold font-mono transition-colors ${
+              <p className={`text-3xl sm:text-4xl font-bold font-mono transition-colors ${
                 elapsedTime >= TOTAL_TIME ? "text-green-600" : "text-orange-500"
               }`}>
                 {formatTime(elapsedTime)}
@@ -782,7 +808,7 @@ export function SpeakingSession({ topics, character, characterId, component }: S
               </div>
 
               {/* Speaking structure template */}
-              <div className="rounded-lg border bg-muted/30 p-6 space-y-4 max-h-[50vh] overflow-y-auto">
+              <div className="rounded-lg border bg-muted/30 p-4 sm:p-6 space-y-4 max-h-[50vh] overflow-y-auto">
                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
                   万能结构 Speaking Structure Guide
                 </h3>

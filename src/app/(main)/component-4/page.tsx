@@ -37,7 +37,12 @@ const FALLBACK_PASSAGES: Passage[] = [
   },
 ];
 
-export default async function Component4Page() {
+export default async function Component4Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ lpNode?: string }>;
+}) {
+  const { lpNode } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -77,7 +82,7 @@ export default async function Component4Page() {
         </p>
       </div>
 
-      <ReadingSession passages={passages} character={character} characterId={character.id} component={4} playerMemory={playerMemory} />
+      <ReadingSession passages={passages} character={character} characterId={character.id} component={4} playerMemory={playerMemory} lpNodeId={lpNode} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { calculateXP } from "@/lib/gamification/xp";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
+import { useBGM } from "@/components/shared/bgm-provider";
 import type { ExpressionName } from "@/types/character";
 import type { QuizQuestion, QuestionResult, ComponentNumber } from "@/types/practice";
 import { getDialogue } from "@/lib/dialogue";
@@ -26,12 +28,15 @@ interface QuizSessionProps {
   characterId?: string;
   component: ComponentNumber;
   playerMemory?: string;
+  lpNodeId?: string;
 }
 
 type SessionPhase = "answering" | "result" | "complete";
 
-export function QuizSession({ questions, character, characterId, component }: QuizSessionProps) {
+export function QuizSession({ questions, character, characterId, component, lpNodeId }: QuizSessionProps) {
+  const router = useRouter();
   const { showAchievementToasts } = useAchievementToast();
+  const { setLearningActive } = useBGM();
   // Randomize answer positions on client side
   const randomizedQuestions = useMemo(() => {
     return questions.map(randomizeAnswerPositions);
@@ -49,6 +54,13 @@ export function QuizSession({ questions, character, characterId, component }: Qu
 
   const currentQuestion = randomizedQuestions[currentIndex];
   const progressPercent = randomizedQuestions.length > 0 ? Math.round((currentIndex / randomizedQuestions.length) * 100) : 0;
+
+  // Duck BGM during active answering
+  useEffect(() => {
+    const active = phase === "answering";
+    setLearningActive(active);
+    return () => setLearningActive(false);
+  }, [phase, setLearningActive]);
 
   // Refs for values needed by the save effect (avoids stale closures without
   // adding them to the dependency array, which would cause re-runs)
@@ -93,11 +105,30 @@ export function QuizSession({ questions, character, characterId, component }: Qu
       } catch (err) {
         console.error("Failed to save progress:", err);
       }
+
+      // Complete learning path node if launched from learning path
+      if (lpNodeId) {
+        try {
+          await fetchWithRetry("/api/learning/node/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nodeId: lpNodeId,
+              score: accuracy,
+              xpEarned: totalXPEarnedRef.current,
+            }),
+          });
+        } catch (err) {
+          console.error("Failed to complete LP node:", err);
+        }
+        router.push("/learning-path");
+        return;
+      }
     };
 
     saveProgress();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, characterId, component]);
+  }, [phase, characterId, component, lpNodeId]);
 
   const handleAnswer = useCallback(async (answerIndex: number) => {
     if (phase !== "answering") return;
@@ -286,7 +317,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
           <CardContent className="pt-6 space-y-4">
             <h2 className="font-pixel text-sm text-center">Quiz Complete!</h2>
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 sm:grid-cols-4">
               <div className="text-center">
                 <p className="text-3xl font-bold">{totalQuestions}</p>
                 <p className="text-sm text-muted-foreground">Questions</p>
@@ -309,7 +340,7 @@ export function QuizSession({ questions, character, characterId, component }: Qu
 
             {/* Breakdown by type */}
             <div className={`grid gap-3 text-center text-sm ${
-              typeBreakdown.size === 1 ? "grid-cols-1" : typeBreakdown.size === 2 ? "grid-cols-2" : "grid-cols-3"
+              typeBreakdown.size === 1 ? "grid-cols-1" : typeBreakdown.size === 2 ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-3"
             }`}>
               {Array.from(typeBreakdown.values()).map((entry) => (
                 <div key={entry.label} className="rounded-md border p-2">
@@ -418,12 +449,12 @@ export function QuizSession({ questions, character, characterId, component }: Qu
               {/* Answer options */}
               <div className={`grid gap-3 ${
                 currentQuestion.type === "measure-word"
-                  ? "grid-cols-3 sm:grid-cols-5"
+                  ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-5"
                   : currentQuestion.type === "word-choice" || currentQuestion.type === "polyphonic"
                     ? currentQuestion.options.length === 2
                       ? "grid-cols-2 mx-auto"
                       : currentQuestion.options.length === 3
-                        ? "grid-cols-3 mx-auto"
+                        ? "grid-cols-1 sm:grid-cols-3 mx-auto"
                         : "grid-cols-2 sm:grid-cols-4"
                     : "grid-cols-1"
               }`}>
@@ -432,11 +463,11 @@ export function QuizSession({ questions, character, characterId, component }: Qu
                     key={index}
                     onClick={() => handleAnswer(index)}
                     disabled={phase === "result"}
-                    className={`rounded-lg px-8 py-4 text-left transition-all ${getOptionStyle(index)} ${
+                    className={`rounded-lg px-4 py-3 sm:px-8 sm:py-4 text-left transition-all ${getOptionStyle(index)} ${
                       phase === "answering" ? "cursor-pointer" : "cursor-default"
                     }`}
                   >
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3 sm:gap-6">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-xl font-bold">
                         {String.fromCharCode(65 + index)}
                       </span>

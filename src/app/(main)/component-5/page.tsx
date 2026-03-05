@@ -25,7 +25,12 @@ const FALLBACK_TOPICS = [
   "我最喜欢的节日",
 ];
 
-export default async function Component5Page() {
+export default async function Component5Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ lpNode?: string }>;
+}) {
+  const { lpNode } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -59,7 +64,7 @@ export default async function Component5Page() {
         </p>
       </div>
 
-      <SpeakingSession topics={topics} character={character} characterId={character.id} component={5} playerMemory={playerMemory} />
+      <SpeakingSession topics={topics} character={character} characterId={character.id} component={5} playerMemory={playerMemory} lpNodeId={lpNode} />
     </div>
   );
 }

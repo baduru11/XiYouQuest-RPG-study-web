@@ -30,7 +30,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ["zhcs", "nng", "ln"] as const;
 
-export default async function Component6Page() {
+export default async function Component6Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ lpNode?: string }>;
+}) {
+  const { lpNode } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -46,6 +51,27 @@ export default async function Component6Page() {
   ]);
 
   const playerMemory = await buildPlayerMemory(supabase, user!.id, character.id ?? "").catch(() => "");
+
+  // If launched from learning path, use the node's specific questions
+  let lpQuestions: string[] | null = null;
+  if (lpNode) {
+    const { data: nodeData } = await supabase
+      .from("learning_nodes")
+      .select("question_ids")
+      .eq("id", lpNode)
+      .single();
+
+    if (nodeData?.question_ids?.length) {
+      const { data: qData } = await supabase
+        .from("question_banks")
+        .select("content")
+        .in("id", nodeData.question_ids);
+
+      if (qData?.length) {
+        lpQuestions = qData.map((q: { content: string }) => q.content);
+      }
+    }
+  }
 
   // Group by category, shuffle, and take subset
   const categoryWords: Record<string, string[]> = { zhcs: [], nng: [], ln: [] };
@@ -64,14 +90,19 @@ export default async function Component6Page() {
   const questions: string[] = [];
   const categoryBoundaries: Array<{ label: string; startIndex: number }> = [];
 
-  for (const cat of CATEGORY_ORDER) {
-    const pool = categoryWords[cat].length > 0 ? categoryWords[cat] : FALLBACK_WORDS[cat];
-    const selected = shuffle([...pool]).slice(0, wordsPerCategory);
-    categoryBoundaries.push({
-      label: CATEGORY_LABELS[cat],
-      startIndex: questions.length,
-    });
-    questions.push(...selected);
+  if (lpQuestions) {
+    // Learning path mode: use the node's specific questions directly (no category splitting)
+    questions.push(...lpQuestions);
+  } else {
+    for (const cat of CATEGORY_ORDER) {
+      const pool = categoryWords[cat].length > 0 ? categoryWords[cat] : FALLBACK_WORDS[cat];
+      const selected = shuffle([...pool]).slice(0, wordsPerCategory);
+      categoryBoundaries.push({
+        label: CATEGORY_LABELS[cat],
+        startIndex: questions.length,
+      });
+      questions.push(...selected);
+    }
   }
 
   return (
@@ -90,8 +121,9 @@ export default async function Component6Page() {
         character={character}
         characterId={character.id}
         component={6}
-        categoryBoundaries={categoryBoundaries}
+        categoryBoundaries={lpQuestions ? [] : categoryBoundaries}
         playerMemory={playerMemory}
+        lpNodeId={lpNode}
       />
     </div>
   );

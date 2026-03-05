@@ -35,7 +35,12 @@ const FALLBACK_QUESTIONS: QuizQuestion[] = [
   { id: "15", type: "polyphonic", prompt: "衣服晾在外面，已经**干**了。", options: ["gān", "gàn"], correctIndex: 0, explanation: "「干了」表示干燥，读 gān。" },
 ];
 
-export default async function Component7Page() {
+export default async function Component7Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ lpNode?: string }>;
+}) {
+  const { lpNode } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -50,8 +55,41 @@ export default async function Component7Page() {
 
   const playerMemory = await buildPlayerMemory(supabase, user!.id, character.id ?? "").catch(() => "");
 
+  // If launched from learning path, use the node's specific questions
+  let lpQuizQuestions: QuizQuestion[] | null = null;
+  if (lpNode) {
+    const { data: nodeData } = await supabase
+      .from("learning_nodes")
+      .select("question_ids")
+      .eq("id", lpNode)
+      .single();
+
+    if (nodeData?.question_ids?.length) {
+      const { data: qData } = await supabase
+        .from("question_banks")
+        .select("id, content, metadata")
+        .in("id", nodeData.question_ids);
+
+      if (qData?.length) {
+        const parsed = qData
+          .filter((row: { metadata: unknown }) => row.metadata && typeof row.metadata === "object")
+          .map((row: { id: string; content: string; metadata: { type: string; options: string[]; correctIndex: number; explanation: string } }) => ({
+            id: row.id,
+            type: row.metadata.type as QuizQuestion["type"],
+            prompt: row.content,
+            options: row.metadata.options,
+            correctIndex: row.metadata.correctIndex,
+            explanation: row.metadata.explanation,
+          }));
+        if (parsed.length) lpQuizQuestions = parsed;
+      }
+    }
+  }
+
   let questions: QuizQuestion[];
-  if (dbQuestions && dbQuestions.length > 0) {
+  if (lpQuizQuestions) {
+    questions = lpQuizQuestions;
+  } else if (dbQuestions && dbQuestions.length > 0) {
     const allParsed = dbQuestions
       .filter((row: { metadata: unknown }) => row.metadata && typeof row.metadata === "object")
       .map((row: { id: string; content: string; metadata: { type: string; options: string[]; correctIndex: number; explanation: string } }) => ({
@@ -79,7 +117,7 @@ export default async function Component7Page() {
         </p>
       </div>
 
-      <QuizSession questions={questions} character={character} characterId={character.id} component={7} playerMemory={playerMemory} />
+      <QuizSession questions={questions} character={character} characterId={character.id} component={7} playerMemory={playerMemory} lpNodeId={lpNode} />
     </div>
   );
 }

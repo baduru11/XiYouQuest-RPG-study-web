@@ -22,7 +22,12 @@ const DEFAULT_WORDS = [
   "酒盅儿", "似乎", "怎么", "赔偿", "勘察", "妨碍",
 ];
 
-export default async function Component2Page() {
+export default async function Component2Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ lpNode?: string }>;
+}) {
+  const { lpNode } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -40,10 +45,31 @@ export default async function Component2Page() {
 
   const playerMemory = await buildPlayerMemory(supabase, userId, character.id ?? "").catch(() => "");
 
+  // If launched from learning path, use the node's specific questions
+  let lpQuestions: string[] | null = null;
+  if (lpNode) {
+    const { data: nodeData } = await supabase
+      .from("learning_nodes")
+      .select("question_ids")
+      .eq("id", lpNode)
+      .single();
+
+    if (nodeData?.question_ids?.length) {
+      const { data: qData } = await supabase
+        .from("question_banks")
+        .select("content")
+        .in("id", nodeData.question_ids);
+
+      if (qData?.length) {
+        lpQuestions = qData.map((q: { content: string }) => q.content);
+      }
+    }
+  }
+
   const questions: string[] = shuffle(
-    dbQuestions && dbQuestions.length > 0
+    lpQuestions ?? (dbQuestions && dbQuestions.length > 0
       ? dbQuestions.map((q: { content: string }) => q.content)
-      : DEFAULT_WORDS
+      : DEFAULT_WORDS)
   );
 
   return (
@@ -57,7 +83,7 @@ export default async function Component2Page() {
         </p>
       </div>
 
-      <PracticeSession questions={questions} character={character} characterId={character.id} component={2} playerMemory={playerMemory} />
+      <PracticeSession questions={questions} character={character} characterId={character.id} component={2} playerMemory={playerMemory} lpNodeId={lpNode} />
     </div>
   );
 }

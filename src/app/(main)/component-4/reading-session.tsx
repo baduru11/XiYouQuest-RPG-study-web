@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CharacterDisplay } from "@/components/character/character-display";
 import { DialogueBox } from "@/components/character/dialogue-box";
 import { AudioRecorder } from "@/components/practice/audio-recorder";
@@ -34,6 +35,7 @@ interface ReadingSessionProps {
   characterId?: string;
   component: ComponentNumber;
   playerMemory?: string;
+  lpNodeId?: string;
 }
 
 type SessionPhase =
@@ -56,7 +58,8 @@ function splitIntoSentences(content: string): string[] {
   return sentences;
 }
 
-export function ReadingSession({ passages, character, characterId, component }: ReadingSessionProps) {
+export function ReadingSession({ passages, character, characterId, component, lpNodeId }: ReadingSessionProps) {
+  const router = useRouter();
   const { showAchievementToasts } = useAchievementToast();
   const { applyTtsVolume, applyUtteranceVolume } = useAudioSettings();
   const [selectedPassage, setSelectedPassage] = useState<Passage | null>(null);
@@ -177,6 +180,25 @@ export function ReadingSession({ passages, character, characterId, component }: 
         }
       } catch (err) {
         console.error("Failed to save progress:", err);
+      }
+
+      // Complete learning path node if launched from learning path
+      if (lpNodeId) {
+        try {
+          await fetchWithRetry("/api/learning/node/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nodeId: lpNodeId,
+              score: overallScore,
+              xpEarned: totalXPEarned,
+            }),
+          });
+        } catch (err) {
+          console.error("Failed to complete LP node:", err);
+        }
+        router.push("/learning-path");
+        return;
       }
     };
 
@@ -619,11 +641,11 @@ export function ReadingSession({ passages, character, characterId, component }: 
                 </h2>
 
                 {/* Overall score + stats row */}
-                <div className="flex items-center justify-center gap-6">
+                <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6">
                   {overallScore !== null && (
                     <div className="text-center">
                       <p
-                        className={`text-4xl font-bold ${
+                        className={`text-3xl sm:text-4xl font-bold ${
                           overallScore >= 90
                             ? "text-green-600"
                             : overallScore >= 60
@@ -768,7 +790,7 @@ export function ReadingSession({ passages, character, characterId, component }: 
               </div>
 
               {/* Passage content with clickable sentences */}
-              <div className="rounded-lg border bg-muted/30 p-6 leading-relaxed max-h-[60vh] overflow-y-auto">
+              <div className="rounded-lg border bg-muted/30 p-4 sm:p-6 leading-relaxed max-h-[60vh] overflow-y-auto">
                 {sentences.map((sentence, index) => (
                   <span
                     key={index}
