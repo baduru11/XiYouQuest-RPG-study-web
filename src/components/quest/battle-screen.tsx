@@ -12,7 +12,10 @@ import { BattleArena } from "@/components/quest/battle-arena";
 import { BossAttack } from "@/components/quest/boss-attack";
 import { PlayerAttack } from "@/components/quest/player-attack";
 import { useAttackAnimation } from "@/components/quest/attack-animation";
+import { useBossAttackAnimation } from "@/components/quest/boss-attack-animation";
+import { QUEST_CHARACTERS } from "@/lib/quest/stage-config";
 import { Swords, DoorOpen } from "lucide-react";
+import { useBGM } from "@/components/shared/bgm-provider";
 
 /** Thematic boss attack narrations per stage */
 const BOSS_ATTACK_NARRATIONS: Record<StageNumber, string[]> = {
@@ -76,6 +79,16 @@ export function BattleScreen({
   onFlee,
 }: BattleScreenProps) {
   const [battleState, setBattleState] = useState<BattleState>(initialState);
+  const battleStateRef = useRef(battleState);
+  battleStateRef.current = battleState;
+
+  // Duck BGM during active play phases (recording + MCQ)
+  const { setLearningActive } = useBGM();
+  useEffect(() => {
+    const active = battleState.phase === "player_attack" || battleState.phase === "boss_attack";
+    setLearningActive(active);
+    return () => setLearningActive(false);
+  }, [battleState.phase, setLearningActive]);
 
   // Visual effect state
   const [isFlinching, setIsFlinching] = useState(false);
@@ -87,6 +100,13 @@ export function BattleScreen({
   const [turnBannerPhase, setTurnBannerPhase] = useState<"boss_attack" | "player_attack">(
     "player_attack"
   );
+
+  // Wukong defend/got-hit state
+  const [isDefending, setIsDefending] = useState(false);
+  const [isGotHit, setIsGotHit] = useState(false);
+
+  // Boss attack animation gate: MCQ only shows after boss attack anim completes
+  const [showMCQAfterBossAnim, setShowMCQAfterBossAnim] = useState(true);
 
   // MCQ effect overlays
   const [mcqDamageText, setMcqDamageText] = useState<string | null>(null);
@@ -120,6 +140,31 @@ export function BattleScreen({
   }, []);
 
   const config = STAGE_CONFIGS[stage];
+  const wukong = QUEST_CHARACTERS["Son Wukong"];
+  const bossAttackFrames = useMemo(() => config.bossAttackFrames ?? [], [config.bossAttackFrames]);
+  const bossHitFrame = config.bossHitFrame ?? null;
+
+  // Boss attack animation hook
+  const handleBossAttackAnimComplete = useCallback(() => {
+    setShowMCQAfterBossAnim(true);
+  }, []);
+
+  const { triggerBossAttack, bossAttackFrame } =
+    useBossAttackAnimation(bossAttackFrames, handleBossAttackAnimComplete);
+
+  // Preload animation frames
+  useEffect(() => {
+    const frames = [
+      ...bossAttackFrames,
+      bossHitFrame,
+      wukong.defendFrame,
+      wukong.gotHitFrame,
+    ].filter(Boolean) as string[];
+    frames.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [bossAttackFrames, bossHitFrame, wukong.defendFrame, wukong.gotHitFrame]);
 
   const sectionLabel = `Section ${battleState.currentRecordingIndex + 1}/${battleState.totalRecordings}`;
 
@@ -141,31 +186,30 @@ export function BattleScreen({
         if (advancedState.phase === "boss_attack") {
           flashTurnBanner("boss_attack");
           setEnemyTaunt(getBossNarration(stage));
+          setShowMCQAfterBossAnim(false);
+          triggerBossAttack();
         } else if (advancedState.phase === "player_menu") {
           flashTurnBanner("player_attack");
           setEnemyTaunt(null);
+          setShowMCQAfterBossAnim(false);
         }
       }
 
       setBattleState(advancedState);
     },
-    [onVictory, onDefeat, flashTurnBanner, stage]
+    [onVictory, onDefeat, flashTurnBanner, stage, triggerBossAttack]
   );
 
   // Attack animation hook
   const handleAttackAnimComplete = useCallback(
-    (score: number) => {
+    () => {
       const stateToAdvance = pendingStateRef.current;
       pendingStateRef.current = null;
       if (stateToAdvance) {
         checkOutcomeAndAdvance(stateToAdvance);
-      } else {
-        const newState = processRecordingComplete(battleState, score);
-        setBattleState(newState);
-        setTimeout(() => checkOutcomeAndAdvance(newState), 200);
       }
     },
-    [battleState, checkOutcomeAndAdvance]
+    [checkOutcomeAndAdvance]
   );
 
   const {
@@ -185,26 +229,30 @@ export function BattleScreen({
 
   const handleMCQAnswer = useCallback(
     (isCorrect: boolean) => {
-      const newState = processMCQAnswer(battleState, isCorrect);
+      const newState = processMCQAnswer(battleStateRef.current, isCorrect);
 
       if (!isCorrect) {
         setShowRedFlash(true);
         setIsFlinching(true);
+        setIsGotHit(true);
         setShatteringHeartIndex(newState.playerHP);
         setTimeout(() => {
           setShowRedFlash(false);
           setIsFlinching(false);
+          setIsGotHit(false);
           setShatteringHeartIndex(null);
         }, 400);
       } else {
         setShowGreenFlash(true);
         setIsBossRecoiling(true);
+        setIsDefending(true);
         setMcqDamageText("BLOCKED!");
         setMcqDamageType("block");
         setShowMcqDamage(true);
         setTimeout(() => {
           setShowGreenFlash(false);
           setIsBossRecoiling(false);
+          setIsDefending(false);
         }, 400);
       }
 
@@ -213,17 +261,18 @@ export function BattleScreen({
         checkOutcomeAndAdvance(newState);
       }, 500);
     },
-    [battleState, checkOutcomeAndAdvance]
+    [checkOutcomeAndAdvance]
   );
 
   const handleRecordingComplete = useCallback(
     (score: number) => {
-      const newState = processRecordingComplete(battleState, score);
+      const current = battleStateRef.current;
+      const newState = processRecordingComplete(current, score);
       pendingStateRef.current = newState;
-      setBattleState({ ...battleState, phase: "animating" });
+      setBattleState({ ...current, phase: "animating" });
       triggerAttack(score);
     },
-    [battleState, triggerAttack]
+    [triggerAttack]
   );
 
   const effectiveDamageText = showAttackDamage ? attackDamageText : showMcqDamage ? mcqDamageText : null;
@@ -275,6 +324,8 @@ export function BattleScreen({
         dashOffset={dashOffset}
         shatteringHeartIndex={shatteringHeartIndex}
         bossImage={config.bossImage}
+        bossAttackFrame={bossAttackFrame}
+        bossHitFrame={bossHitFrame}
         bossName={config.bossName}
         bossNameCN={config.bossNameCN}
         bossHP={battleState.bossHP}
@@ -283,6 +334,10 @@ export function BattleScreen({
         roundInfo={sectionLabel}
         isBossHit={isBossHit}
         isBossRecoiling={isBossRecoiling}
+        defendFrame={wukong.defendFrame}
+        gotHitFrame={wukong.gotHitFrame}
+        isDefending={isDefending}
+        isGotHit={isGotHit}
         showTurnBanner={showTurnBanner}
         turnBannerPhase={turnBannerPhase}
         showDamage={effectiveShowDamage}
@@ -361,7 +416,7 @@ export function BattleScreen({
                 )}
 
                 {/* Boss Attack — enemy taunt + MCQ */}
-                {battleState.phase === "boss_attack" && currentMCQ && (
+                {battleState.phase === "boss_attack" && currentMCQ && showMCQAfterBossAnim && (
                   <div className="space-y-3">
                     {enemyTaunt && (
                       <p className="font-retro text-xs sm:text-sm text-red-900/70 text-center leading-relaxed">

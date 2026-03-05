@@ -11,11 +11,16 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "混乱魔王",
     bossImage: "/img/boss/1/혼세 기본.webp",
     backgroundImage: "/img/main stage/1-1.webp",
-    playerMaxHP: 5,
     bossMaxHP: 100,
     mcqTimerSeconds: 15,
     unlocksCharacter: null,
     prerequisiteStage: null,
+    bossAttackFrames: [
+      "/img/boss/1/animation_frames/공격1.webp",
+      "/img/boss/1/animation_frames/공격2.webp",
+      "/img/boss/1/animation_frames/공격3.webp",
+    ],
+    bossHitFrame: "/img/boss/1/animation_frames/got_hit.webp",
   },
   2: {
     stage: 2,
@@ -26,11 +31,16 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "水灵",
     bossImage: "/img/boss/2/2.webp",
     backgroundImage: "/img/main stage/2.webp",
-    playerMaxHP: 5,
     bossMaxHP: 100,
     mcqTimerSeconds: 15,
     unlocksCharacter: "Sam Jang",
     prerequisiteStage: 1,
+    bossAttackFrames: [
+      "/img/boss/2/animation_frames/공격1.webp",
+      "/img/boss/2/animation_frames/공격2 복사본.webp",
+      "/img/boss/2/animation_frames/공격3 복사본.webp",
+    ],
+    bossHitFrame: "/img/boss/2/animation_frames/피격.webp",
   },
   3: {
     stage: 3,
@@ -41,11 +51,16 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "白骨夫人",
     bossImage: "/img/boss/3/1.webp",
     backgroundImage: "/img/main stage/3.webp",
-    playerMaxHP: 4,
     bossMaxHP: 100,
     mcqTimerSeconds: 15,
     unlocksCharacter: "Sha Wujing",
     prerequisiteStage: 2,
+    bossAttackFrames: [
+      "/img/boss/3/animation_frames/공격1.webp",
+      "/img/boss/3/animation_frames/공격2.webp",
+      "/img/boss/3/animation_frames/공격3.webp",
+    ],
+    bossHitFrame: "/img/boss/3/animation_frames/피격.webp",
   },
   4: {
     stage: 4,
@@ -56,11 +71,16 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "月牙狼魔",
     bossImage: "/img/boss/4/1.webp",
     backgroundImage: "/img/main stage/4.webp",
-    playerMaxHP: 4,
     bossMaxHP: 100,
     mcqTimerSeconds: 15,
     unlocksCharacter: null,
     prerequisiteStage: 3,
+    bossAttackFrames: [
+      "/img/boss/4/animationframes/attack1.webp",
+      "/img/boss/4/animationframes/attack2.webp",
+      "/img/boss/4/animationframes/attack3.webp",
+    ],
+    bossHitFrame: "/img/boss/4/animationframes/gothit.webp",
   },
   5: {
     stage: 5,
@@ -71,11 +91,16 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "牛魔王",
     bossImage: "/img/boss/5/우마왕 기본.webp",
     backgroundImage: "/img/main stage/5.webp",
-    playerMaxHP: 3,
     bossMaxHP: 100,
     mcqTimerSeconds: 12,
     unlocksCharacter: null,
     prerequisiteStage: 4,
+    bossAttackFrames: [
+      "/img/boss/5/animationframes/battle1.webp",
+      "/img/boss/5/animationframes/battle2.webp",
+      "/img/boss/5/animationframes/battle3.webp",
+    ],
+    bossHitFrame: "/img/boss/5/animationframes/gothit.webp",
   },
   6: {
     stage: 6,
@@ -86,11 +111,16 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "天庭守护者",
     bossImage: "/img/boss/6/1.webp",
     backgroundImage: "/img/main stage/6.webp",
-    playerMaxHP: 3,
     bossMaxHP: 100,
     mcqTimerSeconds: 12,
     unlocksCharacter: "Zhu Baijie",
     prerequisiteStage: 5,
+    bossAttackFrames: [
+      "/img/boss/6/animationframes/attack1.webp",
+      "/img/boss/6/animationframes/attack2.webp",
+      "/img/boss/6/animationframes/attack3.webp",
+    ],
+    bossHitFrame: "/img/boss/6/animationframes/gothit.webp",
   },
   7: {
     stage: 7,
@@ -101,18 +131,23 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
     bossNameCN: "扭曲悟空",
     bossImage: "/img/boss/7/어둠오공 기본.webp",
     backgroundImage: "/img/main stage/7.webp",
-    playerMaxHP: 3,
     bossMaxHP: 100,
     mcqTimerSeconds: 12,
     unlocksCharacter: null,
     prerequisiteStage: 6,
+    bossAttackFrames: [
+      "/img/boss/7/animationframes/attack1.webp",
+      "/img/boss/7/animationframes/attack2.webp",
+      "/img/boss/7/animationframes/attack3.webp",
+    ],
+    bossHitFrame: "/img/boss/7/animationframes/gothit.webp",
   },
 };
 
 /** Character image paths for quest party display */
 export const QUEST_CHARACTERS: Record<
   string,
-  { name: string; nameCN: string; image: string; imageAlt: string; portrait: string; attackFrames?: string[] }
+  { name: string; nameCN: string; image: string; imageAlt: string; portrait: string; attackFrames?: string[]; defendFrame?: string; gotHitFrame?: string }
 > = {
   "Son Wukong": {
     name: "Son Wukong",
@@ -125,6 +160,8 @@ export const QUEST_CHARACTERS: Record<
       "/img/main character/son wukong/attack_animation_frames/공격2.webp",
       "/img/main character/son wukong/attack_animation_frames/공격3.webp",
     ],
+    defendFrame: "/img/main character/son wukong/defend_animation/defend_motion.webp",
+    gotHitFrame: "/img/main character/son wukong/defend_animation/got_hit.webp",
   },
   "Sam Jang": {
     name: "Sam Jang",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useSyncExternalStore } from "react";
+import { useState, useCallback, useEffect, useSyncExternalStore } from "react";
 import type {
   QuestScreen,
   StageNumber,
@@ -16,6 +16,7 @@ import { VictoryScreen } from "@/components/quest/victory-screen";
 import { DefeatScreen } from "@/components/quest/defeat-screen";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
 import type { UnlockedAchievement } from "@/lib/achievements/types";
+import { useBGM, STAGE_MUSIC } from "@/components/shared/bgm-provider";
 
 interface MainQuestClientProps {
   questProgress: QuestProgress[];
@@ -30,6 +31,7 @@ export function MainQuestClient({
   unlockedCharacters: initialCharacters,
 }: MainQuestClientProps) {
   const { showAchievementToasts } = useAchievementToast();
+  const { overrideTrack, clearOverride } = useBGM();
 
   // Read localStorage without useEffect to avoid React 19 set-state-in-effect lint error
   const introSeen = useSyncExternalStore(
@@ -111,6 +113,15 @@ export function MainQuestClient({
 
   // Effective screen: skip intro if already seen
   const effectiveScreen = screen === "intro" && introSeen && !forceIntro ? "stage_select" : screen;
+
+  // Override BGM with stage-specific music from story through battle
+  useEffect(() => {
+    if ((effectiveScreen === "story" || effectiveScreen === "battle") && selectedStage && STAGE_MUSIC[selectedStage]) {
+      overrideTrack(STAGE_MUSIC[selectedStage]);
+    } else {
+      clearOverride();
+    }
+  }, [effectiveScreen, selectedStage, overrideTrack, clearOverride]);
 
   switch (effectiveScreen) {
     case "intro":

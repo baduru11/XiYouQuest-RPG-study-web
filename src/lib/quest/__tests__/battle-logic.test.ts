@@ -2,90 +2,38 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  generateBattleRounds,
   createBattleState,
   processMCQAnswer,
   processRecordingComplete,
   advanceBattle,
   calculateBossDamage,
+  calculateScaledDamage,
   calculateQuestXP,
   getUnlockedCharacters,
+  setupMCQBatch,
+  calculatePlayerMaxHP,
   splitRecordingGroups,
 } from "../battle-logic";
-import { STAGE_QUESTIONS } from "../stage-questions";
-import type { StageNumber } from "../types";
-
-/** Helper: get split recording groups for a stage */
-function getSplitGroups(stage: StageNumber) {
-  return splitRecordingGroups(STAGE_QUESTIONS[stage].recordingGroups);
-}
+import type { RecordingGroup } from "../types";
 
 /** Wukong + 1 companion = HP 5 */
 const WITH_ONE_COMPANION = ["Son Wukong", "Sam Jang"];
 /** Wukong only = HP 3 */
 const WUKONG_ONLY = ["Son Wukong"];
 
-describe("generateBattleRounds", () => {
-  it("generates correct rounds for stage 1", () => {
-    const rounds = generateBattleRounds(1, getSplitGroups(1));
-
-    // Stage 1: 1 recording group of 10 monosyllabic words → split into 2 groups of 5
-    // 5 MCQ questions, MCQ per round = ceil(5 / 2) = 3
-    // Round 0: MCQ [0,1,2], recording 0
-    // Round 1: MCQ [3,4], recording 1
-    expect(rounds).toHaveLength(2);
-    expect(rounds[0].mcqIndices).toEqual([0, 1, 2]);
-    expect(rounds[0].recordingGroupIndex).toBe(0);
-    expect(rounds[1].mcqIndices).toEqual([3, 4]);
-    expect(rounds[1].recordingGroupIndex).toBe(1);
+describe("calculatePlayerMaxHP", () => {
+  it("returns 3 for Wukong only", () => {
+    expect(calculatePlayerMaxHP(WUKONG_ONLY)).toBe(3);
   });
 
-  it("distributes MCQ evenly across recording groups for stage 2", () => {
-    const rounds = generateBattleRounds(2, getSplitGroups(2));
-
-    // Stage 2: 2 groups of 10 words each → split into 4 groups of 5
-    // 10 MCQ questions, MCQ per round = ceil(10 / 4) = 3
-    // Round 0: MCQ [0,1,2], recording 0
-    // Round 1: MCQ [3,4,5], recording 1
-    // Round 2: MCQ [6,7,8], recording 2
-    // Round 3: MCQ [9], recording 3 (only 1 remaining)
-    expect(rounds).toHaveLength(4);
-    expect(rounds[0].mcqIndices).toEqual([0, 1, 2]);
-    expect(rounds[1].mcqIndices).toEqual([3, 4, 5]);
-    expect(rounds[2].mcqIndices).toEqual([6, 7, 8]);
-    expect(rounds[3].mcqIndices).toEqual([9]);
-
-    expect(rounds[0].recordingGroupIndex).toBe(0);
-    expect(rounds[1].recordingGroupIndex).toBe(1);
-    expect(rounds[2].recordingGroupIndex).toBe(2);
-    expect(rounds[3].recordingGroupIndex).toBe(3);
+  it("returns 5 for Wukong + 1 companion", () => {
+    expect(calculatePlayerMaxHP(WITH_ONE_COMPANION)).toBe(5);
   });
 
-  it("distributes MCQ across recording groups for stage 3", () => {
-    const rounds = generateBattleRounds(3, getSplitGroups(3));
-
-    // Stage 3: mono(10) + multi(10) + passage(1) → split: 2+2+1 = 5 groups
-    // 10 MCQ questions, MCQ per round = ceil(10 / 5) = 2
-    expect(rounds).toHaveLength(5);
-    expect(rounds[0].mcqIndices).toEqual([0, 1]);
-    expect(rounds[1].mcqIndices).toEqual([2, 3]);
-    expect(rounds[2].mcqIndices).toEqual([4, 5]);
-    expect(rounds[3].mcqIndices).toEqual([6, 7]);
-    expect(rounds[4].mcqIndices).toEqual([8, 9]);
-  });
-
-  it("distributes MCQ across recording groups for stage 6", () => {
-    const rounds = generateBattleRounds(6, getSplitGroups(6));
-
-    // Stage 6: 3 groups of 10 words → split into 6 groups of 5
-    // 15 MCQ questions, MCQ per round = ceil(15 / 6) = 3
-    expect(rounds).toHaveLength(6);
-    expect(rounds[0].mcqIndices).toEqual([0, 1, 2]);
-    expect(rounds[1].mcqIndices).toEqual([3, 4, 5]);
-    expect(rounds[2].mcqIndices).toEqual([6, 7, 8]);
-    expect(rounds[3].mcqIndices).toEqual([9, 10, 11]);
-    expect(rounds[4].mcqIndices).toEqual([12, 13, 14]);
-    expect(rounds[5].mcqIndices).toEqual([]); // All MCQs assigned
+  it("returns 9 for all 4 characters", () => {
+    expect(
+      calculatePlayerMaxHP(["Son Wukong", "Sam Jang", "Sha Wujing", "Zhu Baijie"])
+    ).toBe(9);
   });
 });
 
@@ -96,11 +44,13 @@ describe("createBattleState", () => {
     expect(state.playerHP).toBe(5); // 3 base + 1 companion * 2
     expect(state.playerMaxHP).toBe(5);
     expect(state.bossHP).toBe(100);
-    expect(state.currentRound).toBe(0);
-    expect(state.currentMCQInRound).toBe(0);
+    expect(state.currentRecordingIndex).toBe(0);
+    expect(state.currentMCQInBatch).toBe(0);
+    expect(state.mcqBatchIndices).toEqual([]);
+    expect(state.mcqCursor).toBe(0);
     expect(state.recordingsCompleted).toBe(0);
-    // 10 monosyllabic words split into 2 groups of 5
-    expect(state.totalRecordings).toBe(2);
+    // Stage 1: 20 mono / 5 = 4 sub-groups
+    expect(state.totalRecordings).toBe(4);
     expect(state.phase).toBe("player_menu");
     expect(state.isRetry).toBe(false);
     expect(state.results.mcqCorrect).toBe(0);
@@ -119,9 +69,12 @@ describe("createBattleState", () => {
     expect(state.playerHP).toBe(3); // 3 base + 0 companions
   });
 
-  it("initializes phase to player_menu", () => {
-    const state = createBattleState(1, false, WITH_ONE_COMPANION);
-    expect(state.phase).toBe("player_menu");
+  it("stores recording groups and MCQ questions from stage data", () => {
+    const state = createBattleState(2, false, WUKONG_ONLY);
+    // Stage 2: 15 mono/5 + 15 multi/5 = 6 sub-groups
+    expect(state.recordingGroups).toHaveLength(6);
+    expect(state.totalRecordings).toBe(6);
+    expect(state.mcqQuestions.length).toBeGreaterThan(0);
   });
 
   it("includes stage config in state", () => {
@@ -129,6 +82,33 @@ describe("createBattleState", () => {
     expect(state.stage.stage).toBe(3);
     expect(state.stage.name).toBe("Desert of Illusion");
     expect(state.stage.bossName).toBe("Lady of Bleached Bones");
+  });
+});
+
+describe("setupMCQBatch", () => {
+  it("draws 3 MCQ indices from pool", () => {
+    const { batchIndices, newCursor } = setupMCQBatch(0, 10);
+    expect(batchIndices).toEqual([0, 1, 2]);
+    expect(newCursor).toBe(3);
+  });
+
+  it("cycles when cursor exceeds pool size", () => {
+    const { batchIndices, newCursor } = setupMCQBatch(9, 10);
+    expect(batchIndices).toEqual([9, 0, 1]);
+    expect(newCursor).toBe(12);
+  });
+
+  it("handles pool smaller than batch size", () => {
+    const { batchIndices, newCursor } = setupMCQBatch(0, 2);
+    expect(batchIndices).toEqual([0, 1]);
+    expect(newCursor).toBe(2);
+  });
+
+  it("advances cursor correctly across multiple calls", () => {
+    const { newCursor: cursor1 } = setupMCQBatch(0, 10);
+    const { batchIndices, newCursor: cursor2 } = setupMCQBatch(cursor1, 10);
+    expect(batchIndices).toEqual([3, 4, 5]);
+    expect(cursor2).toBe(6);
   });
 });
 
@@ -153,7 +133,6 @@ describe("processMCQAnswer", () => {
 
   it("does not reduce HP below 0", () => {
     let state = createBattleState(1, false, WITH_ONE_COMPANION);
-    // Drain HP to 0
     for (let i = 0; i < 10; i++) {
       state = processMCQAnswer(state, false);
     }
@@ -174,30 +153,48 @@ describe("processMCQAnswer", () => {
 
 describe("calculateBossDamage", () => {
   it("divides boss HP evenly across recordings", () => {
-    // 100 HP, 4 recordings => ceil(100/4) = 25
     expect(calculateBossDamage(100, 4)).toBe(25);
   });
 
   it("uses ceiling for uneven division", () => {
-    // 100 HP, 3 recordings => ceil(100/3) = 34
     expect(calculateBossDamage(100, 3)).toBe(34);
   });
 
   it("returns full HP for single recording", () => {
-    // 100 HP, 1 recording => 100
     expect(calculateBossDamage(100, 1)).toBe(100);
   });
 });
 
+describe("calculateScaledDamage", () => {
+  it("returns full damage for score >= 80", () => {
+    expect(calculateScaledDamage(25, 80)).toEqual({ damage: 25, outcome: "hit" });
+    expect(calculateScaledDamage(25, 95)).toEqual({ damage: 25, outcome: "hit" });
+  });
+
+  it("returns 0 damage for score < 80", () => {
+    expect(calculateScaledDamage(25, 79)).toEqual({ damage: 0, outcome: "miss" });
+    expect(calculateScaledDamage(25, 50)).toEqual({ damage: 0, outcome: "miss" });
+  });
+});
+
 describe("processRecordingComplete", () => {
-  it("reduces boss HP by damage amount", () => {
+  it("reduces boss HP on pass (score >= 80)", () => {
     const state = createBattleState(2, false, WUKONG_ONLY);
-    // Stage 2: 4 recording groups (2 groups of 10 split into 4×5), boss HP 100
-    // damage = ceil(100/4) = 25
+    // Stage 2: 6 sub-groups, boss HP 100
+    // damage = ceil(100/6) = 17
     const newState = processRecordingComplete(state, 85);
 
-    expect(newState.bossHP).toBe(75); // 100 - 25
+    expect(newState.bossHP).toBe(83); // 100 - 17
     expect(newState.recordingsCompleted).toBe(1);
+  });
+
+  it("does not advance recordingsCompleted on fail (score < 80)", () => {
+    const state = createBattleState(2, false, WUKONG_ONLY);
+    const newState = processRecordingComplete(state, 70);
+
+    expect(newState.bossHP).toBe(100); // No damage
+    expect(newState.recordingsCompleted).toBe(0); // Not advanced
+    expect(newState.results.pronunciationScores).toEqual([70]);
   });
 
   it("calculates average pronunciation score", () => {
@@ -211,12 +208,10 @@ describe("processRecordingComplete", () => {
 
   it("does not reduce boss HP below 0", () => {
     let state = createBattleState(1, false, WUKONG_ONLY);
-    // Stage 1: 2 groups, damage = ceil(100/2) = 50
-    // Manually set bossHP to less than one damage increment
     state = { ...state, bossHP: 10 };
     const newState = processRecordingComplete(state, 90);
 
-    expect(newState.bossHP).toBe(0); // Clamped, not -40
+    expect(newState.bossHP).toBe(0);
   });
 });
 
@@ -224,7 +219,6 @@ describe("advanceBattle", () => {
   it("returns defeat when playerHP is 0", () => {
     let state = createBattleState(1, false, WITH_ONE_COMPANION);
     const initialHP = state.playerHP; // 5
-    // Drain all HP
     for (let i = 0; i < initialHP; i++) {
       state = processMCQAnswer(state, false);
     }
@@ -240,76 +234,125 @@ describe("advanceBattle", () => {
 
     const result = advanceBattle(state);
     expect(result.outcome).toBe("continue");
-    // Phase unchanged — UI handles the menu → attack transition
     expect(result.state.phase).toBe("player_menu");
   });
 
-  it("advances to next MCQ within boss_attack phase", () => {
-    let state = createBattleState(1, false, WITH_ONE_COMPANION);
-    // Manually set to boss_attack phase
-    state = { ...state, phase: "boss_attack", currentMCQInRound: 0 };
-
-    // Stage 1 round 0 has 3 MCQs [0,1,2]
-    const result = advanceBattle(state);
-    expect(result.outcome).toBe("continue");
-    expect(result.state.currentMCQInRound).toBe(1);
-    expect(result.state.phase).toBe("boss_attack");
-  });
-
-  it("advances to next round after all MCQs in boss_attack", () => {
-    let state = createBattleState(1, false, WITH_ONE_COMPANION);
-    // Round 0 has 3 MCQs [0,1,2]. Set to last MCQ.
-    state = { ...state, phase: "boss_attack", currentMCQInRound: 2 };
-
-    const result = advanceBattle(state);
-    expect(result.outcome).toBe("continue");
-    // Advances to next round with player_menu
-    expect(result.state.currentRound).toBe(1);
-    expect(result.state.phase).toBe("player_menu");
-  });
-
-  it("transitions from player_attack to boss_attack", () => {
+  it("advances to next recording on pass from player_attack", () => {
     let state = createBattleState(2, false, WUKONG_ONLY);
-    // Stage 2 round 0 has MCQs — put in player_attack
-    state = { ...state, phase: "player_attack", currentRound: 0 };
+    // Simulate a passed recording (score >= 80)
+    state = processRecordingComplete(state, 85);
+    state = { ...state, phase: "player_attack" };
+
+    const result = advanceBattle(state);
+    expect(result.outcome).toBe("continue");
+    expect(result.state.currentRecordingIndex).toBe(1);
+    expect(result.state.phase).toBe("player_menu");
+  });
+
+  it("sets up MCQ batch on fail from player_attack", () => {
+    let state = createBattleState(2, false, WUKONG_ONLY);
+    // Simulate a failed recording (score < 80)
+    state = processRecordingComplete(state, 60);
+    state = { ...state, phase: "player_attack" };
 
     const result = advanceBattle(state);
     expect(result.outcome).toBe("continue");
     expect(result.state.phase).toBe("boss_attack");
-    expect(result.state.currentMCQInRound).toBe(0);
+    expect(result.state.mcqBatchIndices).toHaveLength(3);
+    expect(result.state.currentMCQInBatch).toBe(0);
+    expect(result.state.isRetry).toBe(true);
   });
 
-  it("returns victory when boss HP reaches 0 from player_attack", () => {
+  it("advances to next MCQ within boss_attack batch", () => {
     let state = createBattleState(2, false, WUKONG_ONLY);
+    state = {
+      ...state,
+      phase: "boss_attack",
+      mcqBatchIndices: [0, 1, 2],
+      currentMCQInBatch: 0,
+    };
+
+    const result = advanceBattle(state);
+    expect(result.outcome).toBe("continue");
+    expect(result.state.currentMCQInBatch).toBe(1);
+    expect(result.state.phase).toBe("boss_attack");
+  });
+
+  it("returns to player_menu after MCQ batch completes", () => {
+    let state = createBattleState(2, false, WUKONG_ONLY);
+    state = {
+      ...state,
+      phase: "boss_attack",
+      mcqBatchIndices: [0, 1, 2],
+      currentMCQInBatch: 2, // last MCQ in batch
+    };
+
+    const result = advanceBattle(state);
+    expect(result.outcome).toBe("continue");
+    expect(result.state.phase).toBe("player_menu");
+  });
+
+  it("returns victory when all recordings are completed", () => {
+    let state = createBattleState(1, false, WUKONG_ONLY);
+    // Stage 1: 4 sub-groups after splitting
+    // Simulate completing all 4 recordings
+    state = processRecordingComplete(state, 90);
+    state = processRecordingComplete(state, 90);
+    state = processRecordingComplete(state, 90);
+    state = processRecordingComplete(state, 90);
+    state = { ...state, phase: "player_attack" };
+
+    const result = advanceBattle(state);
+    expect(result.outcome).toBe("victory");
+  });
+
+  it("returns victory when boss HP reaches 0", () => {
+    let state = createBattleState(2, false, WUKONG_ONLY);
+    state = processRecordingComplete(state, 90);
     state = { ...state, phase: "player_attack", bossHP: 0 };
 
     const result = advanceBattle(state);
     expect(result.outcome).toBe("victory");
   });
 
-  it("returns victory or defeat from boss_attack on last round", () => {
-    let state = createBattleState(1, false, WITH_ONE_COMPANION);
-    // Stage 1: 2 rounds (index 0 and 1). Last round is index 1.
-    // Round 1 has 2 MCQs [3,4]. Set to last MCQ of last round.
-    const lastRoundIdx = state.rounds.length - 1;
-    const lastMCQIdx = state.rounds[lastRoundIdx].mcqIndices.length - 1;
+  it("returns defeat after MCQ batch if HP is 0", () => {
+    let state = createBattleState(2, false, WUKONG_ONLY);
     state = {
       ...state,
       phase: "boss_attack",
-      currentRound: lastRoundIdx,
-      currentMCQInRound: lastMCQIdx,
-      bossHP: 0,
+      mcqBatchIndices: [0, 1, 2],
+      currentMCQInBatch: 2,
+      playerHP: 0,
     };
 
     const result = advanceBattle(state);
-    expect(result.outcome).toBe("victory");
+    expect(result.outcome).toBe("defeat");
+  });
+
+  it("handles no MCQ questions gracefully on fail", () => {
+    let state = createBattleState(1, false, WUKONG_ONLY);
+    // Clear MCQ questions to simulate no MCQs available
+    state = {
+      ...state,
+      mcqQuestions: [],
+      phase: "player_attack",
+      results: {
+        ...state.results,
+        pronunciationScores: [50], // Failed score
+      },
+    };
+
+    const result = advanceBattle(state);
+    expect(result.outcome).toBe("continue");
+    expect(result.state.phase).toBe("player_menu");
+    expect(result.state.isRetry).toBe(true);
   });
 });
 
 describe("calculateQuestXP", () => {
   it("calculates XP for a complete battle", () => {
     let state = createBattleState(1, false, WITH_ONE_COMPANION);
-    // Stage 1: totalRecordings = 2 (10 words split into 2 groups)
+    // Stage 1: totalRecordings = 4 (20 mono / 5)
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
@@ -317,15 +360,15 @@ describe("calculateQuestXP", () => {
 
     const xp = calculateQuestXP(state);
     // mcqBonus = 3 * 5 = 15
-    // pronBonus = round(80 / 10) * 2 = 8 * 2 = 16
+    // pronBonus = round(80 / 10) * 4 = 8 * 4 = 32
     // stageBonus = 1 * 10 = 10
-    // total = 41
-    expect(xp).toBe(41);
+    // total = 57
+    expect(xp).toBe(57);
   });
 
   it("calculates XP with multiple recordings", () => {
     let state = createBattleState(2, false, WUKONG_ONLY);
-    // Stage 2: totalRecordings = 4
+    // Stage 2: totalRecordings = 6 (15/5 + 15/5)
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
     state = processMCQAnswer(state, true);
@@ -335,17 +378,17 @@ describe("calculateQuestXP", () => {
 
     const xp = calculateQuestXP(state);
     // mcqBonus = 4 * 5 = 20
-    // avg = 75, pronBonus = round(75/10) * 4 = 8 * 4 = 32
+    // avg = 75, pronBonus = round(75/10) * 6 = 8 * 6 = 48
     // stageBonus = 2 * 10 = 20
-    // total = 72
-    expect(xp).toBe(72);
+    // total = 88
+    expect(xp).toBe(88);
   });
 
   it("gives 0 pronBonus when no recordings done", () => {
     const state = createBattleState(1, false, WITH_ONE_COMPANION);
     const xp = calculateQuestXP(state);
     // mcqBonus = 0
-    // pronBonus = round(0/10) * 2 = 0
+    // pronBonus = round(0/10) * 4 = 0
     // stageBonus = 1 * 10 = 10
     expect(xp).toBe(10);
   });
@@ -393,5 +436,79 @@ describe("getUnlockedCharacters", () => {
     const characters = getUnlockedCharacters([1, 4, 5, 7]);
     expect(characters).toContain("Son Wukong");
     expect(characters).toHaveLength(1);
+  });
+});
+
+describe("splitRecordingGroups", () => {
+  it("does not split groups with <= 5 words", () => {
+    const groups: RecordingGroup[] = [{
+      label: "Test", type: "monosyllabic", words: ["a", "b", "c"],
+      category: "read_syllable", pinyin: ["ā", "b", "c"],
+    }];
+    const result = splitRecordingGroups(groups);
+    expect(result).toHaveLength(1);
+    expect(result[0].label).toBe("Test");
+    expect(result[0].words).toEqual(["a", "b", "c"]);
+  });
+
+  it("splits a group of 10 into 2 sub-groups of 5", () => {
+    const words = Array.from({ length: 10 }, (_, i) => `w${i}`);
+    const pinyin = Array.from({ length: 10 }, (_, i) => `p${i}`);
+    const groups: RecordingGroup[] = [{
+      label: "Words", type: "multisyllabic", words, category: "read_word", pinyin,
+    }];
+    const result = splitRecordingGroups(groups);
+    expect(result).toHaveLength(2);
+    expect(result[0].label).toBe("Words (Part 1/2)");
+    expect(result[0].words).toHaveLength(5);
+    expect(result[0].pinyin).toHaveLength(5);
+    expect(result[1].label).toBe("Words (Part 2/2)");
+    expect(result[1].words).toHaveLength(5);
+  });
+
+  it("handles uneven splits (remainder group)", () => {
+    const words = Array.from({ length: 7 }, (_, i) => `w${i}`);
+    const groups: RecordingGroup[] = [{
+      label: "Test", type: "monosyllabic", words, category: "read_syllable",
+    }];
+    const result = splitRecordingGroups(groups);
+    expect(result).toHaveLength(2);
+    expect(result[0].words).toHaveLength(5);
+    expect(result[1].words).toHaveLength(2);
+    expect(result[1].label).toBe("Test (Part 2/2)");
+  });
+
+  it("does not split passage groups", () => {
+    const groups: RecordingGroup[] = [{
+      label: "Passage", type: "passage", words: [],
+      passageText: "Long passage...", category: "read_chapter",
+    }];
+    const result = splitRecordingGroups(groups);
+    expect(result).toHaveLength(1);
+    expect(result[0].passageText).toBe("Long passage...");
+  });
+
+  it("handles undefined pinyin", () => {
+    const words = Array.from({ length: 8 }, (_, i) => `w${i}`);
+    const groups: RecordingGroup[] = [{
+      label: "NoPinyin", type: "monosyllabic", words, category: "read_syllable",
+    }];
+    const result = splitRecordingGroups(groups);
+    expect(result).toHaveLength(2);
+    expect(result[0].pinyin).toBeUndefined();
+    expect(result[1].pinyin).toBeUndefined();
+  });
+
+  it("preserves type and category across sub-groups", () => {
+    const words = Array.from({ length: 12 }, (_, i) => `w${i}`);
+    const groups: RecordingGroup[] = [{
+      label: "Test", type: "multisyllabic", words, category: "read_word",
+    }];
+    const result = splitRecordingGroups(groups);
+    expect(result).toHaveLength(3);
+    result.forEach(g => {
+      expect(g.type).toBe("multisyllabic");
+      expect(g.category).toBe("read_word");
+    });
   });
 });

@@ -136,10 +136,10 @@ export function VictoryScreen({
     >
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center gap-5 max-w-lg mx-auto px-6 max-h-[90vh] overflow-y-auto py-8">
+      <div className="relative z-10 flex flex-col items-center gap-5 max-w-sm sm:max-w-lg mx-auto px-3 sm:px-6 max-h-[90vh] overflow-y-auto py-8">
         {/* Victory title */}
         <div className="text-center animate-fade-in-up">
-          <h1 className="font-pixel text-2xl md:text-3xl pixel-glow-gold">
+          <h1 className="font-pixel text-xl sm:text-2xl md:text-3xl pixel-glow-gold">
             VICTORY!
           </h1>
           <p className="font-chinese text-2xl text-amber-300 mt-1">
@@ -185,10 +185,10 @@ export function VictoryScreen({
 
         {/* Stats */}
         <div
-          className="grid grid-cols-3 gap-3 w-full animate-fade-in-up"
+          className="grid grid-cols-3 gap-1.5 sm:gap-3 w-full animate-fade-in-up"
           style={{ animationDelay: "0.5s" }}
         >
-          <div className="flex flex-col items-center p-3 pixel-border bg-background/80">
+          <div className="flex flex-col items-center p-2 sm:p-3 pixel-border bg-background/80">
             <Swords className="w-5 h-5 text-amber-500 mb-1" />
             <span className="font-pixel text-[10px] text-muted-foreground">
               MCQ
@@ -197,7 +197,7 @@ export function VictoryScreen({
               {mcqAccuracy}
             </span>
           </div>
-          <div className="flex flex-col items-center p-3 pixel-border bg-background/80">
+          <div className="flex flex-col items-center p-2 sm:p-3 pixel-border bg-background/80">
             <Mic className="w-5 h-5 text-amber-500 mb-1" />
             <span className="font-pixel text-[10px] text-muted-foreground">
               Pron Avg
@@ -206,7 +206,7 @@ export function VictoryScreen({
               {avgPronScore}
             </span>
           </div>
-          <div className="flex flex-col items-center p-3 pixel-border bg-background/80">
+          <div className="flex flex-col items-center p-2 sm:p-3 pixel-border bg-background/80">
             <Star className="w-5 h-5 text-amber-500 mb-1" />
             <span className="font-pixel text-[10px] text-muted-foreground">
               XP

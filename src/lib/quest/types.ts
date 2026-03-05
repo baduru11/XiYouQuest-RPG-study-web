@@ -51,14 +51,6 @@ export interface StageQuestions {
   mcqQuestions: QuestMCQ[];
 }
 
-/** A single battle round (boss attacks, then player attacks) */
-export interface BattleRound {
-  /** Indices into mcqQuestions[] for boss attack phase */
-  mcqIndices: number[];
-  /** Index into recordingGroups[] for player attack phase (-1 if no recording this round) */
-  recordingGroupIndex: number;
-}
-
 /** Static metadata for a stage */
 export interface StageConfig {
   stage: StageNumber;
@@ -76,8 +68,6 @@ export interface StageConfig {
   bossImage: string;
   /** Path to stage background */
   backgroundImage: string;
-  /** Player max HP (wrong answers allowed before fail) */
-  playerMaxHP: number;
   /** Boss max HP (visual, always 100) */
   bossMaxHP: number;
   /** MCQ timer in seconds */
@@ -86,6 +76,10 @@ export interface StageConfig {
   unlocksCharacter: string | null;
   /** Stages that must be cleared before this one is playable */
   prerequisiteStage: StageNumber | null;
+  /** Paths to boss attack animation frames (3 frames) */
+  bossAttackFrames?: string[];
+  /** Path to boss got-hit frame */
+  bossHitFrame?: string;
 }
 
 /** Persisted quest progress for one user */
@@ -103,16 +97,20 @@ export interface QuestProgress {
 export interface BattleState {
   /** Current stage config */
   stage: StageConfig;
-  /** All rounds for this battle */
-  rounds: BattleRound[];
-  /** Split recording groups (max 5 words each, passages unchanged) */
+  /** Recording groups (split into max-5-word sub-groups) */
   recordingGroups: RecordingGroup[];
-  /** Current round index */
-  currentRound: number;
-  /** Current phase within the round */
+  /** All MCQ questions for this stage */
+  mcqQuestions: QuestMCQ[];
+  /** Which recording section we're on (0-based) */
+  currentRecordingIndex: number;
+  /** Current phase */
   phase: "player_menu" | "player_attack" | "boss_attack" | "animating";
-  /** Current MCQ index within the round's mcqIndices */
-  currentMCQInRound: number;
+  /** Current MCQ index within the failure batch */
+  currentMCQInBatch: number;
+  /** Current batch of MCQ indices (drawn from pool on failure) */
+  mcqBatchIndices: number[];
+  /** Position in the full MCQ pool (cycles) */
+  mcqCursor: number;
   /** Player current HP */
   playerHP: number;
   /** Player max HP (base 3 + 2 per companion) */

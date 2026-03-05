@@ -56,7 +56,7 @@ export function StoryScreen({ stage, onContinue, onBack }: StoryScreenProps) {
       </button>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-2xl mx-auto px-6">
+      <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 max-w-xl sm:max-w-2xl mx-auto px-3 sm:px-6">
         {/* Stage title */}
         <div className="text-center space-y-1">
           <p className="font-pixel text-[10px] text-amber-400/70">
@@ -74,7 +74,7 @@ export function StoryScreen({ stage, onContinue, onBack }: StoryScreenProps) {
         </div>
 
         {/* Story paragraphs */}
-        <div className="space-y-4 w-full max-h-[50vh] overflow-y-auto px-1">
+        <div className="space-y-4 w-full max-h-[60vh] sm:max-h-[50vh] overflow-y-auto px-1">
           {story.intro.slice(0, visibleParagraphs).map((text, i) => (
             <p
               key={i}

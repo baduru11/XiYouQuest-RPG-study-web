@@ -4,6 +4,8 @@ import { Heart } from "lucide-react";
 
 interface BossSpriteProps {
   bossImage: string;
+  bossAttackFrame?: string | null;
+  bossHitFrame?: string | null;
   bossName: string;
   bossNameCN: string;
   bossHP: number;
@@ -16,6 +18,8 @@ interface BossSpriteProps {
 
 export function BossSprite({
   bossImage,
+  bossAttackFrame,
+  bossHitFrame,
   bossName,
   bossNameCN,
   bossHP,
@@ -31,6 +35,9 @@ export function BossSprite({
     ? 0
     : Math.ceil((bossHP / bossMaxHP) * totalHearts);
 
+  const displayImage = (isHit && bossHitFrame) ? bossHitFrame
+    : bossAttackFrame ?? bossImage;
+
   return (
     <div className="absolute bottom-6 sm:bottom-10 right-[8%] sm:right-[15%] md:right-[18%] flex flex-col items-center gap-1 z-10">
       {/* Boss sprite */}
@@ -40,7 +47,9 @@ export function BossSprite({
             ? "animate-boss-hit"
             : isRecoiling
               ? "animate-recoil"
-              : ""
+              : bossAttackFrame
+                ? "animate-boss-attack-wind-up"
+                : ""
         }`}
       >
         {/* White flash overlay on hit */}
@@ -49,18 +58,18 @@ export function BossSprite({
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={bossImage}
+          src={displayImage}
           alt={bossName}
           loading="eager"
-          className={`w-[170px] h-[195px] sm:w-[260px] sm:h-[297px] md:w-[432px] md:h-[480px] object-contain drop-shadow-xl ${
-            !isHit && !isRecoiling ? "animate-boss-float" : ""
+          className={`w-[120px] h-[138px] sm:w-[170px] sm:h-[195px] md:w-[432px] md:h-[480px] object-contain drop-shadow-xl ${
+            !isHit && !isRecoiling && !bossAttackFrame ? "animate-boss-float" : ""
           }`}
           draggable={false}
         />
       </div>
 
       {/* Boss info + hearts below sprite */}
-      <div className="relative border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[145px] sm:max-w-[260px] md:max-w-[432px]">
+      <div className="relative border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[120px] sm:max-w-[145px] md:max-w-[432px]">
         <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
         <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
           <div className="flex justify-between items-baseline">

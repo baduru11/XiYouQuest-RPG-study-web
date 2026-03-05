@@ -18,6 +18,8 @@ interface BattleArenaProps {
   shatteringHeartIndex: number | null;
   // Boss
   bossImage: string;
+  bossAttackFrame?: string | null;
+  bossHitFrame?: string | null;
   bossName: string;
   bossNameCN: string;
   bossHP: number;
@@ -26,6 +28,11 @@ interface BattleArenaProps {
   roundInfo: string;
   isBossHit: boolean;
   isBossRecoiling: boolean;
+  // Wukong defend/got-hit
+  defendFrame?: string | null;
+  gotHitFrame?: string | null;
+  isDefending?: boolean;
+  isGotHit?: boolean;
   // Effects
   showTurnBanner: boolean;
   turnBannerPhase: "boss_attack" | "player_attack";
@@ -48,6 +55,8 @@ export function BattleArena({
   dashOffset,
   shatteringHeartIndex,
   bossImage,
+  bossAttackFrame,
+  bossHitFrame,
   bossName,
   bossNameCN,
   bossHP,
@@ -56,6 +65,10 @@ export function BattleArena({
   roundInfo,
   isBossHit,
   isBossRecoiling,
+  defendFrame,
+  gotHitFrame,
+  isDefending,
+  isGotHit,
   showTurnBanner,
   turnBannerPhase,
   showDamage,
@@ -94,11 +107,17 @@ export function BattleArena({
         playerHP={playerHP}
         playerMaxHP={playerMaxHP}
         shatteringHeartIndex={shatteringHeartIndex}
+        defendFrame={defendFrame}
+        gotHitFrame={gotHitFrame}
+        isDefending={isDefending}
+        isGotHit={isGotHit}
       />
 
       {/* Boss sprite — bottom right */}
       <BossSprite
         bossImage={bossImage}
+        bossAttackFrame={bossAttackFrame}
+        bossHitFrame={bossHitFrame}
         bossName={bossName}
         bossNameCN={bossNameCN}
         bossHP={bossHP}

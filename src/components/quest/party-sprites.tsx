@@ -11,6 +11,10 @@ interface PartySpritesProps {
   playerHP: number;
   playerMaxHP: number;
   shatteringHeartIndex: number | null;
+  defendFrame?: string | null;
+  gotHitFrame?: string | null;
+  isDefending?: boolean;
+  isGotHit?: boolean;
 }
 
 export function PartySprites({
@@ -21,6 +25,10 @@ export function PartySprites({
   playerHP,
   playerMaxHP,
   shatteringHeartIndex,
+  defendFrame,
+  gotHitFrame,
+  isDefending,
+  isGotHit,
 }: PartySpritesProps) {
   const wukong = QUEST_CHARACTERS["Son Wukong"];
   const hasSamJang = unlockedCharacters.includes("Sam Jang");
@@ -92,17 +100,22 @@ export function PartySprites({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={attackFrame ?? wukong.image}
+          src={
+            attackFrame
+              ?? (isGotHit && gotHitFrame ? gotHitFrame : null)
+              ?? (isDefending && defendFrame ? defendFrame : null)
+              ?? wukong.image
+          }
           alt="Son Wukong"
           loading="eager"
-          className={`w-[150px] h-[200px] sm:w-[220px] sm:h-[293px] md:w-[384px] md:h-[480px] object-contain drop-shadow-xl ${
-            attackFrame ? "" : "animate-idle-bob"
+          className={`w-[110px] h-[147px] sm:w-[150px] sm:h-[200px] md:w-[384px] md:h-[480px] object-contain drop-shadow-xl ${
+            attackFrame || isGotHit || isDefending ? "" : "animate-idle-bob"
           }`}
           draggable={false}
         />
 
         {/* Player HP box with names + hearts below character */}
-        <div className="relative mt-1 border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[150px] sm:max-w-[220px] md:max-w-[384px]">
+        <div className="relative mt-1 border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[120px] sm:max-w-[150px] md:max-w-[384px]">
           <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
           <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
             <div>

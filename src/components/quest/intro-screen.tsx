@@ -38,7 +38,7 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
     >
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center gap-6 max-w-2xl mx-auto px-6">
+      <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 max-w-xl sm:max-w-2xl mx-auto px-3 sm:px-6">
         {/* Title */}
         <h1 className="font-pixel text-xl md:text-2xl text-amber-300 pixel-glow-gold text-center tracking-wider">
           Journey to the West
@@ -52,7 +52,7 @@ export function IntroScreen({ onComplete }: IntroScreenProps) {
           {QUEST_INTRO_TEXT.slice(0, visibleParagraphs).map((text, i) => (
             <p
               key={i}
-              className="font-retro text-lg md:text-xl text-amber-100/90 leading-relaxed animate-fade-in-up"
+              className="font-retro text-base sm:text-lg md:text-xl text-amber-100/90 leading-relaxed animate-fade-in-up"
               style={{ animationDelay: `${i * 0.1}s` }}
             >
               {text}
