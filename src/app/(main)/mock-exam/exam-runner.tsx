@@ -182,6 +182,7 @@ interface ExamRunnerProps {
 
 export function ExamRunner({ character, characters, words, quizQuestions, passage, topics }: ExamRunnerProps) {
   const { showAchievementToasts } = useAchievementToast();
+
   // Randomize answer positions on client side
   const activeQuizQuestions = useMemo(() => {
     const questions = quizQuestions ?? EXAM_QUIZ_QUESTIONS;
@@ -197,7 +198,23 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
   const [assessmentProgress, setAssessmentProgress] = useState(0);
   const [examStartTime] = useState<number>(Date.now());
   const [mockExamAchChecked, setMockExamAchChecked] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+  const [aiFeedbackLoading, setAiFeedbackLoading] = useState(false);
+  const [history, setHistory] = useState<{ id: string; total_score: number; grade: string; component_scores: { componentNumber: number; score: number; points: number }[]; ai_feedback: string | null; duration_seconds: number; total_xp: number; created_at: string }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const hasSavedRef = useRef(false);
+
+  // ---- Fetch mock exam history on mount ----
+  useEffect(() => {
+    fetch("/api/mock-exam/history")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.results) setHistory(data.results);
+      })
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, []);
 
   // ---- Save progress for each component to persist XP ----
   const saveAllProgress = useCallback(async (results: ComponentResult[]) => {
@@ -438,7 +455,9 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
     }
   }, [rawDataList, currentComponentIndex, runAllAssessments]);
 
-  // ---- Check mock exam achievements when results phase begins ----
+  // ---- Check mock exam achievements, save result & fetch AI feedback ----
+  const savedExamIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (examPhase === "results" && !mockExamAchChecked) {
       setMockExamAchChecked(true);
@@ -450,8 +469,80 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
           }
         })
         .catch(() => {});
+
+      const weightedTotal = componentResults.reduce((sum, cr) => {
+        const config = COMPONENTS.find((c) => c.number === cr.componentNumber);
+        return sum + cr.score * (config?.weight ?? 0);
+      }, 0);
+      const grade = getPSCGrade(weightedTotal).grade;
+      const totalXP = componentResults.reduce((sum, cr) => sum + cr.xpEarned, 0);
+      const totalDuration = Math.round((Date.now() - examStartTime) / 1000);
+      const componentScores = componentResults.map((cr) => {
+        const config = COMPONENTS.find((c) => c.number === cr.componentNumber);
+        return { componentNumber: cr.componentNumber, score: cr.score, points: Math.round((cr.score * (config?.weight ?? 0)) * 10) / 10 };
+      });
+
+      // Save mock exam result to DB
+      fetchWithRetry("/api/mock-exam/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          totalScore: Math.round(weightedTotal * 10) / 10,
+          grade,
+          componentScores,
+          durationSeconds: totalDuration,
+          totalXp: totalXP,
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.id) savedExamIdRef.current = data.id;
+        })
+        .catch(() => {});
+
+      // Fetch AI feedback
+      setAiFeedbackLoading(true);
+      fetchWithRetry("/api/ai/mock-exam-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          componentResults: componentResults.map((cr) => ({
+            componentNumber: cr.componentNumber,
+            score: cr.score,
+            wordScores: cr.wordScores?.slice(0, 20)?.map((w) => ({ word: w.word, score: w.score })),
+            quizResults: cr.quizResults?.map((q) => ({ question: q.question.prompt, isCorrect: q.isCorrect })),
+            sentenceScores: cr.sentenceScores?.slice(0, 10),
+            c5Detail: cr.c5Detail ? {
+              totalScore: cr.c5Detail.totalScore,
+              pronunciation: { score: cr.c5Detail.pronunciation.score, notes: cr.c5Detail.pronunciation.notes },
+              vocabGrammar: { score: cr.c5Detail.vocabGrammar.score, notes: cr.c5Detail.vocabGrammar.notes },
+              fluency: { score: cr.c5Detail.fluency.score, notes: cr.c5Detail.fluency.notes },
+              transcript: cr.c5Detail.transcript.slice(0, 500),
+            } : undefined,
+          })),
+          totalScore: Math.round(weightedTotal * 10) / 10,
+          grade,
+        }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.feedback) {
+            setAiFeedback(data.feedback);
+            // Patch feedback into saved result
+            if (savedExamIdRef.current) {
+              fetch("/api/mock-exam/save", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: savedExamIdRef.current, aiFeedback: data.feedback }),
+              }).catch(() => {});
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setAiFeedbackLoading(false));
     }
-  }, [examPhase, mockExamAchChecked, showAchievementToasts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examPhase, mockExamAchChecked, showAchievementToasts, componentResults]);
 
   // ---- Start Screen ----
   if (examPhase === "start") {
@@ -459,6 +550,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
     const totalMinutes = Math.ceil(totalTime / 60);
 
     return (
+      <>
       <Card>
         <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
           <div className="text-center space-y-2">
@@ -505,6 +597,75 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
           </div>
         </CardContent>
       </Card>
+
+      {/* Past Exam History */}
+      {historyLoading ? (
+        <Card>
+          <CardContent className="pt-4 text-center text-sm text-muted-foreground">
+            Loading history...
+          </CardContent>
+        </Card>
+      ) : history.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 sm:pt-6 space-y-3">
+            <h3 className="font-pixel text-xs text-primary">Past Exams</h3>
+            <div className="space-y-2">
+              {history.map((exam) => {
+                const date = new Date(exam.created_at);
+                const isExpanded = expandedHistoryId === exam.id;
+                const mins = Math.floor(exam.duration_seconds / 60);
+                const secs = exam.duration_seconds % 60;
+                return (
+                  <div key={exam.id} className="rounded-lg border overflow-hidden">
+                    <button
+                      onClick={() => setExpandedHistoryId(isExpanded ? null : exam.id)}
+                      className="w-full flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="text-left">
+                        <p className="text-sm font-medium">
+                          {date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          <span className="text-muted-foreground font-normal ml-2">
+                            {date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">{mins}m {secs}s &middot; +{exam.total_xp} XP</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold">{Math.round(exam.total_score * 10) / 10}</span>
+                        <Badge variant={exam.total_score >= 80 ? "default" : exam.total_score >= 60 ? "secondary" : "destructive"}>
+                          {exam.grade}
+                        </Badge>
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t px-3 pb-3 pt-2 space-y-2">
+                        {exam.component_scores.map((cs) => {
+                          const config = COMPONENTS.find((c) => c.number === cs.componentNumber);
+                          return (
+                            <div key={cs.componentNumber} className="flex justify-between text-sm">
+                              <span>C{cs.componentNumber}: {config?.name}</span>
+                              <span className={cs.score >= 90 ? "text-green-600" : cs.score >= 60 ? "text-yellow-600" : "text-red-600"}>
+                                {cs.points}/{config?.points} pts
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {exam.ai_feedback && (
+                          <div className="mt-2 pt-2 border-t">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">AI Feedback</p>
+                            <p className="text-xs leading-relaxed whitespace-pre-line">{exam.ai_feedback}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      </>
     );
   }
 
@@ -580,51 +741,51 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
     const totalDuration = Math.round((Date.now() - examStartTime) / 1000);
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         {/* Overall results card */}
         <Card>
-          <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
+          <CardContent className="pt-5 sm:pt-8 space-y-5 sm:space-y-8">
             <div className="text-center space-y-2">
-              <h2 className="font-pixel text-sm">Mock Exam Results</h2>
-              <p className="text-muted-foreground">
+              <h2 className="font-pixel text-base sm:text-lg">Mock Exam Results</h2>
+              <p className="text-base text-muted-foreground">
                 Total exam time: {Math.floor(totalDuration / 60)}m {totalDuration % 60}s
               </p>
             </div>
 
             {/* PSC Grade */}
-            <div className="text-center space-y-1 py-4">
-              <p className="text-4xl sm:text-5xl font-bold">{Math.round(weightedTotal * 10) / 10}</p>
-              <p className="text-sm text-muted-foreground">Total Score (out of 100)</p>
-              <div className="mt-2">
+            <div className="text-center space-y-2 py-5">
+              <p className="text-5xl sm:text-7xl font-bold">{Math.round(weightedTotal * 10) / 10}</p>
+              <p className="text-base sm:text-lg text-muted-foreground">Total Score (out of 100)</p>
+              <div className="mt-3">
                 <Badge
                   variant={weightedTotal >= 80 ? "default" : weightedTotal >= 60 ? "secondary" : "destructive"}
-                  className="text-lg px-4 py-1"
+                  className="text-xl sm:text-2xl px-5 py-1.5"
                 >
                   {gradeInfo.grade}
                 </Badge>
-                <p className="text-xs text-muted-foreground mt-1">{gradeInfo.description}</p>
+                <p className="text-sm sm:text-base text-muted-foreground mt-2">{gradeInfo.description}</p>
               </div>
             </div>
 
             {/* Component breakdown — PSC point format */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase">Component Scores</h3>
+            <div className="space-y-3">
+              <h3 className="text-base font-bold text-muted-foreground uppercase">Component Scores</h3>
               {componentResults.map((cr) => {
                 const config = COMPONENTS.find((c) => c.number === cr.componentNumber);
                 const pscPoints = cr.score * (config?.weight ?? 0);
                 const maxPoints = config?.points ?? 0;
                 return (
-                  <div key={cr.componentNumber} className="flex items-center justify-between rounded-lg border p-3">
+                  <div key={cr.componentNumber} className="flex items-center justify-between rounded-lg border p-4">
                     <div>
-                      <p className="font-medium">
+                      <p className="text-base sm:text-lg font-medium">
                         C{cr.componentNumber}: {config?.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {config?.chineseName}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-lg font-bold ${
+                      <p className={`text-xl sm:text-2xl font-bold ${
                         pscPoints >= maxPoints * 0.9 ? "text-green-600" :
                         pscPoints >= maxPoints * 0.6 ? "text-yellow-600" : "text-red-600"
                       }`}>
@@ -637,23 +798,40 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
             </div>
 
             {/* Total XP */}
-            <div className="text-center rounded-lg border bg-muted/50 p-3 sm:p-4">
-              <p className="text-2xl sm:text-3xl font-bold text-yellow-600">+{totalXP} XP</p>
-              <p className="text-base text-muted-foreground">Total XP Earned</p>
+            <div className="text-center rounded-lg border bg-muted/50 p-4 sm:p-6">
+              <p className="text-3xl sm:text-4xl font-bold text-yellow-600">+{totalXP} XP</p>
+              <p className="text-base sm:text-lg text-muted-foreground">Total XP Earned</p>
             </div>
 
             {/* Grade scale reference */}
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase">PSC Grade Scale</h3>
-              <div className="grid grid-cols-2 gap-1 text-xs">
-                <div className="rounded border p-1.5"><span className="font-medium">一级甲等:</span> 97+</div>
-                <div className="rounded border p-1.5"><span className="font-medium">一级乙等:</span> 92-96.9</div>
-                <div className="rounded border p-1.5"><span className="font-medium">二级甲等:</span> 87-91.9</div>
-                <div className="rounded border p-1.5"><span className="font-medium">二级乙等:</span> 80-86.9</div>
-                <div className="rounded border p-1.5"><span className="font-medium">三级甲等:</span> 70-79.9</div>
-                <div className="rounded border p-1.5"><span className="font-medium">三级乙等:</span> 60-69.9</div>
+            <div className="space-y-2">
+              <h3 className="text-base font-bold text-muted-foreground uppercase">PSC Grade Scale</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm sm:text-base">
+                <div className="rounded border p-2.5"><span className="font-medium">一级甲等:</span> 97+</div>
+                <div className="rounded border p-2.5"><span className="font-medium">一级乙等:</span> 92-96.9</div>
+                <div className="rounded border p-2.5"><span className="font-medium">二级甲等:</span> 87-91.9</div>
+                <div className="rounded border p-2.5"><span className="font-medium">二级乙等:</span> 80-86.9</div>
+                <div className="rounded border p-2.5"><span className="font-medium">三级甲等:</span> 70-79.9</div>
+                <div className="rounded border p-2.5"><span className="font-medium">三级乙等:</span> 60-69.9</div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* AI Feedback */}
+        <Card>
+          <CardContent className="pt-5 sm:pt-8 space-y-4">
+            <h3 className="font-pixel text-base sm:text-lg text-primary">AI Coach Feedback</h3>
+            {aiFeedbackLoading ? (
+              <div className="flex items-center gap-3 text-lg text-muted-foreground">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                Analyzing your performance...
+              </div>
+            ) : aiFeedback ? (
+              <div className="text-[1.0625rem] sm:text-lg leading-[1.8] whitespace-pre-line">{aiFeedback}</div>
+            ) : (
+              <p className="text-lg text-muted-foreground">Feedback unavailable.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -663,7 +841,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
         ))}
 
         <div className="flex justify-center pb-8">
-          <Button asChild size="lg">
+          <Button asChild size="lg" className="text-base px-8 py-3">
             <Link href="/dashboard">Back to Dashboard</Link>
           </Button>
         </div>
@@ -736,22 +914,22 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
 
   return (
     <Card>
-      <CardContent className="pt-4 space-y-3">
+      <CardContent className="pt-5 space-y-4">
         <button
           onClick={() => setExpanded(!expanded)}
           className="w-full flex items-center justify-between cursor-pointer"
         >
           <div className="text-left">
-            <p className="font-medium">
+            <p className="text-base sm:text-lg font-medium">
               C{result.componentNumber}: {config?.name}
             </p>
-            <p className="text-xs text-muted-foreground">{config?.chineseName}</p>
+            <p className="text-sm text-muted-foreground">{config?.chineseName}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={result.score >= 90 ? "default" : result.score >= 60 ? "secondary" : "destructive"}>
+            <Badge className="text-base px-3 py-0.5" variant={result.score >= 90 ? "default" : result.score >= 60 ? "secondary" : "destructive"}>
               {Math.round(result.score)}/100
             </Badge>
-            <span className="text-muted-foreground text-sm">{expanded ? "▲" : "▼"}</span>
+            <span className="text-muted-foreground text-base">{expanded ? "▲" : "▼"}</span>
           </div>
         </button>
 
@@ -776,7 +954,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
                           result.componentNumber === 1 ? "text-lg" : "text-base"
                         }`}>{ws.word}</p>
                       </div>
-                      <p className={`text-[10px] font-bold ${
+                      <p className={`text-xs font-bold ${
                         ws.score === null ? "text-muted-foreground" :
                         ws.score >= 90 ? "text-green-600" :
                         ws.score >= 60 ? "text-yellow-600" : "text-red-600"
@@ -813,8 +991,8 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
                       }`}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
-                            <p className="text-sm font-medium">{idx + 1}. {qr.question.prompt}</p>
-                            <p className="text-xs mt-0.5">
+                            <p className="text-base font-medium">{idx + 1}. {qr.question.prompt}</p>
+                            <p className="text-sm mt-1">
                               <span className="text-muted-foreground">Your answer: </span>
                               <span className={qr.isCorrect ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
                                 {qr.selectedIndex >= 0 ? qr.question.options[qr.selectedIndex] : "(no answer)"}
@@ -828,7 +1006,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
                                 </>
                               )}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{qr.question.explanation}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{qr.question.explanation}</p>
                           </div>
                           <span className="text-lg">{qr.isCorrect ? "✓" : "✗"}</span>
                         </div>
@@ -842,7 +1020,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
             {/* C4: Sentence-by-sentence breakdown */}
             {result.sentenceScores && result.sentenceScores.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Sentence-by-sentence breakdown:</p>
+                <p className="text-base font-medium">Sentence-by-sentence breakdown:</p>
                 <div className="max-h-[400px] overflow-y-auto space-y-2">
                   {result.sentenceScores.map((item, index) => (
                     <div
@@ -853,7 +1031,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
                         "border-red-500 bg-red-50 dark:bg-red-950/30"
                       }`}
                     >
-                      <span className="text-sm flex-1 min-w-0 font-chinese leading-relaxed">{item.sentence}</span>
+                      <span className="text-base flex-1 min-w-0 font-chinese leading-relaxed">{item.sentence}</span>
                       <Badge
                         variant={
                           item.score >= 90 ? "default" :
@@ -883,7 +1061,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
                 }`}>
                   {Math.round(result.score)}/100
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">Pronunciation Score</p>
+                <p className="text-base text-muted-foreground mt-1">Pronunciation Score</p>
               </div>
             )}
           </div>
@@ -901,95 +1079,95 @@ function C5DetailCard({ detail }: { detail: NonNullable<ComponentResult["c5Detai
   const [showTranscript, setShowTranscript] = useState(false);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Total PSC score */}
-      <div className="text-center py-2">
-        <p className={`text-2xl sm:text-3xl font-bold ${
+      <div className="text-center py-3">
+        <p className={`text-3xl sm:text-4xl font-bold ${
           detail.totalScore >= 25 ? "text-green-600" :
           detail.totalScore >= 18 ? "text-yellow-600" : "text-red-600"
         }`}>
           {detail.totalScore}/30
         </p>
-        <p className="text-xs text-muted-foreground">PSC C5 Score (命题说话)</p>
+        <p className="text-sm text-muted-foreground">PSC C5 Score (命题说话)</p>
       </div>
 
       {/* Pronunciation */}
-      <div className="rounded-lg border p-2.5 space-y-1">
+      <div className="rounded-lg border p-3.5 space-y-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">语音 Pronunciation</span>
-            <Badge variant="secondary" className="text-xs">{detail.pronunciation.label}</Badge>
+            <span className="text-base font-medium">语音 Pronunciation</span>
+            <Badge variant="secondary">{detail.pronunciation.label}</Badge>
           </div>
-          <span className={`font-bold ${
+          <span className={`text-lg font-bold ${
             detail.pronunciation.score >= 17 ? "text-green-600" :
             detail.pronunciation.score >= 14 ? "text-yellow-600" : "text-red-600"
           }`}>
             {detail.pronunciation.score}/20
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">{detail.pronunciation.notes}</p>
-        <Progress value={(detail.pronunciation.score / 20) * 100} className="h-1.5" />
+        <p className="text-sm text-muted-foreground">{detail.pronunciation.notes}</p>
+        <Progress value={(detail.pronunciation.score / 20) * 100} className="h-2" />
       </div>
 
       {/* Vocab/Grammar */}
-      <div className="rounded-lg border p-2.5 space-y-1">
+      <div className="rounded-lg border p-3.5 space-y-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">词汇语法 Vocab & Grammar</span>
-            <Badge variant="secondary" className="text-xs">{detail.vocabGrammar.label}</Badge>
+            <span className="text-base font-medium">词汇语法 Vocab & Grammar</span>
+            <Badge variant="secondary">{detail.vocabGrammar.label}</Badge>
           </div>
-          <span className={`font-bold ${
+          <span className={`text-lg font-bold ${
             detail.vocabGrammar.score >= 4 ? "text-green-600" :
             detail.vocabGrammar.score >= 3 ? "text-yellow-600" : "text-red-600"
           }`}>
             {detail.vocabGrammar.score}/5
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">{detail.vocabGrammar.notes}</p>
-        <Progress value={(detail.vocabGrammar.score / 5) * 100} className="h-1.5" />
+        <p className="text-sm text-muted-foreground">{detail.vocabGrammar.notes}</p>
+        <Progress value={(detail.vocabGrammar.score / 5) * 100} className="h-2" />
       </div>
 
       {/* Fluency */}
-      <div className="rounded-lg border p-2.5 space-y-1">
+      <div className="rounded-lg border p-3.5 space-y-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">自然流畅 Fluency</span>
-            <Badge variant="secondary" className="text-xs">{detail.fluency.label}</Badge>
+            <span className="text-base font-medium">自然流畅 Fluency</span>
+            <Badge variant="secondary">{detail.fluency.label}</Badge>
           </div>
-          <span className={`font-bold ${
+          <span className={`text-lg font-bold ${
             detail.fluency.score >= 4 ? "text-green-600" :
             detail.fluency.score >= 3 ? "text-yellow-600" : "text-red-600"
           }`}>
             {detail.fluency.score}/5
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">{detail.fluency.notes}</p>
-        <Progress value={(detail.fluency.score / 5) * 100} className="h-1.5" />
+        <p className="text-sm text-muted-foreground">{detail.fluency.notes}</p>
+        <Progress value={(detail.fluency.score / 5) * 100} className="h-2" />
       </div>
 
       {/* Time penalty */}
       {detail.timePenalty > 0 && (
-        <div className="rounded-lg border border-red-500/50 bg-red-50 dark:bg-red-950/20 p-2.5">
+        <div className="rounded-lg border border-red-500/50 bg-red-50 dark:bg-red-950/20 p-3.5">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-red-600">时间扣分 Time Penalty</span>
-            <span className="font-bold text-red-600">-{detail.timePenalty}</span>
+            <span className="text-base font-medium text-red-600">时间扣分 Time Penalty</span>
+            <span className="text-lg font-bold text-red-600">-{detail.timePenalty}</span>
           </div>
         </div>
       )}
 
       {/* Transcript (collapsible) */}
       {detail.transcript && (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <button
             onClick={() => setShowTranscript(!showTranscript)}
-            className="text-sm font-medium flex items-center gap-1 cursor-pointer"
+            className="text-base font-medium flex items-center gap-1 cursor-pointer"
           >
             Transcript ({detail.errorCount} pronunciation {detail.errorCount === 1 ? "error" : "errors"})
             <span className="text-muted-foreground">{showTranscript ? "▲" : "▼"}</span>
           </button>
           {showTranscript && (
-            <div className="rounded-lg border bg-muted/30 p-2.5 max-h-[200px] overflow-y-auto">
-              <p className="text-sm font-chinese leading-relaxed">{detail.transcript}</p>
+            <div className="rounded-lg border bg-muted/30 p-3.5 max-h-[250px] overflow-y-auto">
+              <p className="text-base font-chinese leading-relaxed">{detail.transcript}</p>
             </div>
           )}
         </div>

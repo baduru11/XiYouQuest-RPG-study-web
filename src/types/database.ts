@@ -196,3 +196,15 @@ export interface LearningCheckpoint {
   predicted_grade: string;
   completed_at: string;
 }
+
+export interface MockExamResult {
+  id: string;
+  user_id: string;
+  total_score: number;
+  grade: string;
+  component_scores: { componentNumber: number; score: number; points: number }[];
+  ai_feedback: string | null;
+  duration_seconds: number;
+  total_xp: number;
+  created_at: string;
+}
