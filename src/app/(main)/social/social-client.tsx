@@ -668,7 +668,7 @@ export function SocialClient({
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-base font-retro text-muted-foreground">Pending...</span>
+                    <span className="text-sm sm:text-base font-retro text-muted-foreground">Pending...</span>
                     <Button
                       size="xs"
                       variant="ghost"
@@ -693,7 +693,7 @@ export function SocialClient({
         </h2>
 
         {friendsLoading && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="pixel-border bg-card/60 p-4 space-y-3">
                 <div className="flex items-center gap-3">
@@ -719,16 +719,16 @@ export function SocialClient({
           </div>
         )}
         {!friendsLoading && !friendsError && friends.length === 0 && (
-          <div className="pixel-border bg-card/60 p-8 text-center">
+          <div className="pixel-border bg-card/60 p-4 sm:p-8 text-center">
             <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-lg font-retro text-muted-foreground">
+            <p className="text-sm sm:text-lg font-retro text-muted-foreground">
               No friends yet &mdash; search above or share your friend code!
             </p>
           </div>
         )}
 
         {!friendsLoading && !friendsError && friends.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {friends.map((friend) => (
               <FriendCard
                 key={friend.friendship_id}
@@ -764,8 +764,8 @@ export function SocialClient({
         )}
 
         {!feedLoading && activityFeed.length === 0 && (
-          <div className="pixel-border bg-card/60 p-6 text-center">
-            <p className="text-base font-retro text-muted-foreground">
+          <div className="pixel-border bg-card/60 p-4 sm:p-6 text-center">
+            <p className="text-sm sm:text-base font-retro text-muted-foreground">
               No recent activity &mdash; add friends to see their achievements!
             </p>
           </div>
@@ -791,14 +791,14 @@ export function SocialClient({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-lg font-retro text-foreground truncate">
+                  <p className="text-sm sm:text-lg font-retro text-foreground truncate">
                     <span className="font-bold">
                       {entry.is_self ? "You" : entry.display_name}
                     </span>{" "}
                     unlocked {entry.achievement_emoji}{" "}
                     <span className="font-bold">{entry.achievement_name}</span>
                   </p>
-                  <p className="text-base font-retro text-muted-foreground">
+                  <p className="text-xs sm:text-base font-retro text-muted-foreground">
                     {timeAgo(entry.unlocked_at)}
                   </p>
                 </div>
@@ -882,7 +882,7 @@ function FriendCard({
   const sortedComponents = Object.keys(COMPONENT_LABELS).sort();
 
   return (
-    <div className="pixel-border bg-card/60 p-4 space-y-3">
+    <div className="pixel-border bg-card/60 p-3 sm:p-4 space-y-3 overflow-hidden">
       {/* Avatar + Name + Level */}
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
@@ -898,33 +898,33 @@ function FriendCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-lg font-retro font-bold text-foreground truncate">
+          <p className="text-sm sm:text-lg font-retro font-bold text-foreground truncate">
             {friend.display_name}
           </p>
-          <span className="text-sm font-retro text-amber-700 bg-amber-100 px-1.5 py-0.5">
+          <span className="text-xs sm:text-sm font-retro text-amber-700 bg-amber-100 px-1.5 py-0.5">
             Lv.{friend.current_level}
           </span>
         </div>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 gap-2 text-base font-retro">
+      <div className="grid grid-cols-2 gap-2 text-xs sm:text-base font-retro">
         {/* XP with comparison */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-muted-foreground">XP:</span>
-          <span className="font-bold text-foreground">{friend.total_xp.toLocaleString()}</span>
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+          <span className="text-muted-foreground shrink-0">XP:</span>
+          <span className="font-bold text-foreground truncate">{friend.total_xp.toLocaleString()}</span>
           {selfStats && xpDiff !== 0 && (
             xpDiff > 0 ? (
-              <ArrowUp className="h-3.5 w-3.5 text-pixel-green" />
+              <ArrowUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-pixel-green shrink-0" />
             ) : (
-              <ArrowDown className="h-3.5 w-3.5 text-pixel-red" />
+              <ArrowDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-pixel-red shrink-0" />
             )
           )}
         </div>
 
         {/* Streak */}
-        <div className="flex items-center gap-1.5">
-          <Flame className="h-3.5 w-3.5 text-pixel-gold" />
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <Flame className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-pixel-gold shrink-0" />
           <span className="text-foreground font-bold">{friend.login_streak}</span>
           <span className="text-muted-foreground">streak</span>
         </div>
@@ -932,26 +932,26 @@ function FriendCard({
 
       {/* Character */}
       {friend.selected_character && (
-        <p className="text-base font-retro text-muted-foreground">
+        <p className="text-sm sm:text-base font-retro text-muted-foreground truncate">
           Companion: <span className="text-foreground font-bold">{friend.selected_character.name}</span>
         </p>
       )}
 
       {/* Average Component Scores */}
-      <div className="space-y-1.5">
-        <p className="text-sm font-retro text-muted-foreground">Avg Scores</p>
+      <div className="space-y-1.5 min-w-0">
+        <p className="text-xs sm:text-sm font-retro text-muted-foreground">Avg Scores</p>
         {sortedComponents.map((comp, i) => {
           const score = friend.avg_scores[comp] ?? 0;
           return (
-            <div key={comp} className="flex items-center gap-2">
-              <span className="text-sm font-retro text-muted-foreground w-6">
+            <div key={comp} className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-xs sm:text-sm font-retro text-muted-foreground w-5 sm:w-6 shrink-0">
                 {COMPONENT_LABELS[comp]}
               </span>
               <Progress
                 value={score}
                 className={SCORE_BAR_CLASSES[i]}
               />
-              <span className="text-sm font-retro text-foreground w-8 text-right">
+              <span className="text-xs sm:text-sm font-retro text-foreground w-7 sm:w-8 text-right shrink-0">
                 {score > 0 ? `${score}%` : "-"}
               </span>
             </div>
@@ -960,13 +960,13 @@ function FriendCard({
       </div>
 
       {/* Sessions */}
-      <p className="text-base font-retro text-muted-foreground">
+      <p className="text-sm sm:text-base font-retro text-muted-foreground">
         Sessions: <span className="text-foreground font-bold">{friend.total_sessions}</span>
       </p>
 
       {/* Achievements */}
-      <p className="text-base font-retro text-muted-foreground flex items-center gap-1.5">
-        <Trophy className="h-3.5 w-3.5 text-primary" />
+      <p className="text-sm sm:text-base font-retro text-muted-foreground flex items-center gap-1.5">
+        <Trophy className="h-3.5 w-3.5 text-primary shrink-0" />
         Achievements: <span className="text-foreground font-bold">{friend.achievement_count}/{TOTAL_ACHIEVEMENTS}</span>
       </p>
 

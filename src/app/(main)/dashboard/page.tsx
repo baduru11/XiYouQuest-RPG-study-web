@@ -8,7 +8,7 @@ export default async function DashboardPage() {
 
   const userId = user!.id;
 
-  const [{ data: profile }, { data: selectedCharacter }, { count: pendingCount }] =
+  const [{ data: profile }, { data: selectedCharacter }] =
     await Promise.all([
       supabase.from("profiles").select("display_name, total_xp, login_streak").eq("id", userId).single(),
       supabase
@@ -17,11 +17,6 @@ export default async function DashboardPage() {
         .eq("user_id", userId)
         .eq("is_selected", true)
         .single(),
-      supabase
-        .from("friendships")
-        .select("*", { count: "exact", head: true })
-        .eq("addressee_id", userId)
-        .eq("status", "pending"),
     ]);
 
   const charName = selectedCharacter?.characters?.name ?? null;
@@ -34,8 +29,6 @@ export default async function DashboardPage() {
       loginStreak={profile?.login_streak ?? 0}
       charName={charName}
       charImage={charImage}
-      pendingCount={pendingCount ?? 0}
-      musicSrc="/audio/main-theme.mp3"
     />
   );
 }

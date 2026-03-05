@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   Swords,
   BookOpen,
   ClipboardCheck,
-  Trophy,
-  Users,
-  UserCircle,
   ArrowRight,
   Volume2,
   VolumeX,
@@ -18,7 +15,6 @@ import {
   Github,
   MessageCircle,
   GraduationCap,
-  History,
 } from "lucide-react";
 import { getUserLevel } from "@/lib/gamification/xp";
 import { useAudioSettings } from "@/components/shared/audio-settings";
@@ -39,32 +35,14 @@ const MENU_ITEMS = [
   {
     href: "/learning-path",
     icon: GraduationCap,
-    label: "Learning Path",
+    label: "AI Learning Path",
     description: "Personalized PSC study plan with adaptive curriculum",
-  },
-  {
-    href: "/leaderboard",
-    icon: Trophy,
-    label: "Leaderboard",
-    description: "See how you rank",
-  },
-  {
-    href: "/characters",
-    icon: Users,
-    label: "Characters",
-    description: "Gallery, unlocks, and affection",
   },
   {
     href: "/companion-chat",
     icon: MessageCircle,
-    label: "Companion Chat",
+    label: "AI Companion Chat",
     description: "Chat with companions in Journey to the West scenarios",
-  },
-  {
-    href: "/practice-history",
-    icon: History,
-    label: "Practice History",
-    description: "View your past sessions, trends, and AI insights",
   },
 ];
 
@@ -74,8 +52,6 @@ interface DashboardClientProps {
   loginStreak: number;
   charName: string | null;
   charImage: string | null;
-  pendingCount: number;
-  musicSrc: string;
 }
 
 export function DashboardClient({
@@ -84,51 +60,23 @@ export function DashboardClient({
   loginStreak,
   charName,
   charImage,
-  pendingCount,
-  musicSrc,
 }: DashboardClientProps) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { effectiveMusicVolume, muted, toggleMuted } = useAudioSettings();
-  const [entered, setEntered] = useState(() => {
-    if (typeof window !== "undefined") {
-      return !!sessionStorage.getItem("dashboard_entered");
-    }
-    return false;
-  });
+  const { muted, toggleMuted } = useAudioSettings();
+  const [manualEnter, setManualEnter] = useState(false);
+  const sessionEntered = useSyncExternalStore(
+    () => () => {},
+    () => !!sessionStorage.getItem("dashboard_entered"),
+    () => false
+  );
+  const entered = manualEnter || sessionEntered;
 
   const { level, name: levelName, xpToNext } = getUserLevel(totalXP);
   const nextLevelXP = xpToNext ? totalXP + xpToNext : totalXP;
   const progress = xpToNext ? (totalXP / nextLevelXP) * 100 : 100;
 
-  // Create audio
-  useEffect(() => {
-    const audio = new Audio(musicSrc);
-    audio.loop = true;
-    audio.volume = effectiveMusicVolume * 0.3;
-    audio.preload = "auto";
-    audioRef.current = audio;
-
-    if (sessionStorage.getItem("dashboard_entered")) {
-      audio.play().catch(() => {});
-    }
-
-    return () => {
-      audio.pause();
-      audio.src = "";
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicSrc]);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-    audioRef.current.volume = effectiveMusicVolume * 0.3;
-    audioRef.current.muted = muted;
-  }, [effectiveMusicVolume, muted]);
-
   const handleStart = () => {
-    audioRef.current?.play().catch(() => {});
-    setEntered(true);
     sessionStorage.setItem("dashboard_entered", "1");
+    setManualEnter(true);
   };
 
   // ── Splash screen — covers entire viewport including navbar ──
@@ -143,7 +91,7 @@ export function DashboardClient({
           backgroundAttachment: "fixed",
         }}
       >
-        <div className="pixel-border chinese-corner bg-card w-full max-w-md p-8 animate-fade-in-up mx-4">
+        <div className="pixel-border chinese-corner bg-card w-full max-w-md p-5 sm:p-8 animate-fade-in-up mx-4">
           <div className="flex flex-col items-center gap-5">
             {/* Character */}
             <div className="relative h-36 w-36 pixel-border bg-muted overflow-hidden">
@@ -236,7 +184,7 @@ export function DashboardClient({
           alt="XiYouQuest"
           width={581}
           height={194}
-          className="object-contain"
+          className="object-contain max-w-full"
         />
       </div>
 
@@ -276,49 +224,12 @@ export function DashboardClient({
         </Link>
       ))}
 
-      {/* Achievements */}
-      <Link href="/achievements" className="group block">
-        <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all">
-          <div className="flex items-center gap-4">
-            <Trophy className="h-6 w-6 text-primary shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="font-pixel text-sm text-foreground leading-relaxed">
-                Achievements
-              </p>
-              <p className="text-sm text-muted-foreground">Track your milestones</p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        </div>
-      </Link>
-
-      {/* Profile / Social row */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/profile" className="group block">
-          <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all flex items-center gap-4">
-            <UserCircle className="h-6 w-6 text-primary shrink-0" />
-            <p className="font-pixel text-sm text-foreground leading-relaxed">Profile</p>
-          </div>
-        </Link>
-        <Link href="/social" className="group block">
-          <div className="pixel-border chinese-corner bg-card px-4 py-2 hover:pixel-border-primary transition-all flex items-center gap-4">
-            <Users className="h-6 w-6 text-primary shrink-0" />
-            <p className="font-pixel text-sm text-foreground leading-relaxed">Social</p>
-            {pendingCount > 0 && (
-              <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 text-xs font-bold bg-primary text-primary-foreground pixel-border">
-                {pendingCount}
-              </span>
-            )}
-          </div>
-        </Link>
-      </div>
-
       {/* GitHub link */}
       <a
         href="https://github.com/baduru11/XiYouQuest-RPG-study-web"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 pixel-border bg-card/90 px-4 py-2 font-pixel text-sm text-foreground hover:text-primary hover:bg-card transition-colors"
+        className="fixed bottom-14 sm:bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 pixel-border bg-card/90 px-4 py-2 font-pixel text-sm text-foreground hover:text-primary hover:bg-card transition-colors"
       >
         <Github className="h-5 w-5" />
         View on GitHub

@@ -4,6 +4,9 @@ import { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHand
 import { Button } from "@/components/ui/button";
 import { MicOff } from "lucide-react";
 import { encodeWAV } from "@/lib/audio-utils";
+import { useBGM } from "@/components/shared/bgm-provider";
+
+const BAR_COUNT = 32;
 
 export interface AudioRecorderHandle {
   stop: () => void;
@@ -16,6 +19,7 @@ interface AudioRecorderProps {
 }
 
 export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>(function AudioRecorder({ onRecordingComplete, onRecordingStart, disabled }, ref) {
+  const { setLearningActive } = useBGM();
   const [isRecording, setIsRecording] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [volume, setVolume] = useState(0);
@@ -33,23 +37,40 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
     stop: () => stopRecordingRef.current(),
   }));
 
-  // Animate volume meter from analyser
+  const barsRef = useRef<number[]>(new Array(BAR_COUNT).fill(0));
+
+  // Animate waveform bars from analyser frequency data
   const updateVolumeRef = useRef<() => void>(() => {});
   const updateVolume = useCallback(() => {
     if (!analyserRef.current) return;
-    const data = new Uint8Array(analyserRef.current.fftSize);
-    analyserRef.current.getByteTimeDomainData(data);
 
-    // Compute RMS
-    let sum = 0;
-    for (let i = 0; i < data.length; i++) {
-      const v = (data[i] - 128) / 128;
-      sum += v * v;
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const freqData = new Uint8Array(bufferLength);
+    analyserRef.current.getByteFrequencyData(freqData);
+
+    // Map frequency bins to bars with smoothing
+    const binsPerBar = Math.floor(bufferLength / BAR_COUNT);
+    const newBars = new Array(BAR_COUNT);
+    for (let i = 0; i < BAR_COUNT; i++) {
+      let sum = 0;
+      for (let j = 0; j < binsPerBar; j++) {
+        sum += freqData[i * binsPerBar + j];
+      }
+      const avg = sum / binsPerBar / 255; // normalize to 0-1
+      // Smooth with previous frame for less jittery animation
+      newBars[i] = barsRef.current[i] * 0.3 + avg * 0.7;
     }
-    const rms = Math.sqrt(sum / data.length);
-    // Scale to 0-1 range (typical speech RMS is 0.02-0.3)
-    const normalized = Math.min(1, rms / 0.3);
-    setVolume(normalized);
+    barsRef.current = newBars;
+
+    // RMS for overall volume level
+    const timeData = new Uint8Array(analyserRef.current.fftSize);
+    analyserRef.current.getByteTimeDomainData(timeData);
+    let rmsSum = 0;
+    for (let i = 0; i < timeData.length; i++) {
+      const v = (timeData[i] - 128) / 128;
+      rmsSum += v * v;
+    }
+    setVolume(Math.min(1, Math.sqrt(rmsSum / timeData.length) / 0.3));
 
     animFrameRef.current = requestAnimationFrame(() => updateVolumeRef.current());
   }, []);
@@ -67,7 +88,9 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       analyserRef.current = null;
+      setLearningActive(false);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -111,6 +134,7 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
 
       setIsRecording(true);
       setPermissionDenied(false);
+      setLearningActive(true);
       onRecordingStart?.();
 
       // Start volume animation
@@ -118,7 +142,7 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
     } catch {
       setPermissionDenied(true);
     }
-  }, [updateVolume, onRecordingStart]);
+  }, [updateVolume, onRecordingStart, setLearningActive]);
 
   const stopRecording = useCallback(() => {
     if (!isRecording) return;
@@ -151,7 +175,8 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
     onRecordingComplete(wavBlob);
 
     setIsRecording(false);
-  }, [isRecording, onRecordingComplete]);
+    setLearningActive(false);
+  }, [isRecording, onRecordingComplete, setLearningActive]);
 
   // Keep ref in sync so useImperativeHandle always calls the latest stopRecording
   useEffect(() => {
@@ -189,7 +214,7 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
         disabled={disabled}
         variant={isRecording ? "destructive" : "default"}
         size="lg"
-        className="min-w-[140px]"
+        className="min-w-[120px] sm:min-w-[140px]"
         aria-label={isRecording ? "Stop recording" : "Start recording"}
       >
         {isRecording && (
@@ -201,34 +226,44 @@ export const AudioRecorder = forwardRef<AudioRecorderHandle, AudioRecorderProps>
         {isRecording ? "Stop Recording" : "Start Recording"}
       </Button>
 
-      {/* Volume visualization */}
+      {/* Audio waveform visualizer */}
       {isRecording && (
-        <div className="flex items-end gap-[3px] h-8">
-          {Array.from({ length: 20 }).map((_, i) => {
-            // Create a bar pattern that responds to volume
-            const barActive = (i + 1) / 20 <= volume;
-            const barColor = barActive
-              ? volume > 0.7
-                ? "#ef4444"
-                : volume > 0.4
-                ? "#eab308"
-                : "#22c55e"
-              : "#d1d5db";
-            return (
-              <div
-                key={i}
-                className="w-1.5 rounded-full transition-all duration-75"
-                style={{
-                  height: barActive
-                    ? `${Math.max(4, volume * 32)}px`
-                    : "4px",
-                  backgroundColor: barColor,
-                }}
-              />
-            );
-          })}
-        </div>
+        <AudioVisualizer bars={barsRef.current} volume={volume} />
       )}
     </div>
   );
 });
+
+function AudioVisualizer({ bars, volume }: { bars: number[]; volume: number }) {
+  const maxH = 40;
+  const minH = 3;
+
+  return (
+    <div className="flex items-center justify-center gap-[2px] h-12 w-full max-w-full">
+      {bars.map((val, i) => {
+        // Mirror effect: bars grow from center outward
+        const centerDist = Math.abs(i - BAR_COUNT / 2) / (BAR_COUNT / 2);
+        const scale = 1 - centerDist * 0.3;
+        const h = Math.max(minH, val * scale * maxH);
+
+        const intensity = val * scale;
+        const color =
+          intensity > 0.6
+            ? "bg-red-500"
+            : intensity > 0.3
+            ? "bg-yellow-500"
+            : volume > 0.05
+            ? "bg-green-500"
+            : "bg-muted-foreground/30";
+
+        return (
+          <div
+            key={i}
+            className={`w-[5px] rounded-full transition-[height] duration-75 ${color}`}
+            style={{ height: `${h}px` }}
+          />
+        );
+      })}
+    </div>
+  );
+}

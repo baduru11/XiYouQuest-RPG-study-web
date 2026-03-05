@@ -121,7 +121,7 @@ export function AchievementsClient({
       </div>
 
       {/* Achievement Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
         {filtered.map((achievement) => {
           const unlocked = unlockedMap.has(achievement.id);
           const unlockedAt = unlockedMap.get(achievement.id);
@@ -137,7 +137,7 @@ export function AchievementsClient({
               }}
             >
               <div className="flex items-start gap-3">
-                <span className="text-4xl leading-none shrink-0">{achievement.emoji}</span>
+                <span className="text-3xl sm:text-4xl leading-none shrink-0">{achievement.emoji}</span>
                 <div className="min-w-0">
                   <p className="font-retro text-xl font-bold text-foreground leading-tight truncate">
                     {achievement.name}

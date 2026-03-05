@@ -63,7 +63,7 @@ export default async function CharactersPage() {
         <span className="text-sm">Unlock companions by progressing through the <span className="font-bold text-foreground">Main Quest</span></span>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-2 sm:gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(characters || []).map((character: {
           id: string;
           name: string;
@@ -134,7 +134,7 @@ export default async function CharactersPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {/* Character image */}
-                <div className="relative h-48 w-full pixel-border bg-muted overflow-hidden">
+                <div className="relative h-36 sm:h-48 w-full pixel-border bg-muted overflow-hidden">
                   {(character.image_url || CHARACTER_IMAGES[character.name]) ? (
                     <Image
                       src={character.image_url || CHARACTER_IMAGES[character.name]}

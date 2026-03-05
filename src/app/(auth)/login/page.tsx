@@ -13,7 +13,7 @@ export default function LoginPage() {
           width={450}
           height={150}
           priority
-          className="drop-shadow-lg"
+          className="drop-shadow-lg max-w-full h-auto"
         />
         <LoginForm />
       </div>
@@ -26,7 +26,7 @@ export default function LoginPage() {
         <Github className="h-5 w-5" />
         View on GitHub
       </a>
-      <div className="absolute right-4 top-4 md:right-8 md:top-auto md:bottom-8 w-96 pixel-border bg-card/80 p-6 space-y-4">
+      <div className="absolute right-4 top-4 md:right-8 md:top-auto md:bottom-8 w-[calc(100%-2rem)] max-w-96 pixel-border bg-card/80 p-4 sm:p-6 space-y-3 sm:space-y-4">
         <div className="flex items-center gap-2">
           <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
           <span className="font-pixel text-base text-amber-500">In Development</span>
@@ -34,10 +34,10 @@ export default function LoginPage() {
         <div className="chinese-divider" />
         <div className="space-y-2">
           <p className="font-pixel text-sm text-muted-foreground">Test Account</p>
-          <p className="font-retro text-2xl text-foreground">
+          <p className="font-retro text-base sm:text-2xl text-foreground">
             Email: <span className="text-primary">admin@email.com</span>
           </p>
-          <p className="font-retro text-2xl text-foreground">
+          <p className="font-retro text-base sm:text-2xl text-foreground">
             Password: <span className="text-primary">admin1234</span>
           </p>
         </div>

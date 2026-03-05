@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -149,7 +149,19 @@ export function PracticeHistoryClient({
 }: PracticeHistoryClientProps) {
   const [filter, setFilter] = useState("all");
   const [insights, setInsights] = useState<string | null>(null);
+  const [insightsDate, setInsightsDate] = useState<string | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
+
+  // Load cached insights after hydration
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("ai_insights");
+      if (cached) {
+        const { text, date } = JSON.parse(cached);
+        if (text) { setInsights(text); setInsightsDate(date ?? null); }
+      }
+    } catch { /* ignore */ }
+  }, []);
   const [visibleCount, setVisibleCount] = useState(20);
   const [hiddenLines, setHiddenLines] = useState<Set<string>>(new Set());
   const [trendPeriod, setTrendPeriod] = useState<"7d" | "30d" | "90d" | "all">("30d");
@@ -336,7 +348,10 @@ export function PracticeHistoryClient({
       });
       if (res.ok) {
         const data = await res.json();
+        const now = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
         setInsights(data.insights);
+        setInsightsDate(now);
+        try { localStorage.setItem("ai_insights", JSON.stringify({ text: data.insights, date: now })); } catch { /* ignore */ }
       }
     } catch {
       setInsights(
@@ -351,7 +366,7 @@ export function PracticeHistoryClient({
 
   if (sessions.length === 0) {
     return (
-      <div className="pixel-border bg-card p-8 text-center space-y-4">
+      <div className="pixel-border bg-card p-4 sm:p-8 text-center space-y-4">
         <BookOpen className="h-10 w-10 mx-auto text-muted-foreground" />
         <h2 className="font-pixel text-sm text-primary">No Practice Yet</h2>
         <p className="text-muted-foreground">
@@ -368,31 +383,31 @@ export function PracticeHistoryClient({
   return (
     <div className="space-y-6">
       {/* Section 1: Summary Stats — compact inline */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:grid-cols-6">
         <div className="pixel-border bg-card px-2 py-1.5">
           <p className="text-sm text-muted-foreground leading-none">Sessions</p>
-          <p className="text-2xl font-bold leading-snug">{stats.totalSessions}</p>
+          <p className="text-xl sm:text-2xl font-bold leading-snug">{stats.totalSessions}</p>
         </div>
         <div className="pixel-border bg-card px-2 py-1.5">
           <p className="text-sm text-muted-foreground leading-none">Avg Score</p>
-          <p className={`text-2xl font-bold leading-snug ${scoreColor(stats.avgScore)}`}>{stats.avgScore}</p>
+          <p className={`text-xl sm:text-2xl font-bold leading-snug ${scoreColor(stats.avgScore)}`}>{stats.avgScore}</p>
         </div>
         <div className="pixel-border bg-card px-2 py-1.5">
           <p className="text-sm text-muted-foreground leading-none">Time</p>
-          <p className="text-2xl font-bold leading-snug">{formatDuration(stats.totalTimeSeconds)}</p>
+          <p className="text-xl sm:text-2xl font-bold leading-snug truncate">{formatDuration(stats.totalTimeSeconds)}</p>
         </div>
         <div className="pixel-border bg-card px-2 py-1.5">
           <p className="text-sm text-muted-foreground leading-none">Total XP</p>
-          <p className="text-2xl font-bold leading-snug text-yellow-600">{stats.totalXP}</p>
+          <p className="text-xl sm:text-2xl font-bold leading-snug text-yellow-600">{stats.totalXP}</p>
         </div>
         <div className="pixel-border bg-card px-2 py-1.5">
           <p className="text-sm text-muted-foreground leading-none">Streak</p>
-          <p className="text-2xl font-bold leading-snug">{stats.bestStreak}</p>
+          <p className="text-xl sm:text-2xl font-bold leading-snug">{stats.bestStreak}</p>
         </div>
         {stats.bestComponent && (
           <div className="pixel-border bg-card px-2 py-1.5">
             <p className="text-sm text-muted-foreground leading-none">Best</p>
-            <p className="text-2xl font-bold leading-snug text-green-600">{COMPONENT_NAMES[stats.bestComponent.component]} {stats.bestComponent.accuracy}%</p>
+            <p className="text-xl sm:text-2xl font-bold leading-snug text-green-600">{COMPONENT_NAMES[stats.bestComponent.component]} {stats.bestComponent.accuracy}%</p>
           </div>
         )}
       </div>
@@ -405,6 +420,9 @@ export function PracticeHistoryClient({
               <h2 className="font-pixel text-base text-primary flex items-center gap-2">
                 <Sparkles className="h-5 w-5" />
                 AI Study Insights
+                {insightsDate && (
+                  <span className="font-sans text-xs text-muted-foreground font-normal">· {insightsDate}</span>
+                )}
               </h2>
               <Button
                 size="sm"
@@ -421,7 +439,7 @@ export function PracticeHistoryClient({
                 )}
               </Button>
             </div>
-            <div className="bg-accent/30 rounded-lg px-3 py-2 text-base whitespace-pre-wrap leading-relaxed">
+            <div className="bg-accent/30 rounded-lg px-3 py-2 text-base sm:text-lg whitespace-pre-wrap leading-relaxed">
               {insights}
             </div>
           </>
@@ -429,7 +447,7 @@ export function PracticeHistoryClient({
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <Sparkles className="h-6 w-6 text-primary shrink-0" />
-              <span className="text-2xl font-medium text-muted-foreground">
+              <span className="text-sm sm:text-2xl font-medium text-muted-foreground truncate">
                 Generate AI-powered study insights
               </span>
             </div>
@@ -465,9 +483,9 @@ export function PracticeHistoryClient({
       </div>
 
       {/* Section 3: Charts row */}
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 min-w-0">
         {/* Score Trend Chart */}
-        <div className="pixel-border bg-card px-3 py-2 space-y-2 flex flex-col justify-center">
+        <div className="pixel-border bg-card px-3 py-2 space-y-2 flex flex-col justify-center overflow-hidden min-w-0">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-pixel text-base text-primary shrink-0">Score Trend</h2>
             <div className="flex items-center gap-1">
@@ -595,7 +613,7 @@ export function PracticeHistoryClient({
         </div>
 
         {/* Component Breakdown */}
-        <div className="pixel-border bg-card px-3 py-2 space-y-2">
+        <div className="pixel-border bg-card px-3 py-2 space-y-2 overflow-hidden min-w-0">
           <h2 className="font-pixel text-base text-primary">
             Component Breakdown
           </h2>
@@ -609,7 +627,7 @@ export function PracticeHistoryClient({
                     <PolarGrid stroke="hsl(var(--border))" />
                     <PolarAngleAxis
                       dataKey="component"
-                      tick={{ fontSize: 13, fontWeight: 600 }}
+                      tick={{ fontSize: 11, fontWeight: 600 }}
                     />
                     <PolarRadiusAxis
                       domain={[0, 100]}
@@ -640,7 +658,7 @@ export function PracticeHistoryClient({
                     return (
                       <div key={comp} className="flex items-center gap-2">
                         <span
-                          className="text-base font-bold w-8 shrink-0"
+                          className="text-sm sm:text-base font-bold w-7 sm:w-8 shrink-0"
                           style={{ color: COMPONENT_COLORS[comp] }}
                         >
                           {COMPONENT_NAMES[comp]}
@@ -655,7 +673,7 @@ export function PracticeHistoryClient({
                             }}
                           />
                         </div>
-                        <span className="text-base font-bold tabular-nums w-12 text-right">
+                        <span className="text-sm sm:text-base font-bold tabular-nums w-10 sm:w-12 text-right shrink-0">
                           {accuracy > 0 ? `${accuracy}%` : "—"}
                         </span>
                       </div>
@@ -698,14 +716,14 @@ export function PracticeHistoryClient({
             {filteredSessions.slice(0, visibleCount).map((session, i) => (
               <div
                 key={session.id}
-                className={`pixel-border p-3 sm:p-4 flex items-center justify-between gap-3 ${
+                className={`pixel-border p-3 sm:p-4 flex items-center justify-between gap-2 sm:gap-3 overflow-hidden ${
                   i % 2 === 0 ? "bg-card/60" : "bg-accent/20"
                 }`}
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
                   <Badge
                     variant="outline"
-                    className="text-base px-2 py-0.5"
+                    className="text-sm sm:text-base px-1.5 sm:px-2 py-0.5 shrink-0"
                     style={{
                       borderColor: COMPONENT_COLORS[session.component],
                       color: COMPONENT_COLORS[session.component],
@@ -718,12 +736,12 @@ export function PracticeHistoryClient({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 sm:gap-5">
-                  <span className={`text-lg font-bold tabular-nums ${scoreColor(session.score)}`}>
+                <div className="flex items-center gap-1.5 sm:gap-5 shrink min-w-0">
+                  <span className={`text-sm sm:text-lg font-bold tabular-nums shrink-0 ${scoreColor(session.score)}`}>
                     {session.score}
                   </span>
-                  <span className="text-yellow-600 text-base font-medium">
-                    +{session.xp_earned} XP
+                  <span className="text-yellow-600 text-xs sm:text-base font-medium shrink-0">
+                    +{session.xp_earned}
                   </span>
                   {session.duration_seconds > 0 && (
                     <span className="text-muted-foreground text-base hidden md:inline">
@@ -737,7 +755,7 @@ export function PracticeHistoryClient({
                         : session.characters.name}
                     </span>
                   )}
-                  <span className="text-muted-foreground text-base">
+                  <span className="text-muted-foreground text-xs sm:text-base shrink-0">
                     {timeAgo(session.created_at)}
                   </span>
                 </div>

@@ -208,7 +208,7 @@ export default function ProfileClient({
                     <Input
                       value={nameValue}
                       onChange={(e) => setNameValue(e.target.value)}
-                      className="h-8 w-48 font-retro text-xl"
+                      className="h-8 w-full sm:w-48 font-retro text-xl"
                       maxLength={15}
                       autoFocus
                       onKeyDown={(e) => {
@@ -257,7 +257,7 @@ export default function ProfileClient({
                 <span className="font-pixel text-sm text-pixel-gold">
                   Lv.{level} {levelName}
                 </span>
-                <span className="text-xl text-muted-foreground">
+                <span className="text-sm sm:text-xl text-muted-foreground">
                   Member since {formatDate(profile?.created_at ?? null)}
                 </span>
               </div>
@@ -387,7 +387,7 @@ export default function ProfileClient({
                   <p className="text-xl text-muted-foreground mb-2">
                     {componentNames[comp]?.name}
                   </p>
-                  <div className="grid grid-cols-2 gap-y-1 text-lg">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 text-lg">
                     <div className="flex items-center gap-1.5">
                       <Target className="h-5 w-5 text-muted-foreground" />
                       <span>{p?.questions_attempted ?? 0} attempted</span>
@@ -523,7 +523,7 @@ export default function ProfileClient({
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
                   placeholder="Type DELETE to confirm"
-                  className="h-8 w-48 font-retro text-base"
+                  className="h-8 w-full sm:w-48 font-retro text-base"
                   autoFocus
                 />
                 <div className="flex gap-2">

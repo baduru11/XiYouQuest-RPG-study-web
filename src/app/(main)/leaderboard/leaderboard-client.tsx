@@ -119,7 +119,7 @@ export function LeaderboardClient({ userId }: LeaderboardClientProps) {
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex items-center gap-2 px-4 py-2 font-retro text-lg cursor-pointer transition-colors ${
+            className={`flex items-center gap-2 px-4 py-2 font-retro text-sm sm:text-lg cursor-pointer transition-colors ${
               tab === key
                 ? "pixel-border-primary bg-primary/10 text-primary font-bold"
                 : "pixel-border bg-card/60 text-muted-foreground hover:bg-accent/30"
@@ -228,7 +228,7 @@ function Podium({
   }
 
   return (
-    <div className="flex items-end justify-center gap-4 py-4">
+    <div className="flex items-end justify-center gap-2 sm:gap-4 py-4">
       {orderedEntries.map((entry, index) => {
         if (!entry) return null;
 
@@ -251,13 +251,13 @@ function PodiumCard({
   place: 1 | 2 | 3;
   tab: Tab;
 }) {
-  const widthClass = place === 1 ? "w-36" : "w-32";
+  const widthClass = place === 1 ? "w-28 sm:w-36" : "w-24 sm:w-32";
   const minHeightClass =
     place === 1
-      ? "min-h-[13rem]"
+      ? "min-h-[10.5rem] sm:min-h-[13rem]"
       : place === 2
-        ? "min-h-[10.5rem]"
-        : "min-h-[9.5rem]";
+        ? "min-h-[8rem] sm:min-h-[10.5rem]"
+        : "min-h-[7rem] sm:min-h-[9.5rem]";
   const bgClass =
     place === 1
       ? "bg-amber-100/80"
@@ -403,7 +403,7 @@ function RankRow({
 
 function EmptyState({ scope }: { scope: Scope }) {
   return (
-    <div className="pixel-border bg-card/60 p-8 text-center">
+    <div className="pixel-border bg-card/60 p-4 sm:p-8 text-center">
       <Trophy className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
       <p className="font-retro text-lg text-muted-foreground">
         {scope === "global"
