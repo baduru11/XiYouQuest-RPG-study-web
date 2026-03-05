@@ -101,7 +101,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
               alt="XiYouQuest"
               width={120}
               height={40}
-              className="object-contain"
+              className="object-contain w-[80px] sm:w-[120px]"
             />
           </Link>
         </div>
@@ -130,7 +130,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
         </div>
 
         {/* Right: XP + Hamburger (mobile) + Profile */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4">
           <XPBar totalXP={totalXP} />
 
           {/* Mobile hamburger */}

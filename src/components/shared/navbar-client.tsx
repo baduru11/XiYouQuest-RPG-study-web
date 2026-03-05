@@ -35,7 +35,7 @@ function NavbarSkeleton() {
           <div className="h-5 w-56 bg-muted rounded" />
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
-          <div className="h-5 w-28 border-2 border-border bg-muted" />
+          <div className="h-4 sm:h-5 w-14 sm:w-20 md:w-28 border-2 border-border bg-muted" />
         </div>
       </div>
     </nav>

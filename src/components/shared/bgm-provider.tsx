@@ -40,7 +40,9 @@ function getTrackForPathname(pathname: string): string | null {
   if (pathname === "/dashboard") return "/audio/main-theme.mp3";
   if (pathname === "/main-quest" || pathname === "/companion-chat")
     return "/audio/MainQuestStageSelection_companionChat.mp3";
-  // Stop music during all practice/study sessions
+  if (pathname === "/practice")
+    return "/audio/PracticeSession_MockExam_LearningPath.mp3";
+  // No music during active practice/study sessions
   if (
     pathname.startsWith("/component-") ||
     pathname === "/mock-exam" ||
@@ -128,8 +130,9 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const duckedMultiplier = duckedRef.current ? 0.1 : 1;
-    const fullVolume = targetVolumeRef.current * duckedMultiplier;
+    // Don't start playback if learning is active (music paused)
+    if (duckedRef.current) return;
+    const fullVolume = targetVolumeRef.current;
 
     if (!audioRef.current) {
       // First time — create audio
@@ -177,19 +180,25 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
 
   // Respond to volume changes from settings
   useEffect(() => {
-    if (!audioRef.current || !currentSrcRef.current) return;
-    const duckedMultiplier = duckedRef.current ? 0.1 : 1;
-    audioRef.current.volume = targetVolumeRef.current * duckedMultiplier;
+    if (!audioRef.current || !currentSrcRef.current || duckedRef.current) return;
+    audioRef.current.volume = targetVolumeRef.current;
   }, [effectiveMusicVolume]);
 
-  // Duck/unduck
+  // Pause/resume when learning is active
   const applyDuck = useCallback(
     (ducked: boolean) => {
       duckedRef.current = ducked;
       if (!audioRef.current || !currentSrcRef.current) return;
       const audio = audioRef.current;
-      const to = targetVolumeRef.current * (ducked ? 0.1 : 1);
-      rampVolume(audio, audio.volume, to, DUCK_DURATION);
+      if (ducked) {
+        rampVolume(audio, audio.volume, 0, DUCK_DURATION, () => {
+          audio.pause();
+        });
+      } else {
+        audio.play().then(() => {
+          rampVolume(audio, 0, targetVolumeRef.current, DUCK_DURATION);
+        }).catch(() => {});
+      }
     },
     [rampVolume]
   );

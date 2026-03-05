@@ -229,10 +229,10 @@ export function DashboardClient({
         href="https://github.com/baduru11/XiYouQuest-RPG-study-web"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-14 sm:bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 pixel-border bg-card/90 px-4 py-2 font-pixel text-sm text-foreground hover:text-primary hover:bg-card transition-colors"
+        className="fixed bottom-4 left-4 z-50 flex items-center gap-1.5 sm:gap-2 pixel-border bg-card/90 px-2.5 py-1.5 sm:px-4 sm:py-2 font-pixel text-xs sm:text-sm text-foreground hover:text-primary hover:bg-card transition-colors"
       >
-        <Github className="h-5 w-5" />
-        View on GitHub
+        <Github className="h-4 w-4 sm:h-5 sm:w-5" />
+        <span className="hidden sm:inline">View on</span> GitHub
       </a>
     </div>
   );

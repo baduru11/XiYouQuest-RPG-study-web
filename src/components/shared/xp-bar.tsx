@@ -16,17 +16,17 @@ export function XPBar({ totalXP }: { totalXP: number }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className="flex items-center gap-2 cursor-default">
-          <span className="font-pixel text-sm text-primary pixel-glow">
+        <div className="flex items-center gap-1 sm:gap-2 cursor-default">
+          <span className="font-pixel text-[10px] sm:text-sm text-primary pixel-glow">
             Lv.{level}
           </span>
-          <div className="relative h-5 w-20 sm:w-28 border-2 border-border bg-muted overflow-hidden">
+          <div className="relative h-4 sm:h-5 w-14 sm:w-20 md:w-28 border-2 border-border bg-muted overflow-hidden">
             <div
               className="h-full bg-pixel-green transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
-            <span className="absolute inset-0 flex items-center justify-center font-pixel text-[10px] text-foreground">
-              {totalXP} XP
+            <span className="absolute inset-0 flex items-center justify-center font-pixel text-[8px] sm:text-[10px] text-foreground">
+              {totalXP}<span className="hidden sm:inline"> XP</span>
             </span>
           </div>
           <span className="hidden sm:inline font-pixel text-xs text-muted-foreground">
