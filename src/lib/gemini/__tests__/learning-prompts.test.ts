@@ -2,89 +2,93 @@ import { describe, it, expect, vi } from "vitest";
 
 // Mock env before importing the module
 vi.mock("@/lib/env", () => ({
-  OPENROUTER_API_KEY: "test-api-key",
+  OPENROUTER_API_KEY: () => "test-api-key",
 }));
 
 import {
-  buildCurriculumPrompt,
+  buildPhasePrompt,
   buildCheckpointFeedbackPrompt,
-  type CurriculumInput,
-  type CheckpointFeedbackInput,
+  calculateTotalCheckpoints,
+  type PhaseGenerationInput,
 } from "../client";
 
-describe("buildCurriculumPrompt", () => {
-  const baseInput: CurriculumInput = {
-    scores: { tone_accuracy: 65, reading_fluency: 80, vocabulary: 45 },
+describe("calculateTotalCheckpoints", () => {
+  it("returns 2 for short periods (≤21 days)", () => {
+    expect(calculateTotalCheckpoints(7)).toBe(2);
+    expect(calculateTotalCheckpoints(14)).toBe(2);
+    expect(calculateTotalCheckpoints(21)).toBe(2);
+  });
+
+  it("returns 3 for longer periods (>21 days)", () => {
+    expect(calculateTotalCheckpoints(22)).toBe(3);
+    expect(calculateTotalCheckpoints(60)).toBe(3);
+    expect(calculateTotalCheckpoints(100)).toBe(3);
+  });
+});
+
+describe("buildPhasePrompt", () => {
+  const baseInput: PhaseGenerationInput = {
+    scores: { c1: 65, c2: 80, c3: 45 },
     daysRemaining: 14,
-    availableQuestionIds: {
-      1: ["q1a", "q1b", "q1c"],
-      2: ["q2a", "q2b"],
-      3: ["q3a", "q3b", "q3c", "q3d"],
+    phaseNumber: 1,
+    totalCheckpoints: 2,
+    availableQuestionCounts: {
+      1: 100,
+      2: 50,
+      3: 30,
     },
-    recentQuestionTexts: ["你好", "再见"],
   };
 
   it("includes all component scores in the prompt", () => {
-    const prompt = buildCurriculumPrompt(baseInput);
-    expect(prompt).toContain("tone_accuracy: 65/100");
-    expect(prompt).toContain("reading_fluency: 80/100");
-    expect(prompt).toContain("vocabulary: 45/100");
+    const prompt = buildPhasePrompt(baseInput);
+    expect(prompt).toContain("c1: 65/100");
+    expect(prompt).toContain("c2: 80/100");
+    expect(prompt).toContain("c3: 45/100");
   });
 
-  it("includes days remaining in the prompt", () => {
-    const prompt = buildCurriculumPrompt(baseInput);
+  it("includes days remaining", () => {
+    const prompt = buildPhasePrompt(baseInput);
     expect(prompt).toContain("Days remaining until test: 14");
   });
 
-  it("includes recommended node count (~1.5 * daysRemaining)", () => {
-    const prompt = buildCurriculumPrompt(baseInput);
-    // 14 * 1.5 = 21
-    expect(prompt).toContain("Recommended total nodes: 21");
+  it("identifies initial phase context", () => {
+    const prompt = buildPhasePrompt(baseInput);
+    expect(prompt).toContain("INITIAL phase");
+    expect(prompt).toContain("identify weaknesses");
   });
 
-  it("clamps recommended nodes to minimum of 8", () => {
-    const prompt = buildCurriculumPrompt({ ...baseInput, daysRemaining: 2 });
-    // 2 * 1.5 = 3, clamped to 8
-    expect(prompt).toContain("Recommended total nodes: 8");
+  it("identifies subsequent phase context", () => {
+    const prompt = buildPhasePrompt({ ...baseInput, phaseNumber: 2 });
+    expect(prompt).toContain("Phase 2 of 3");
+    expect(prompt).toContain("mid-assessment");
   });
 
-  it("clamps recommended nodes to maximum of 60", () => {
-    const prompt = buildCurriculumPrompt({ ...baseInput, daysRemaining: 100 });
-    // 100 * 1.5 = 150, clamped to 60
-    expect(prompt).toContain("Recommended total nodes: 60");
+  it("includes checkpoint count info", () => {
+    const prompt = buildPhasePrompt(baseInput);
+    expect(prompt).toContain("2 mid-assessments planned");
   });
 
-  it("includes available question counts per component", () => {
-    const prompt = buildCurriculumPrompt(baseInput);
-    expect(prompt).toContain("Component 1");
-    expect(prompt).toContain("3 questions available");
-    expect(prompt).toContain("Component 2");
-    expect(prompt).toContain("2 questions available");
-    expect(prompt).toContain("Component 3");
-    expect(prompt).toContain("4 questions available");
+  it("includes available question counts", () => {
+    const prompt = buildPhasePrompt(baseInput);
+    expect(prompt).toContain("100 questions available");
+    expect(prompt).toContain("50 questions available");
+    expect(prompt).toContain("30 questions available");
   });
 
-  it("includes recent question texts to avoid", () => {
-    const prompt = buildCurriculumPrompt(baseInput);
-    expect(prompt).toContain("你好");
-    expect(prompt).toContain("再见");
-    expect(prompt).toContain("avoid repeating");
+  it("asks for analysis and nodes", () => {
+    const prompt = buildPhasePrompt(baseInput);
+    expect(prompt).toContain('"analysis"');
+    expect(prompt).toContain('"nodes"');
   });
 
-  it("omits recent section when no recent questions", () => {
-    const prompt = buildCurriculumPrompt({
+  it("includes previous phase history when provided", () => {
+    const prompt = buildPhasePrompt({
       ...baseInput,
-      recentQuestionTexts: [],
-    });
-    expect(prompt).not.toContain("avoid repeating");
-  });
-
-  it("includes previous checkpoint history when provided", () => {
-    const prompt = buildCurriculumPrompt({
-      ...baseInput,
-      previousCheckpoints: [
+      phaseNumber: 2,
+      previousPhases: [
         {
-          scores: { tone_accuracy: 70, vocabulary: 50 },
+          phaseNumber: 1,
+          scores: { c1: 70, c3: 50 },
           completedNodes: [
             { component: 1, focusArea: "tone_pairs" },
             { component: 3, focusArea: "fluency" },
@@ -92,17 +96,22 @@ describe("buildCurriculumPrompt", () => {
         },
       ],
     });
-    expect(prompt).toContain("Previous checkpoint history");
+    expect(prompt).toContain("Previous phase history");
     expect(prompt).toContain("Phase 1");
-    expect(prompt).toContain("tone_accuracy: 70");
+    expect(prompt).toContain("c1: 70");
     expect(prompt).toContain("C1/tone_pairs");
+  });
+
+  it("omits history when no previous phases", () => {
+    const prompt = buildPhasePrompt(baseInput);
+    expect(prompt).not.toContain("Previous phase history");
   });
 });
 
 describe("buildCheckpointFeedbackPrompt", () => {
-  const baseInput: CheckpointFeedbackInput = {
-    originalScores: { tone_accuracy: 65, reading_fluency: 80, vocabulary: 45 },
-    currentScores: { tone_accuracy: 75, reading_fluency: 82, vocabulary: 50 },
+  const baseInput = {
+    originalScores: { c1: 65, c2: 80, c3: 45 },
+    currentScores: { c1: 75, c2: 82, c3: 50 },
     completedNodes: [
       { component: 1, focusArea: "tone_pairs" },
       { component: 3, focusArea: "passage_fluency" },
@@ -112,20 +121,16 @@ describe("buildCheckpointFeedbackPrompt", () => {
 
   it("includes score deltas with correct signs", () => {
     const prompt = buildCheckpointFeedbackPrompt(baseInput);
-    // tone_accuracy: 65 → 75 (+10)
     expect(prompt).toContain("65 → 75 (+10)");
-    // reading_fluency: 80 → 82 (+2)
     expect(prompt).toContain("80 → 82 (+2)");
-    // vocabulary: 45 → 50 (+5)
     expect(prompt).toContain("45 → 50 (+5)");
   });
 
   it("handles negative deltas", () => {
     const prompt = buildCheckpointFeedbackPrompt({
       ...baseInput,
-      currentScores: { ...baseInput.currentScores, reading_fluency: 75 },
+      currentScores: { ...baseInput.currentScores, c2: 75 },
     });
-    // reading_fluency: 80 → 75 (-5)
     expect(prompt).toContain("80 → 75 (-5)");
   });
 
@@ -145,7 +150,7 @@ describe("buildCheckpointFeedbackPrompt", () => {
   it("handles zero delta", () => {
     const prompt = buildCheckpointFeedbackPrompt({
       ...baseInput,
-      currentScores: { ...baseInput.currentScores, reading_fluency: 80 },
+      currentScores: { ...baseInput.currentScores, c2: 80 },
     });
     expect(prompt).toContain("80 → 80 (+0)");
   });
@@ -156,7 +161,6 @@ describe("buildCheckpointFeedbackPrompt", () => {
       currentScores: { ...baseInput.currentScores, new_metric: 60 },
       originalScores: { ...baseInput.originalScores },
     });
-    // new_metric: 0 → 60 (+60) since original defaults to 0
     expect(prompt).toContain("0 → 60 (+60)");
   });
 });

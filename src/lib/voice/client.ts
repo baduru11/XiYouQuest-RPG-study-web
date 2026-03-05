@@ -24,11 +24,11 @@ function buildIflytekWsUrl(): string {
 
   const signatureOrigin = `host: ${IFLYTEK_HOST}\ndate: ${date}\nGET ${IFLYTEK_PATH} HTTP/1.1`;
 
-  const hmac = crypto.createHmac("sha256", IFLYTEK_API_SECRET);
+  const hmac = crypto.createHmac("sha256", IFLYTEK_API_SECRET());
   hmac.update(signatureOrigin);
   const signature = hmac.digest("base64");
 
-  const authorizationOrigin = `api_key="${IFLYTEK_API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+  const authorizationOrigin = `api_key="${IFLYTEK_API_KEY()}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
   const authorization = Buffer.from(authorizationOrigin).toString("base64");
 
   return `wss://${IFLYTEK_HOST}${IFLYTEK_PATH}?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${IFLYTEK_HOST}`;
@@ -83,7 +83,7 @@ async function synthesizeIflytek(params: {
 
     ws.on("open", () => {
       ws.send(JSON.stringify({
-        common: { app_id: IFLYTEK_APP_ID },
+        common: { app_id: IFLYTEK_APP_ID() },
         business: {
           vcn,
           aue: "raw",

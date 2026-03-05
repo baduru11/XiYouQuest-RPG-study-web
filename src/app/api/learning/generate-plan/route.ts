@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generateCurriculum } from "@/lib/gemini/client";
-import type { CurriculumInput } from "@/lib/gemini/client";
+import { generatePhase, calculateTotalCheckpoints } from "@/lib/gemini/client";
+import type { PhaseGenerationInput } from "@/lib/gemini/client";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 import { generatePlanSchema } from "@/lib/validations";
 
@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
       )
     );
 
+    const totalCheckpoints = calculateTotalCheckpoints(daysRemaining);
+
     // Abandon any existing active plan
     await supabase
       .from("learning_plans")
@@ -42,33 +44,39 @@ export async function POST(request: NextRequest) {
 
     // Fetch available question IDs per component (1-7)
     const availableQuestionIds: Record<number, string[]> = {};
+    const availableQuestionCounts: Record<number, number> = {};
     const componentPromises = [1, 2, 3, 4, 5, 6, 7].map(async (comp) => {
       const { data } = await supabase
         .from("question_banks")
         .select("id")
         .eq("component", comp);
-      availableQuestionIds[comp] = (data ?? []).map((row) => row.id);
+      const ids = (data ?? []).map((row) => row.id);
+      availableQuestionIds[comp] = ids;
+      availableQuestionCounts[comp] = ids.length;
     });
     await Promise.all(componentPromises);
 
-    // Generate curriculum via LLM
-    const curriculumInput: CurriculumInput = {
+    // Generate Phase 1 only — AI analyzes weaknesses and creates first batch
+    const phaseInput: PhaseGenerationInput = {
       scores,
       daysRemaining,
-      availableQuestionIds,
-      recentQuestionTexts: [],
+      phaseNumber: 1,
+      totalCheckpoints,
+      availableQuestionCounts,
     };
 
-    const curriculum = await generateCurriculum(curriculumInput);
+    const phase = await generatePhase(phaseInput);
 
-    // Insert learning plan
+    // Insert learning plan with AI analysis
     const { data: plan, error: planError } = await supabase
       .from("learning_plans")
       .insert({
         user_id: user.id,
         exam_date: examDate,
         initial_scores: scores,
-        total_nodes: curriculum.totalNodes,
+        total_nodes: phase.nodes.length,
+        total_checkpoints: totalCheckpoints,
+        ai_analysis: phase.analysis,
       })
       .select()
       .single();
@@ -81,37 +89,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build node rows from curriculum phases
-    let sortOrder = 0;
-    const nodeRows = curriculum.phases.flatMap((phase) =>
-      phase.nodes.map((node) => {
-        sortOrder++;
-        // Determine node_type: check for nodeType field on raw data, else default
-        const rawNode = node as unknown as Record<string, unknown>;
-        let nodeType: "drill" | "mock_exam" = "drill";
-        if (
-          rawNode.nodeType === "mock_exam" ||
-          rawNode.node_type === "mock_exam"
-        ) {
-          nodeType = "mock_exam";
-        } else if (node.component === 5) {
-          // C5 prompted speaking defaults to mock_exam
-          nodeType = "mock_exam";
-        }
+    // Assign random question IDs from the bank server-side
+    const usedIds: Record<number, Set<string>> = {};
+    for (let c = 1; c <= 7; c++) usedIds[c] = new Set();
 
-        return {
-          plan_id: plan.id,
-          phase: phase.phase,
-          component: node.component,
-          node_type: nodeType,
-          focus_area: node.focusArea,
-          question_ids: node.questionIds,
-          sort_order: sortOrder,
-          status: phase.phase === 1 ? "available" : "locked",
-          xp_earned: 0,
-        };
-      })
-    );
+    function pickRandomIds(component: number, count: number): string[] {
+      const pool = availableQuestionIds[component] ?? [];
+      const unused = pool.filter((id) => !usedIds[component].has(id));
+      const shuffled = [...unused].sort(() => Math.random() - 0.5);
+      const picked = shuffled.slice(0, count);
+      picked.forEach((id) => usedIds[component].add(id));
+      return picked;
+    }
+
+    let sortOrder = 0;
+    const nodeRows = phase.nodes.map((node) => {
+      sortOrder++;
+      let nodeType: "drill" | "mock_exam" = "drill";
+      if (node.component === 5) nodeType = "mock_exam";
+
+      const questionIds = pickRandomIds(node.component, node.questionCount);
+
+      return {
+        plan_id: plan.id,
+        phase: 1,
+        component: node.component,
+        node_type: nodeType,
+        focus_area: node.focusArea,
+        question_ids: questionIds,
+        sort_order: sortOrder,
+        status: "available" as const,
+        xp_earned: 0,
+        estimated_minutes: node.estimatedMinutes,
+      };
+    });
 
     const { error: nodesError } = await supabase
       .from("learning_nodes")
@@ -139,8 +150,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       planId: plan.id,
-      phases: curriculum.phases,
-      totalNodes: curriculum.totalNodes,
+      analysis: phase.analysis,
+      totalCheckpoints,
       nodes: nodes ?? [],
       newAchievements,
     });

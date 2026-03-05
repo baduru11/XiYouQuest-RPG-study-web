@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Upload to Supabase Storage using service role for storage operations
     const adminClient = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_SERVICE_ROLE_KEY(),
     );
 
     const fileName = `${user.id}/${sessionId}/${Date.now()}.png`;

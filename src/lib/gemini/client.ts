@@ -1,7 +1,7 @@
 import { OPENROUTER_API_KEY } from "@/lib/env";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "deepseek/deepseek-v3.2";
+const MODEL = "google/gemini-2.5-flash";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
@@ -15,12 +15,19 @@ function getFallbackMessage(isCorrect: boolean): string {
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   retries: number = MAX_RETRIES,
+  fallbackFn?: () => Promise<T>,
 ): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      if (attempt === retries) throw error;
+      if (attempt === retries) {
+        if (fallbackFn) {
+          console.log(`[AI] Primary model exhausted ${retries + 1} attempts, trying fallback...`);
+          return await fallbackFn();
+        }
+        throw error;
+      }
       const delay = BASE_DELAY_MS * Math.pow(2, attempt) + Math.random() * 1000;
       console.warn(`[AI] Attempt ${attempt + 1} failed, retrying in ${Math.round(delay)}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -29,24 +36,33 @@ async function retryWithBackoff<T>(
   throw new Error("Unreachable");
 }
 
+const FETCH_TIMEOUT_MS = 120_000;
+
 async function chatCompletion(
   systemPrompt: string,
   userPrompt: string,
+  options?: { temperature?: number; model?: string },
 ): Promise<string> {
+  const model = options?.model ?? MODEL;
+  const start = Date.now();
   const res = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Authorization": `Bearer ${OPENROUTER_API_KEY()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
+      max_tokens: 4096,
+      temperature: options?.temperature ?? 0.7,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
+  console.log(`[AI] chatCompletion (${model}) responded in ${Date.now() - start}ms, status ${res.status}`);
 
   if (!res.ok) {
     const body = await res.text();
@@ -57,6 +73,67 @@ async function chatCompletion(
   const text = data.choices?.[0]?.message?.content;
   if (!text) throw new Error("Empty response from OpenRouter");
   return text;
+}
+
+// ---------- Quick Completion (lightweight, no retries) ----------
+
+const FALLBACK_MODEL = "minimax/minimax-m2.5";
+
+async function fetchCompletion(model: string, systemPrompt: string, userPrompt: string, timeoutMs: number, maxTokens = 400): Promise<string> {
+  const start = Date.now();
+  const res = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      temperature: 0.5,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`${model} error ${res.status}: ${body}`);
+  }
+
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content ?? "";
+  console.log(`[AI] quickCompletion (${model}) ok in ${Date.now() - start}ms, length=${content.length}`);
+  if (!content) console.warn(`[AI] quickCompletion empty response:`, JSON.stringify(data).slice(0, 500));
+  return content;
+}
+
+export async function quickCompletion(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 400,
+): Promise<string> {
+  // Try primary model twice with 2min timeout, then fallback model once
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await fetchCompletion(MODEL, systemPrompt, userPrompt, 120_000, maxTokens);
+    } catch (err) {
+      const cause = err instanceof Error && 'cause' in err ? ` cause=${(err.cause as Error)?.message ?? err.cause}` : '';
+      console.warn(`[AI] quickCompletion attempt ${attempt + 1} failed: ${err instanceof Error ? err.message : err}${cause}`);
+    }
+  }
+  // Final attempt with fallback model
+  try {
+    console.log(`[AI] quickCompletion falling back to ${FALLBACK_MODEL}`);
+    return await fetchCompletion(FALLBACK_MODEL, systemPrompt, userPrompt, 120_000, maxTokens);
+  } catch (err) {
+    const cause = err instanceof Error && 'cause' in err ? ` cause=${(err.cause as Error)?.message ?? err.cause}` : '';
+    console.warn(`[AI] quickCompletion fallback failed: ${err instanceof Error ? err.message : err}${cause}`);
+  }
+  throw new Error("All quickCompletion attempts failed");
 }
 
 // ---------- C5 Speaking Analysis ----------
@@ -130,8 +207,10 @@ ${params.transcript}
 Analyze this speaking sample according to the PSC C5 rubric.`;
 
   try {
-    const text = await retryWithBackoff(() =>
-      chatCompletion(C5_ANALYSIS_SYSTEM_PROMPT, userPrompt)
+    const text = await retryWithBackoff(
+      () => chatCompletion(C5_ANALYSIS_SYSTEM_PROMPT, userPrompt),
+      MAX_RETRIES,
+      () => chatCompletion(C5_ANALYSIS_SYSTEM_PROMPT, userPrompt, { model: FALLBACK_MODEL }),
     );
     return parseC5Analysis(text);
   } catch (error) {
@@ -179,8 +258,10 @@ ${params.isCorrect ? "They got it right!" : "They got it wrong."}
 Respond in character with feedback.`;
 
   try {
-    return await retryWithBackoff(() =>
-      chatCompletion(systemPrompt, userPrompt)
+    return await retryWithBackoff(
+      () => chatCompletion(systemPrompt, userPrompt),
+      MAX_RETRIES,
+      () => chatCompletion(systemPrompt, userPrompt, { model: FALLBACK_MODEL }),
     );
   } catch (error) {
     console.error("[AI] Feedback generation failed after retries:", error);
@@ -220,19 +301,22 @@ export function parseChatResponse(text: string): ChatResponseEnvelope {
 
 export async function chatConversation(
   messages: ChatTurnMessage[],
+  opts?: { maxTokens?: number },
 ): Promise<ChatResponseEnvelope> {
   try {
-    const raw = await retryWithBackoff(async () => {
+    const doFetch = async (model: string) => {
       const res = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+          "Authorization": `Bearer ${OPENROUTER_API_KEY()}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: MODEL,
+          model,
+          max_tokens: opts?.maxTokens ?? 4096,
           messages,
         }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
 
       if (!res.ok) {
@@ -244,7 +328,12 @@ export async function chatConversation(
       const text = data.choices?.[0]?.message?.content;
       if (!text) throw new Error("Empty response from OpenRouter");
       return text;
-    });
+    };
+    const raw = await retryWithBackoff(
+      () => doFetch(MODEL),
+      MAX_RETRIES,
+      () => doFetch(FALLBACK_MODEL),
+    );
     return parseChatResponse(raw);
   } catch (error) {
     console.error("[AI] Chat conversation failed after retries:", error);
@@ -254,12 +343,14 @@ export async function chatConversation(
 
 // ---------- Personalized Learning Path ----------
 
-export interface CurriculumInput {
+export interface PhaseGenerationInput {
   scores: Record<string, number>;
   daysRemaining: number;
-  availableQuestionIds: Record<number, string[]>;
-  recentQuestionTexts: string[];
-  previousCheckpoints?: {
+  phaseNumber: number;
+  totalCheckpoints: number;
+  availableQuestionCounts: Record<number, number>;
+  previousPhases?: {
+    phaseNumber: number;
     scores: Record<string, number>;
     completedNodes: { component: number; focusArea: string }[];
   }[];
@@ -269,26 +360,17 @@ export interface CurriculumNode {
   component: number;
   focusArea: string;
   focusDescription: string;
-  questionIds: string[];
+  questionCount: number;
   estimatedMinutes: number;
 }
 
-export interface CurriculumPhase {
-  phase: number;
+export interface PhaseGenerationOutput {
+  analysis: string;
   nodes: CurriculumNode[];
 }
 
-export interface CurriculumOutput {
-  phases: CurriculumPhase[];
-  totalNodes: number;
-}
-
-export interface CheckpointFeedbackInput {
-  originalScores: Record<string, number>;
-  currentScores: Record<string, number>;
-  completedNodes: { component: number; focusArea: string }[];
-  phaseNumber: number;
-}
+// Legacy aliases for backward compatibility with tests
+export type CurriculumInput = PhaseGenerationInput;
 
 const COMPONENT_LABELS: Record<number, string> = {
   1: "C1 单音节字词 (Single-syllable words)",
@@ -300,73 +382,93 @@ const COMPONENT_LABELS: Record<number, string> = {
   7: "C7 拼音拼读 (Pinyin reading)",
 };
 
-export function buildCurriculumPrompt(input: CurriculumInput): string {
-  const recommendedNodes = Math.min(60, Math.max(8, Math.round(input.daysRemaining * 1.5)));
+/** How many mid-assessment checkpoints based on days remaining */
+export function calculateTotalCheckpoints(daysRemaining: number): number {
+  if (daysRemaining <= 21) return 2;
+  return 3;
+}
+
+export function buildPhasePrompt(input: PhaseGenerationInput): string {
+  const totalPhases = input.totalCheckpoints + 1; // phases = checkpoints + 1 (final phase after last checkpoint)
+  // Scale drills to preparation time: ~2 nodes per day of study, split across phases
+  // Minimum 6 nodes, maximum 20 per phase to keep each phase substantial but manageable
+  const totalNodes = Math.min(60, Math.max(18, Math.round(input.daysRemaining * 2)));
+  const nodesPerPhase = Math.min(20, Math.max(6, Math.round(totalNodes / totalPhases)));
 
   const scoreLines = Object.entries(input.scores)
     .map(([key, val]) => `  - ${key}: ${val}/100`)
     .join("\n");
 
-  const availableLines = Object.entries(input.availableQuestionIds)
-    .map(([comp, ids]) => `  - Component ${comp} (${COMPONENT_LABELS[Number(comp)] ?? `C${comp}`}): ${ids.length} questions available`)
+  const availableLines = Object.entries(input.availableQuestionCounts)
+    .map(([comp, count]) => `  - Component ${comp} (${COMPONENT_LABELS[Number(comp)] ?? `C${comp}`}): ${count} questions available`)
     .join("\n");
 
-  const recentSection = input.recentQuestionTexts.length > 0
-    ? `\nRecently practiced (avoid repeating these):\n${input.recentQuestionTexts.map(t => `  - "${t}"`).join("\n")}`
-    : "";
-
-  const checkpointSection = input.previousCheckpoints && input.previousCheckpoints.length > 0
-    ? `\nPrevious checkpoint history:\n${input.previousCheckpoints.map((cp, i) => {
-        const cpScores = Object.entries(cp.scores).map(([k, v]) => `${k}: ${v}`).join(", ");
-        const cpNodes = cp.completedNodes.map(n => `C${n.component}/${n.focusArea}`).join(", ");
-        return `  Phase ${i + 1}: Scores [${cpScores}], Completed [${cpNodes}]`;
+  const historySection = input.previousPhases && input.previousPhases.length > 0
+    ? `\nPrevious phase history:\n${input.previousPhases.map((pp) => {
+        const ppScores = Object.entries(pp.scores).map(([k, v]) => `${k}: ${v}`).join(", ");
+        const ppNodes = pp.completedNodes.map(n => `C${n.component}/${n.focusArea}`).join(", ");
+        return `  Phase ${pp.phaseNumber}: Scores [${ppScores}], Practiced [${ppNodes}]`;
       }).join("\n")}`
     : "";
 
+  const isFirstPhase = input.phaseNumber === 1;
+  const contextLine = isFirstPhase
+    ? "This is the INITIAL phase. Analyze the student's diagnostic scores to identify weaknesses."
+    : `This is Phase ${input.phaseNumber} of ${totalPhases}. The student just completed a mid-assessment. Analyze score changes and adapt the curriculum.`;
+
   return `You are a PSC (Putonghua Proficiency Test) curriculum designer AI.
 
-Given the student's current diagnostic scores and available question bank, generate a personalized learning curriculum.
+${contextLine}
 
 Student's current scores:
 ${scoreLines}
 
 Days remaining until test: ${input.daysRemaining}
-Recommended total nodes: ${recommendedNodes}
+Phase ${input.phaseNumber} of ${totalPhases} total phases (${input.totalCheckpoints} mid-assessments planned).
+Target nodes for this phase: ${nodesPerPhase}
 
 Available question bank:
 ${availableLines}
-${recentSection}${checkpointSection}
+${historySection}
+
+Generate TWO things:
+1. "analysis": An English-only analysis (3-5 sentences) covering:
+   - Which components are weakest and need the most focus
+   - What this phase's curriculum will target and why
+   - Strategy/advice for the student
+2. "nodes": An array of ${nodesPerPhase} practice nodes for THIS phase only.
 
 RULES:
-1. Create a phased curriculum. Each phase should have 3-6 nodes. A checkpoint will automatically follow each phase.
-2. Prioritize components with the lowest scores — these need the most practice.
-3. Each node must specify: component (1-7), focusArea (short label), focusDescription (1 sentence), questionIds (pick from available), estimatedMinutes (5-15).
-4. Distribute questionIds from the available bank. Each node should have 3-8 questions.
-5. Do NOT repeat questionIds across nodes.
-6. Total nodes across all phases should be approximately ${recommendedNodes}.
-7. Later phases should focus on maintaining strengths and revisiting weaknesses found in earlier phases.
+- Each node: component (1-7), focusArea (short label), focusDescription (1 sentence), questionCount (5-15).
+- Prioritize components with the lowest scores — assign MORE nodes and higher questionCount to weak areas.
+- C1 and C2 (pronunciation) should have the most questions since they need repetitive drilling.
+- Cover ALL 7 components across the phase — don't skip any component entirely.
+- Do NOT exceed available question counts per component.
+- After this phase, the student will take a mid-assessment before the next phase is generated.
 
 Respond with ONLY a valid JSON object (no markdown, no code fences):
 {
-  "phases": [
+  "analysis": "Your weakest areas are C3 and C1. This phase focuses on improving passage reading fluency and tone accuracy...",
+  "nodes": [
     {
-      "phase": 1,
-      "nodes": [
-        {
-          "component": 1,
-          "focusArea": "tone_accuracy",
-          "focusDescription": "Practice first and second tone distinctions",
-          "questionIds": ["id1", "id2", "id3"],
-          "estimatedMinutes": 10
-        }
-      ]
+      "component": 1,
+      "focusArea": "tone_accuracy",
+      "focusDescription": "Practice first and second tone distinctions",
+      "questionCount": 10
     }
-  ],
-  "totalNodes": ${recommendedNodes}
+  ]
 }`;
 }
 
-export function buildCheckpointFeedbackPrompt(input: CheckpointFeedbackInput): string {
+// Keep old name as alias for tests
+export const buildCurriculumPrompt = buildPhasePrompt;
+
+export function buildCheckpointFeedbackPrompt(input: {
+  originalScores: Record<string, number>;
+  currentScores: Record<string, number>;
+  completedNodes: { component: number; focusArea: string }[];
+  phaseNumber: number;
+}): string {
   const deltaLines = Object.keys(input.currentScores).map((key) => {
     const original = input.originalScores[key] ?? 0;
     const current = input.currentScores[key] ?? 0;
@@ -399,54 +501,75 @@ RULES:
 Respond with plain text feedback (no JSON, no markdown).`;
 }
 
-function parseCurriculumOutput(text: string): CurriculumOutput {
+// Seconds per question by component (realistic timing)
+const SECS_PER_Q: Record<number, number> = {
+  1: 5,   // single char pronunciation
+  2: 5,   // multi-syllable words
+  3: 15,  // MCQ reading
+  4: 30,  // passage reading
+  5: 60,  // speaking/topic
+  6: 5,   // Cantonese drills
+  7: 10,  // tongue twisters
+};
+
+function estimateMinutes(component: number, questionCount: number): number {
+  const secs = (SECS_PER_Q[component] ?? 10) * questionCount;
+  return Math.max(1, Math.ceil(secs / 60));
+}
+
+function parsePhaseOutput(text: string): PhaseGenerationOutput {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("No JSON found in curriculum response");
+  if (!jsonMatch) throw new Error("No JSON found in phase response");
 
   const parsed = JSON.parse(jsonMatch[0]);
 
-  if (!Array.isArray(parsed.phases)) {
-    throw new Error("Invalid curriculum format: missing phases array");
-  }
+  const analysis = String(parsed.analysis || "分析生成中... Analysis pending.");
+  const rawNodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
 
-  const phases: CurriculumPhase[] = parsed.phases.map((p: Record<string, unknown>) => ({
-    phase: Number(p.phase),
-    nodes: (p.nodes as Record<string, unknown>[]).map((n: Record<string, unknown>) => ({
-      component: Number(n.component),
-      focusArea: String(n.focusArea || "general"),
-      focusDescription: String(n.focusDescription || ""),
-      questionIds: Array.isArray(n.questionIds) ? n.questionIds.map(String) : [],
-      estimatedMinutes: Number(n.estimatedMinutes) || 10,
-    })),
+  const nodes: CurriculumNode[] = rawNodes.map((n: Record<string, unknown>) => ({
+    component: Math.min(7, Math.max(1, Number(n.component) || 1)),
+    focusArea: String(n.focusArea || "general"),
+    focusDescription: String(n.focusDescription || ""),
+    questionCount: Math.min(15, Math.max(1, Number(n.questionCount) || 8)),
+    estimatedMinutes: estimateMinutes(Math.min(7, Math.max(1, Number(n.component) || 1)), Math.min(15, Math.max(1, Number(n.questionCount) || 8))),
   }));
 
-  const totalNodes = phases.reduce((sum, p) => sum + p.nodes.length, 0);
-
-  return { phases, totalNodes };
+  return { analysis, nodes };
 }
 
-export async function generateCurriculum(input: CurriculumInput): Promise<CurriculumOutput> {
-  const systemPrompt = buildCurriculumPrompt(input);
-  const userPrompt = "Generate the personalized learning curriculum based on the above analysis.";
+export async function generatePhase(input: PhaseGenerationInput): Promise<PhaseGenerationOutput> {
+  const systemPrompt = buildPhasePrompt(input);
+  const userPrompt = "Generate the analysis and curriculum nodes for this phase.";
 
+  console.log(`[AI] Phase ${input.phaseNumber} prompt size: ${systemPrompt.length} chars`);
   try {
-    const text = await retryWithBackoff(() =>
-      chatCompletion(systemPrompt, userPrompt)
+    const text = await retryWithBackoff(
+      () => chatCompletion(systemPrompt, userPrompt, { temperature: 0.7 }),
+      1,
+      () => chatCompletion(systemPrompt, userPrompt, { temperature: 0.7, model: FALLBACK_MODEL }),
     );
-    return parseCurriculumOutput(text);
+    console.log(`[AI] Phase ${input.phaseNumber} response size: ${text.length} chars`);
+    return parsePhaseOutput(text);
   } catch (error) {
-    console.error("[AI] Curriculum generation failed after retries:", error);
+    console.error("[AI] Phase generation failed:", error instanceof Error ? error.message : error);
     throw new Error("AI curriculum generation temporarily unavailable. Please try again.");
   }
 }
 
-export async function generateCheckpointFeedback(input: CheckpointFeedbackInput): Promise<string> {
+export async function generateCheckpointFeedback(input: {
+  originalScores: Record<string, number>;
+  currentScores: Record<string, number>;
+  completedNodes: { component: number; focusArea: string }[];
+  phaseNumber: number;
+}): Promise<string> {
   const systemPrompt = buildCheckpointFeedbackPrompt(input);
   const userPrompt = "Provide checkpoint feedback for this student based on the above data.";
 
   try {
-    return await retryWithBackoff(() =>
-      chatCompletion(systemPrompt, userPrompt)
+    return await retryWithBackoff(
+      () => chatCompletion(systemPrompt, userPrompt),
+      MAX_RETRIES,
+      () => chatCompletion(systemPrompt, userPrompt, { model: FALLBACK_MODEL }),
     );
   } catch (error) {
     console.error("[AI] Checkpoint feedback generation failed after retries:", error);

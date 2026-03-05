@@ -41,10 +41,10 @@ export interface PronunciationAssessmentResult {
 function buildIseWsUrl(): string {
   const date = new Date().toUTCString();
   const signatureOrigin = `host: ${ISE_HOST}\ndate: ${date}\nGET ${ISE_PATH} HTTP/1.1`;
-  const hmac = crypto.createHmac("sha256", IFLYTEK_API_SECRET);
+  const hmac = crypto.createHmac("sha256", IFLYTEK_API_SECRET());
   hmac.update(signatureOrigin);
   const signature = hmac.digest("base64");
-  const authorizationOrigin = `api_key="${IFLYTEK_API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+  const authorizationOrigin = `api_key="${IFLYTEK_API_KEY()}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
   const authorization = Buffer.from(authorizationOrigin).toString("base64");
   return `wss://${ISE_HOST}${ISE_PATH}?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${ISE_HOST}`;
 }
@@ -520,7 +520,7 @@ export async function assessPronunciation(
       // Stage 1: SSB — send parameters + reference text
       ws.send(
         JSON.stringify({
-          common: { app_id: IFLYTEK_APP_ID },
+          common: { app_id: IFLYTEK_APP_ID() },
           business: {
             sub: "ise",
             ent: language.startsWith("en") ? "en_vip" : "cn_vip",

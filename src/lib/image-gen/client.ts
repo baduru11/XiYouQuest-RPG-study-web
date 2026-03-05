@@ -30,7 +30,7 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
     const res = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${OPENROUTER_API_KEY()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

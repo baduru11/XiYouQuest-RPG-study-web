@@ -41,17 +41,22 @@ export const aiFeedbackSchema = z.object({
 // --- AI Insights Schema ---
 
 export const aiInsightsSchema = z.object({
-  progress: z.record(z.string().max(20), z.number().min(0).max(100)).optional(),
+  progress: z.union([
+    z.record(z.string().max(20), z.number().min(0).max(100)),
+    z.array(z.object({
+      component: z.number().int().min(1).max(7),
+    }).passthrough()).max(7),
+  ]).optional(),
   recentSessions: z.array(z.object({
     component: z.number().int().min(1).max(7),
     score: z.number().min(0).max(100),
     created_at: z.string(),
-  })).max(20).optional(),
+  }).passthrough()).max(20).optional(),
   questProgress: z.array(z.object({
     stage: z.number().int().min(1).max(7),
     is_cleared: z.boolean(),
     best_score: z.number().min(0).max(500),
-  })).max(7).optional(),
+  }).passthrough()).max(7).optional(),
 });
 
 // --- Learning API Schemas ---

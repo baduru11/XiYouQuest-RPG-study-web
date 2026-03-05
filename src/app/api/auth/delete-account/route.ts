@@ -90,7 +90,7 @@ export async function DELETE() {
     // Delete auth user via admin client (requires service role key)
     const admin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_SERVICE_ROLE_KEY(),
     );
     await admin.auth.admin.deleteUser(userId);
 

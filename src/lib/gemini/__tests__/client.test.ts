@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock env before importing the module
 vi.mock("@/lib/env", () => ({
-  OPENROUTER_API_KEY: "test-api-key",
+  OPENROUTER_API_KEY: () => "test-api-key",
 }));
 
 // Mock global fetch

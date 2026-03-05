@@ -15,10 +15,10 @@ export interface AsrTranscriptionResult {
 function buildAsrWsUrl(): string {
   const date = new Date().toUTCString();
   const signatureOrigin = `host: ${ASR_HOST}\ndate: ${date}\nGET ${ASR_PATH} HTTP/1.1`;
-  const hmac = crypto.createHmac("sha256", IFLYTEK_API_SECRET);
+  const hmac = crypto.createHmac("sha256", IFLYTEK_API_SECRET());
   hmac.update(signatureOrigin);
   const signature = hmac.digest("base64");
-  const authorizationOrigin = `api_key="${IFLYTEK_API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+  const authorizationOrigin = `api_key="${IFLYTEK_API_KEY()}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
   const authorization = Buffer.from(authorizationOrigin).toString("base64");
   return `wss://${ASR_HOST}${ASR_PATH}?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${ASR_HOST}`;
 }
@@ -116,7 +116,7 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<AsrTranscrip
 
           // First frame includes common + business params
           if (isFirst) {
-            frame.common = { app_id: IFLYTEK_APP_ID };
+            frame.common = { app_id: IFLYTEK_APP_ID() };
             frame.business = {
               language: "zh_cn",
               domain: "ist_open",

@@ -164,6 +164,8 @@ export interface LearningPlan {
   initial_scores: Record<string, number>;
   current_phase: number;
   total_nodes: number;
+  total_checkpoints: number;
+  ai_analysis: string | null;
   status: "active" | "completed" | "abandoned";
   created_at: string;
 }
@@ -180,6 +182,7 @@ export interface LearningNode {
   status: "locked" | "available" | "completed";
   score: number | null;
   xp_earned: number;
+  estimated_minutes: number;
   completed_at: string | null;
 }
 

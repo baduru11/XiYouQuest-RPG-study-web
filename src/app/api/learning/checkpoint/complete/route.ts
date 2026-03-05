@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   generateCheckpointFeedback,
-  generateCurriculum,
+  generatePhase,
 } from "@/lib/gemini/client";
-import type { CurriculumInput, CheckpointFeedbackInput } from "@/lib/gemini/client";
+import type { PhaseGenerationInput } from "@/lib/gemini/client";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 import { z } from "zod";
 
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
     const { planId, checkpointNumber, scores } = parsed.data;
 
-    // 3. Fetch plan and verify ownership
+    // Fetch plan and verify ownership
     const { data: plan, error: planError } = await supabase
       .from("learning_plans")
       .select("*")
@@ -75,7 +75,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // 4. Get previous scores: latest checkpoint or initial_scores
+    const totalCheckpoints = (plan.total_checkpoints as number) ?? 2;
+
+    // Get previous scores: latest checkpoint or initial_scores
     const { data: lastCheckpoint } = await supabase
       .from("learning_checkpoints")
       .select("scores")
@@ -88,13 +90,13 @@ export async function POST(request: NextRequest) {
       ? (lastCheckpoint.scores as Record<string, number>)
       : (plan.initial_scores as Record<string, number>);
 
-    // 5. Calculate score deltas
+    // Calculate score deltas
     const scoreDeltas: Record<string, number> = {};
     for (const key of Object.keys(scores)) {
       scoreDeltas[key] = scores[key] - (previousScores[key] ?? 0);
     }
 
-    // 6. Get completed nodes for feedback context
+    // Get completed nodes for feedback context
     const { data: completedNodesData } = await supabase
       .from("learning_nodes")
       .select("component, focus_area")
@@ -107,21 +109,19 @@ export async function POST(request: NextRequest) {
       focusArea: n.focus_area as string,
     }));
 
-    // 7. Calculate weighted PSC grade
+    // Calculate weighted PSC grade
     const weightedScore = calculateWeightedScore(scores);
     const predictedGrade = getPSCGrade(weightedScore);
 
-    // 8. Generate checkpoint feedback via LLM
-    const feedbackInput: CheckpointFeedbackInput = {
+    // Generate checkpoint feedback via LLM
+    const feedback = await generateCheckpointFeedback({
       originalScores: previousScores,
       currentScores: scores,
       completedNodes,
       phaseNumber: checkpointNumber,
-    };
+    });
 
-    const feedback = await generateCheckpointFeedback(feedbackInput);
-
-    // 9. Insert checkpoint record
+    // Insert checkpoint record
     const { error: checkpointError } = await supabase
       .from("learning_checkpoints")
       .insert({
@@ -141,152 +141,154 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 10. Advance phase
+    // Advance phase
     const nextPhase = checkpointNumber + 1;
-    const { error: advanceError } = await supabase
+    await supabase
       .from("learning_plans")
       .update({ current_phase: nextPhase })
       .eq("id", planId);
 
-    if (advanceError) {
-      console.error("Failed to advance phase:", advanceError);
-    }
+    // Generate NEXT phase via AI (only if more phases remain)
+    let nextPhaseAnalysis: string | null = null;
+    const isLastCheckpoint = checkpointNumber >= totalCheckpoints;
 
-    // 11. Delete uncompleted nodes in remaining phases
-    const { error: deleteError } = await supabase
-      .from("learning_nodes")
-      .delete()
-      .eq("plan_id", planId)
-      .gt("phase", checkpointNumber)
-      .in("status", ["locked", "available"]);
+    if (!isLastCheckpoint) {
+      // Fetch available question IDs, excluding already-used ones
+      const availableQuestionIds: Record<number, string[]> = {};
+      const availableQuestionCounts: Record<number, number> = {};
+      const componentPromises = [1, 2, 3, 4, 5, 6, 7].map(async (comp) => {
+        const { data } = await supabase
+          .from("question_banks")
+          .select("id")
+          .eq("component", comp);
+        availableQuestionIds[comp] = (data ?? []).map((row) => row.id);
+      });
+      await Promise.all(componentPromises);
 
-    if (deleteError) {
-      console.error("Failed to delete uncompleted nodes:", deleteError);
-    }
+      // Get used question IDs to avoid repeats
+      const { data: usedNodes } = await supabase
+        .from("learning_nodes")
+        .select("question_ids")
+        .eq("plan_id", planId)
+        .eq("status", "completed");
 
-    // 12. Regenerate remaining phases
-    // Fetch available question IDs per component
-    const availableQuestionIds: Record<number, string[]> = {};
-    const componentPromises = [1, 2, 3, 4, 5, 6, 7].map(async (comp) => {
-      const { data } = await supabase
-        .from("question_banks")
-        .select("id")
-        .eq("component", comp);
-      availableQuestionIds[comp] = (data ?? []).map((row) => row.id);
-    });
-    await Promise.all(componentPromises);
+      const usedQuestionIds = new Set(
+        (usedNodes ?? []).flatMap((n) => n.question_ids as string[])
+      );
 
-    // Get recently used question IDs to avoid repeats
-    const { data: usedNodes } = await supabase
-      .from("learning_nodes")
-      .select("question_ids")
-      .eq("plan_id", planId)
-      .eq("status", "completed");
+      for (const comp of Object.keys(availableQuestionIds)) {
+        availableQuestionIds[Number(comp)] = availableQuestionIds[Number(comp)]
+          .filter((id) => !usedQuestionIds.has(id));
+        availableQuestionCounts[Number(comp)] = availableQuestionIds[Number(comp)].length;
+      }
 
-    const usedQuestionIds = new Set(
-      (usedNodes ?? []).flatMap((n) => n.question_ids as string[])
-    );
+      // Build previous phase history for AI context
+      const { data: allCheckpoints } = await supabase
+        .from("learning_checkpoints")
+        .select("checkpoint_number, scores")
+        .eq("plan_id", planId)
+        .order("checkpoint_number", { ascending: true });
 
-    // Remove used IDs from available pool
-    for (const comp of Object.keys(availableQuestionIds)) {
-      availableQuestionIds[Number(comp)] = availableQuestionIds[
-        Number(comp)
-      ].filter((id) => !usedQuestionIds.has(id));
-    }
+      const { data: allCompletedNodes } = await supabase
+        .from("learning_nodes")
+        .select("component, focus_area, phase")
+        .eq("plan_id", planId)
+        .eq("status", "completed");
 
-    // Fetch all checkpoints for previous checkpoint context
-    const { data: allCheckpoints } = await supabase
-      .from("learning_checkpoints")
-      .select("scores")
-      .eq("plan_id", planId)
-      .order("checkpoint_number", { ascending: true });
+      const previousPhases = (allCheckpoints ?? []).map((cp) => ({
+        phaseNumber: cp.checkpoint_number as number,
+        scores: cp.scores as Record<string, number>,
+        completedNodes: (allCompletedNodes ?? [])
+          .filter((n) => (n.phase as number) <= (cp.checkpoint_number as number))
+          .map((n) => ({
+            component: n.component as number,
+            focusArea: n.focus_area as string,
+          })),
+      }));
 
-    const { data: allCompletedNodes } = await supabase
-      .from("learning_nodes")
-      .select("component, focus_area")
-      .eq("plan_id", planId)
-      .eq("status", "completed");
+      const daysRemaining = Math.max(
+        1,
+        Math.ceil(
+          (new Date(plan.exam_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        )
+      );
 
-    const previousCheckpoints = (allCheckpoints ?? []).map((cp) => ({
-      scores: cp.scores as Record<string, number>,
-      completedNodes: (allCompletedNodes ?? []).map((n) => ({
-        component: n.component as number,
-        focusArea: n.focus_area as string,
-      })),
-    }));
+      const phaseInput: PhaseGenerationInput = {
+        scores,
+        daysRemaining,
+        phaseNumber: nextPhase,
+        totalCheckpoints,
+        availableQuestionCounts,
+        previousPhases,
+      };
 
-    // Calculate days remaining
-    const daysRemaining = Math.max(
-      1,
-      Math.ceil(
-        (new Date(plan.exam_date).getTime() - Date.now()) /
-          (1000 * 60 * 60 * 24)
-      )
-    );
+      const phase = await generatePhase(phaseInput);
+      nextPhaseAnalysis = phase.analysis;
 
-    const curriculumInput: CurriculumInput = {
-      scores,
-      daysRemaining,
-      availableQuestionIds,
-      recentQuestionTexts: [],
-      previousCheckpoints,
-    };
+      // Update plan with new analysis
+      await supabase
+        .from("learning_plans")
+        .update({ ai_analysis: phase.analysis })
+        .eq("id", planId);
 
-    const curriculum = await generateCurriculum(curriculumInput);
+      // Insert new nodes for the next phase
+      const { data: maxSortNode } = await supabase
+        .from("learning_nodes")
+        .select("sort_order")
+        .eq("plan_id", planId)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    // 13. Insert new nodes for phases > checkpointNumber
-    // Remap curriculum phases to start from nextPhase
-    // Also get the max sort_order from existing nodes
-    const { data: maxSortNode } = await supabase
-      .from("learning_nodes")
-      .select("sort_order")
-      .eq("plan_id", planId)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      let sortOrder = (maxSortNode?.sort_order as number) ?? 0;
 
-    let sortOrder = (maxSortNode?.sort_order as number) ?? 0;
+      const cpUsedIds: Record<number, Set<string>> = {};
+      for (let c = 1; c <= 7; c++) {
+        cpUsedIds[c] = new Set(usedQuestionIds);
+      }
 
-    const newNodeRows = curriculum.phases.flatMap((phase, phaseIdx) => {
-      const actualPhase = nextPhase + phaseIdx;
-      return phase.nodes.map((node) => {
+      function pickRandomIds(component: number, count: number): string[] {
+        const pool = availableQuestionIds[component] ?? [];
+        const unused = pool.filter((id) => !cpUsedIds[component].has(id));
+        const shuffled = [...unused].sort(() => Math.random() - 0.5);
+        const picked = shuffled.slice(0, count);
+        picked.forEach((id) => cpUsedIds[component].add(id));
+        return picked;
+      }
+
+      const newNodeRows = phase.nodes.map((node) => {
         sortOrder++;
-        const rawNode = node as unknown as Record<string, unknown>;
         let nodeType: "drill" | "mock_exam" = "drill";
-        if (
-          rawNode.nodeType === "mock_exam" ||
-          rawNode.node_type === "mock_exam"
-        ) {
-          nodeType = "mock_exam";
-        } else if (node.component === 5) {
-          nodeType = "mock_exam";
-        }
+        if (node.component === 5) nodeType = "mock_exam";
+
+        const questionIds = pickRandomIds(node.component, node.questionCount);
 
         return {
           plan_id: planId,
-          phase: actualPhase,
+          phase: nextPhase,
           component: node.component,
           node_type: nodeType,
           focus_area: node.focusArea,
-          question_ids: node.questionIds,
+          question_ids: questionIds,
           sort_order: sortOrder,
-          status: actualPhase === nextPhase ? "available" : "locked",
+          status: "available" as const,
           xp_earned: 0,
+          estimated_minutes: node.estimatedMinutes,
         };
       });
-    });
 
-    if (newNodeRows.length > 0) {
-      const { error: insertNodesError } = await supabase
-        .from("learning_nodes")
-        .insert(newNodeRows);
+      if (newNodeRows.length > 0) {
+        const { error: insertNodesError } = await supabase
+          .from("learning_nodes")
+          .insert(newNodeRows);
 
-      if (insertNodesError) {
-        console.error("Failed to insert regenerated nodes:", insertNodesError);
+        if (insertNodesError) {
+          console.error("Failed to insert next phase nodes:", insertNodesError);
+        }
       }
     }
 
-    // 14. Update total_nodes count
+    // Update total_nodes count
     const { count: totalNodes } = await supabase
       .from("learning_nodes")
       .select("*", { count: "exact", head: true })
@@ -306,17 +308,17 @@ export async function POST(request: NextRequest) {
       .eq("plan_id", planId)
       .order("sort_order", { ascending: true });
 
-    // Achievement check for learning checkpoint milestones
+    // Achievement check
     const newAchievements = await checkAndUnlockAchievements(supabase, user.id, {
       type: "learning_checkpoint",
       checkpointNumber,
     });
 
-    // 15. Return response
     return NextResponse.json({
       feedback,
       predictedGrade,
       scoreDeltas,
+      nextPhaseAnalysis,
       updatedNodes: updatedNodes ?? [],
       newAchievements,
     });
