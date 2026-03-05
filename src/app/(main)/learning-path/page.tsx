@@ -147,7 +147,7 @@ export default async function LearningPathPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-pixel text-base text-primary pixel-glow leading-relaxed">Learning Path</h1>
+        <h1 className="font-pixel text-base text-primary pixel-glow leading-relaxed">AI Learning Path</h1>
         <p className="text-muted-foreground">
           <span className="font-chinese">学习计划</span> — Personalized PSC study plan with adaptive curriculum.
         </p>

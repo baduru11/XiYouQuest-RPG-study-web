@@ -460,7 +460,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
 
     return (
       <Card>
-        <CardContent className="pt-6 space-y-6">
+        <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
           <div className="text-center space-y-2">
             <h2 className="font-pixel text-sm">Mock PSC Examination</h2>
             <p className="text-muted-foreground">
@@ -516,9 +516,9 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
 
     return (
       <Card>
-        <CardContent className="pt-6 space-y-6">
+        <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
           <div className="text-center space-y-2">
-            <Badge variant="default" className="text-lg px-4 py-1">
+            <Badge variant="default" className="text-base sm:text-lg px-3 sm:px-4 py-1">
               Component {lastRaw.componentNumber} Complete
             </Badge>
           </div>
@@ -527,7 +527,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
             <div className="text-center space-y-4">
               <div className="border-t pt-4">
                 <p className="text-muted-foreground">Up next:</p>
-                <p className="text-xl font-bold">
+                <p className="text-lg sm:text-xl font-bold">
                   Component {nextComp.number}: {nextComp.name}
                 </p>
                 <p className="text-sm text-muted-foreground">{nextComp.chineseName}</p>
@@ -553,7 +553,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
   if (examPhase === "assessing") {
     return (
       <Card>
-        <CardContent className="pt-6 space-y-6">
+        <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
           <div className="text-center space-y-4">
             <h2 className="font-pixel text-sm">Grading Your Exam</h2>
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
@@ -583,7 +583,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
       <div className="space-y-4">
         {/* Overall results card */}
         <Card>
-          <CardContent className="pt-6 space-y-6">
+          <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
             <div className="text-center space-y-2">
               <h2 className="font-pixel text-sm">Mock Exam Results</h2>
               <p className="text-muted-foreground">
@@ -593,7 +593,7 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
 
             {/* PSC Grade */}
             <div className="text-center space-y-1 py-4">
-              <p className="text-5xl font-bold">{Math.round(weightedTotal * 10) / 10}</p>
+              <p className="text-4xl sm:text-5xl font-bold">{Math.round(weightedTotal * 10) / 10}</p>
               <p className="text-sm text-muted-foreground">Total Score (out of 100)</p>
               <div className="mt-2">
                 <Badge
@@ -637,8 +637,8 @@ export function ExamRunner({ character, characters, words, quizQuestions, passag
             </div>
 
             {/* Total XP */}
-            <div className="text-center rounded-lg border bg-muted/50 p-4">
-              <p className="text-3xl font-bold text-yellow-600">+{totalXP} XP</p>
+            <div className="text-center rounded-lg border bg-muted/50 p-3 sm:p-4">
+              <p className="text-2xl sm:text-3xl font-bold text-yellow-600">+{totalXP} XP</p>
               <p className="text-base text-muted-foreground">Total XP Earned</p>
             </div>
 
@@ -761,7 +761,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
             {result.wordScores && (
               <div className="max-h-[400px] overflow-y-auto rounded-lg border bg-muted/30 p-3">
                 <div className={`grid gap-1.5 ${
-                  result.componentNumber === 1 ? "grid-cols-10" : "grid-cols-5"
+                  result.componentNumber === 1 ? "grid-cols-3 sm:grid-cols-5 md:grid-cols-10" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-5"
                 }`}>
                   {result.wordScores.map((ws, idx) => (
                     <div key={idx} className="text-center space-y-0.5">
@@ -877,7 +877,7 @@ function DetailedResultCard({ result }: { result: ComponentResult }) {
             {/* Fallback: no detailed data available */}
             {!result.wordScores && !result.quizResults && !result.sentenceScores && !result.c5Detail && (
               <div className="text-center py-4">
-                <p className={`text-4xl font-bold ${
+                <p className={`text-3xl sm:text-4xl font-bold ${
                   result.score >= 90 ? "text-green-600" :
                   result.score >= 60 ? "text-yellow-600" : "text-red-600"
                 }`}>
@@ -904,7 +904,7 @@ function C5DetailCard({ detail }: { detail: NonNullable<ComponentResult["c5Detai
     <div className="space-y-3">
       {/* Total PSC score */}
       <div className="text-center py-2">
-        <p className={`text-3xl font-bold ${
+        <p className={`text-2xl sm:text-3xl font-bold ${
           detail.totalScore >= 25 ? "text-green-600" :
           detail.totalScore >= 18 ? "text-yellow-600" : "text-red-600"
         }`}>
@@ -1081,7 +1081,7 @@ function PronunciationComponent({ componentNumber, items, timeLimitSeconds, comp
 
         {/* Word grid */}
         <div className="max-h-[400px] overflow-y-auto rounded-lg border bg-muted/30 p-4">
-          <div className={`grid gap-2 ${isMonosyllabic ? "grid-cols-10" : "grid-cols-5"}`}>
+          <div className={`grid gap-2 ${isMonosyllabic ? "grid-cols-3 sm:grid-cols-5 md:grid-cols-10" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-5"}`}>
             {items.map((word, idx) => (
               <div key={idx} className="text-center">
                 <div className="flex items-center justify-center rounded border border-muted hover:border-primary p-2 transition-colors">
@@ -1205,9 +1205,9 @@ function QuizComponent({ questions, timeLimitSeconds, onComplete }: QuizComponen
         )}
 
         {/* Question */}
-        <div className="text-center py-4">
+        <div className="text-center py-3 sm:py-4">
           <p className={`font-bold ${
-            currentQuestion.type === "measure-word" ? "text-3xl" : "text-xl"
+            currentQuestion.type === "measure-word" ? "text-2xl sm:text-3xl" : "text-lg sm:text-xl"
           }`}>
             {currentQuestion.prompt}
           </p>
@@ -1221,7 +1221,7 @@ function QuizComponent({ questions, timeLimitSeconds, onComplete }: QuizComponen
             <button
               key={index}
               onClick={() => handleAnswer(index)}
-              className="rounded-lg p-4 text-left border-2 border-border hover:border-primary hover:bg-accent transition-colors cursor-pointer"
+              className="rounded-lg p-3 sm:p-4 text-left border-2 border-border hover:border-primary hover:bg-accent transition-colors cursor-pointer"
             >
               <span className="font-medium">
                 {String.fromCharCode(65 + index)}.{" "}
@@ -1389,8 +1389,8 @@ function PassageComponent({ passage, timeLimitSeconds, onComplete }: PassageComp
         </div>
 
         {/* Passage text */}
-        <div className="rounded-lg border bg-muted/30 p-6 leading-relaxed">
-          <p className="text-lg leading-loose">{passage.content}</p>
+        <div className="rounded-lg border bg-muted/30 p-3 sm:p-6 leading-relaxed">
+          <p className="text-base sm:text-lg leading-loose">{passage.content}</p>
         </div>
 
         {/* Recording indicator */}
@@ -1796,7 +1796,7 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
         {/* Countdown display */}
         {phase === "countdown" && (
           <div className="text-center space-y-2 py-4">
-            <p className="text-6xl font-bold font-mono text-primary animate-pulse">
+            <p className="text-4xl sm:text-6xl font-bold font-mono text-primary animate-pulse">
               {countdown}
             </p>
             <p className="text-sm text-muted-foreground">Get ready to speak...</p>
@@ -1808,7 +1808,7 @@ function SpeakingComponent({ topics, timeLimitSeconds, onComplete }: SpeakingCom
           <div className="space-y-3">
             {/* Stopwatch */}
             <div className="text-center space-y-1">
-              <p className={`text-4xl font-bold font-mono transition-colors ${
+              <p className={`text-3xl sm:text-4xl font-bold font-mono transition-colors ${
                 elapsedTime >= timeLimitSeconds ? "text-green-600" : "text-orange-500"
               }`}>
                 {formatTime(elapsedTime)}

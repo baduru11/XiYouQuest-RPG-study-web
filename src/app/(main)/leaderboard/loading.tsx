@@ -18,10 +18,10 @@ export default function LeaderboardLoading() {
       </div>
 
       {/* Podium */}
-      <div className="flex items-end justify-center gap-3 py-4">
-        <div className="h-40 w-32 pixel-border animate-shimmer" />
-        <div className="h-52 w-36 pixel-border animate-shimmer" />
-        <div className="h-36 w-32 pixel-border animate-shimmer" />
+      <div className="flex flex-wrap items-end justify-center gap-3 py-4">
+        <div className="h-40 w-20 sm:w-32 pixel-border animate-shimmer" />
+        <div className="h-52 w-24 sm:w-36 pixel-border animate-shimmer" />
+        <div className="h-36 w-20 sm:w-32 pixel-border animate-shimmer" />
       </div>
 
       {/* Rows */}

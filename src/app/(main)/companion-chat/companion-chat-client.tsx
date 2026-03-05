@@ -782,7 +782,7 @@ export default function CompanionChatClient({
           </div>
         )}
         {sortedSessions.length === 0 ? (
-          <div className="pixel-border bg-card p-8 text-center">
+          <div className="pixel-border bg-card p-4 sm:p-8 text-center">
             <p className="text-muted-foreground">No conversations yet. Start chatting!</p>
           </div>
         ) : (
@@ -1011,27 +1011,41 @@ export default function CompanionChatClient({
               playTTS(data.openingMessage, selectedCharacter!.voiceId);
             }
 
-            // Generate initial scene image (non-blocking, pass names to skip DB lookups)
-            fetchWithRetry("/api/chat/generate-image", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                sessionId: data.sessionId,
-                conversationSummary: `${selectedCharacter!.name}: ${data.openingMessage}\nScenario: ${scenario.title} — ${scenario.description}`,
-                characterName: selectedCharacter!.name,
-                scenarioTitle: scenario.title,
-              }),
-            }).then(async (imgRes) => {
-              if (imgRes.ok) {
+            // Generate initial scene image — keep loading overlay until image is ready
+            setLoadingStep(3);
+            try {
+              const imgRes = await Promise.race([
+                fetchWithRetry("/api/chat/generate-image", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    sessionId: data.sessionId,
+                    conversationSummary: `${selectedCharacter!.name}: ${data.openingMessage}\nScenario: ${scenario.title} — ${scenario.description}`,
+                    characterName: selectedCharacter!.name,
+                    scenarioTitle: scenario.title,
+                  }),
+                }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 30000)),
+              ]);
+              if (imgRes && imgRes.ok) {
                 const imgData = await imgRes.json();
                 if (imgData.imageUrl) {
+                  // Preload the image before dismissing loading
+                  await new Promise<void>((resolve) => {
+                    const img = new window.Image();
+                    img.onload = () => resolve();
+                    img.onerror = () => resolve();
+                    img.src = imgData.imageUrl;
+                  });
                   showBackgroundImage(imgData.imageUrl);
                   setMessages(prev => prev.map(m =>
                     m.id === openingMsgId ? { ...m, imageUrl: imgData.imageUrl } : m
                   ));
                 }
               }
-            }).catch(err => console.error("[Chat] Initial image gen error:", err));
+            } catch (err) {
+              console.error("[Chat] Initial image gen error:", err);
+            }
           } catch (err) {
             console.error("[Chat] Start error:", err);
             alert("Failed to start chat.");
@@ -1106,10 +1120,11 @@ export default function CompanionChatClient({
             `Summoning ${selectedCharacter?.name ?? "companion"}...`,
             `Setting the scene...`,
             `Preparing dialogue...`,
+            `Painting the scene...`,
           ];
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-300">
-              <div className="flex flex-col items-center gap-6 px-8">
+              <div className="flex flex-col items-center gap-4 sm:gap-6 px-4 sm:px-8">
                 {/* Character image */}
                 {selectedCharacter?.image && (
                   <div className="relative h-28 w-28 pixel-border bg-muted overflow-hidden animate-in zoom-in-75 duration-500">
@@ -1157,6 +1172,51 @@ export default function CompanionChatClient({
   if (phase === "chatting") {
     return (
       <div className="mx-auto max-w-2xl flex flex-col" style={{ height: "calc(100dvh - 5rem)" }}>
+        {/* Loading overlay — shown while initial background image is generating */}
+        {isStarting && (() => {
+          const steps = [
+            `Summoning ${selectedCharacter?.name ?? "companion"}...`,
+            `Setting the scene...`,
+            `Preparing dialogue...`,
+            `Painting the scene...`,
+          ];
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-300">
+              <div className="flex flex-col items-center gap-4 sm:gap-6 px-4 sm:px-8">
+                {selectedCharacter?.image && (
+                  <div className="relative h-28 w-28 pixel-border bg-muted overflow-hidden animate-in zoom-in-75 duration-500">
+                    <Image src={selectedCharacter.image} alt="" fill className="object-contain" unoptimized />
+                  </div>
+                )}
+                <div className="text-center space-y-1 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <p className="font-pixel text-sm text-primary">{selectedCharacter?.name}</p>
+                  <p className="font-chinese text-base text-foreground">{selectedScenario?.title}</p>
+                </div>
+                <div className="space-y-2 min-w-[200px]">
+                  {steps.map((step, i) => (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 text-xs font-pixel transition-all duration-500 ${
+                        i <= loadingStep ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4"
+                      }`}
+                    >
+                      {i < loadingStep ? (
+                        <span className="h-3 w-3 text-green-500">✓</span>
+                      ) : i === loadingStep ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      ) : (
+                        <span className="h-3 w-3" />
+                      )}
+                      <span className={i <= loadingStep ? "text-foreground" : "text-muted-foreground"}>
+                        {step}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {/* Top bar */}
         <div className="pixel-border chinese-corner bg-card/90 backdrop-blur-sm p-3 flex items-center gap-3 shrink-0">
           {selectedCharacter?.image && (

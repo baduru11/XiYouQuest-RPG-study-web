@@ -2,13 +2,13 @@ export default function ProfileLoading() {
   return (
     <div className="space-y-6">
       {/* Profile Header */}
-      <div className="pixel-border p-6">
-        <div className="flex items-center gap-6">
+      <div className="pixel-border p-4 sm:p-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           <div className="h-24 w-24 pixel-border animate-shimmer" />
           <div className="space-y-2">
             <div className="h-7 w-48 rounded animate-shimmer" />
             <div className="h-4 w-32 rounded animate-shimmer" />
-            <div className="h-3 w-56 rounded animate-shimmer" />
+            <div className="h-3 w-full max-w-56 rounded animate-shimmer" />
           </div>
         </div>
       </div>

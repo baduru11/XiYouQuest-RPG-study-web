@@ -8,11 +8,11 @@ export default function SocialLoading() {
       </div>
 
       {/* Search Section */}
-      <div className="pixel-border p-4 space-y-3">
+      <div className="pixel-border p-4 sm:p-6 space-y-3">
         <div className="h-5 w-32 rounded animate-shimmer" />
         <div className="flex gap-4">
           <div className="h-10 flex-1 rounded animate-shimmer" />
-          <div className="h-10 w-40 rounded animate-shimmer" />
+          <div className="h-10 w-24 sm:w-40 rounded animate-shimmer" />
         </div>
       </div>
 

@@ -3,7 +3,7 @@ export default function PracticeHistoryLoading() {
     <div className="space-y-4">
       <div>
         <div className="h-7 w-64 rounded animate-shimmer" />
-        <div className="h-4 w-96 rounded animate-shimmer mt-2" />
+        <div className="h-4 w-full max-w-96 rounded animate-shimmer mt-2" />
       </div>
 
       {/* Stat cards */}
@@ -17,14 +17,14 @@ export default function PracticeHistoryLoading() {
       </div>
 
       {/* Chart placeholder */}
-      <div className="pixel-border p-6 space-y-4">
+      <div className="pixel-border p-4 sm:p-6 space-y-4">
         <div className="h-5 w-40 rounded animate-shimmer" />
         <div className="h-48 w-full rounded animate-shimmer" />
       </div>
 
       {/* Session list placeholder */}
       <div className="space-y-2">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-8 w-16 rounded animate-shimmer" />
           ))}

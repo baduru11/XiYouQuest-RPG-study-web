@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,6 @@ import {
   Play,
   ChevronRight,
   ArrowLeft,
-  SkipForward,
   Trophy,
   Target,
   Loader2,
@@ -23,6 +23,14 @@ import {
   BarChart3,
   Mic,
   BookOpen,
+  RotateCcw,
+  Sparkles,
+  Swords,
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Flag,
+  Timer,
 } from "lucide-react";
 import { AudioRecorder, type AudioRecorderHandle } from "@/components/practice/audio-recorder";
 import { encodeWAV } from "@/lib/audio-utils";
@@ -30,6 +38,7 @@ import { matchWordScores } from "@/lib/scoring/word-scores";
 import { randomizeAnswerPositions } from "@/lib/utils";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
+import { useBGM } from "@/components/shared/bgm-provider";
 import { useExamTimer } from "@/hooks/use-exam-timer";
 import type { QuizQuestion } from "@/types/practice";
 import type { LearningPlan, LearningNode, LearningCheckpoint } from "@/types/database";
@@ -66,7 +75,6 @@ type ViewState =
   | "time_input"
   | "generating"
   | "roadmap"
-  | "node_session"
   | "checkpoint"
   | "checkpoint_report"
   | "final_report";
@@ -209,114 +217,117 @@ function useRawRecording() {
   return { audioContextRef, streamRef, startCapture, stopAndEncode, cleanup };
 }
 
-async function processAssessmentResults(
-  rawData: AssessmentRawData[],
+/** Grade a single component's recording immediately (fire-and-forget style). */
+function gradeComponent(raw: AssessmentRawData): Promise<{ key: string; score: number }> {
+  const key = `c${raw.componentNumber}`;
+
+  // Quiz — instant, no API call
+  if (raw.quizScore !== undefined) {
+    return Promise.resolve({ key, score: raw.quizScore });
+  }
+  // No audio — 0
+  if (!raw.audioBlob) {
+    return Promise.resolve({ key, score: 0 });
+  }
+
+  // C1 / C2 pronunciation
+  if (raw.componentNumber === 1 || raw.componentNumber === 2) {
+    return (async () => {
+      try {
+        const category = raw.componentNumber === 1 ? "read_syllable" : "read_word";
+        const formData = new FormData();
+        formData.append("audio", raw.audioBlob!, "recording.wav");
+        formData.append("referenceText", raw.referenceText ?? "");
+        formData.append("category", category);
+
+        const res = await fetchWithRetry("/api/speech/assess", {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) throw new Error("Assessment failed");
+        const data = await res.json();
+
+        if (raw.items && data.words) {
+          const wordScores = matchWordScores(raw.items, data.words);
+          const validScores = wordScores.filter(w => w.score !== null).map(w => w.score!);
+          const score = validScores.length > 0
+            ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+            : Math.round(data.pronunciationScore ?? 0);
+          return { key, score };
+        }
+        return { key, score: Math.round(data.pronunciationScore ?? 0) };
+      } catch {
+        return { key, score: 0 };
+      }
+    })();
+  }
+
+  // C4 passage reading
+  if (raw.componentNumber === 4) {
+    return (async () => {
+      try {
+        const formData = new FormData();
+        formData.append("audio", raw.audioBlob!, "recording.wav");
+        formData.append("referenceText", raw.referenceText ?? "");
+        formData.append("category", "read_chapter");
+
+        const res = await fetchWithRetry("/api/speech/assess", {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) throw new Error("Assessment failed");
+        const data = await res.json();
+        return { key, score: Math.round(data.pronunciationScore ?? 0) };
+      } catch {
+        return { key, score: 0 };
+      }
+    })();
+  }
+
+  // C5 prompted speaking
+  return (async () => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", raw.audioBlob!, "recording.wav");
+      formData.append("topic", raw.selectedTopic ?? "");
+      formData.append("spokenDurationSeconds", String(raw.spokenDurationSeconds ?? 0));
+
+      const res = await fetchWithRetry("/api/speech/c5-assess", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("C5 assessment failed");
+      const data = await res.json();
+      return { key, score: Math.round(data.normalizedScore ?? 0) };
+    } catch {
+      return { key, score: 0 };
+    }
+  })();
+}
+
+/** Collect all in-flight grading promises and return final scores. */
+async function collectGradingResults(
+  promises: Promise<{ key: string; score: number }>[],
   setProgress: (p: number) => void,
 ): Promise<Record<string, number>> {
   const scores: Record<string, number> = {};
-  const apiSteps = rawData.filter(d => d.audioBlob).length;
+  const total = promises.length;
   let completed = 0;
 
-  const updateProgress = () => {
-    completed++;
-    setProgress(Math.round((completed / Math.max(apiSteps, 1)) * 100));
-  };
-
-  const promises: Promise<void>[] = [];
-
-  for (const raw of rawData) {
-    if (raw.quizScore !== undefined) {
-      scores[`c${raw.componentNumber}`] = raw.quizScore;
-      continue;
-    }
-
-    if (!raw.audioBlob) {
-      scores[`c${raw.componentNumber}`] = 0;
-      continue;
-    }
-
-    if (raw.componentNumber === 1 || raw.componentNumber === 2) {
-      const p = (async () => {
-        try {
-          const category = raw.componentNumber === 1 ? "read_syllable" : "read_word";
-          const formData = new FormData();
-          formData.append("audio", raw.audioBlob!, "recording.wav");
-          formData.append("referenceText", raw.referenceText ?? "");
-          formData.append("category", category);
-
-          const res = await fetchWithRetry("/api/speech/assess", {
-            method: "POST",
-            body: formData,
-          });
-          if (!res.ok) throw new Error("Assessment failed");
-          const data = await res.json();
-
-          if (raw.items && data.words) {
-            const wordScores = matchWordScores(raw.items, data.words);
-            const validScores = wordScores.filter(w => w.score !== null).map(w => w.score!);
-            scores[`c${raw.componentNumber}`] = validScores.length > 0
-              ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
-              : Math.round(data.pronunciationScore ?? 0);
-          } else {
-            scores[`c${raw.componentNumber}`] = Math.round(data.pronunciationScore ?? 0);
-          }
-        } catch {
-          scores[`c${raw.componentNumber}`] = 0;
-        }
-        updateProgress();
-      })();
-      promises.push(p);
-    } else if (raw.componentNumber === 4) {
-      const p = (async () => {
-        try {
-          const formData = new FormData();
-          formData.append("audio", raw.audioBlob!, "recording.wav");
-          formData.append("referenceText", raw.referenceText ?? "");
-          formData.append("category", "read_chapter");
-
-          const res = await fetchWithRetry("/api/speech/assess", {
-            method: "POST",
-            body: formData,
-          });
-          if (!res.ok) throw new Error("Assessment failed");
-          const data = await res.json();
-          scores.c4 = Math.round(data.pronunciationScore ?? 0);
-        } catch {
-          scores.c4 = 0;
-        }
-        updateProgress();
-      })();
-      promises.push(p);
-    } else if (raw.componentNumber === 5) {
-      const p = (async () => {
-        try {
-          const formData = new FormData();
-          formData.append("audio", raw.audioBlob!, "recording.wav");
-          formData.append("topic", raw.selectedTopic ?? "");
-          formData.append("spokenDurationSeconds", String(raw.spokenDurationSeconds ?? 0));
-
-          const res = await fetchWithRetry("/api/speech/c5-assess", {
-            method: "POST",
-            body: formData,
-          });
-          if (!res.ok) throw new Error("C5 assessment failed");
-          const data = await res.json();
-          scores.c5 = Math.round(data.normalizedScore ?? 0);
-        } catch {
-          scores.c5 = 0;
-        }
-        updateProgress();
-      })();
-      promises.push(p);
-    }
-  }
-
-  await Promise.all(promises);
+  // Race each promise to update progress as they resolve
+  await Promise.all(
+    promises.map(p =>
+      p.then(({ key, score }) => {
+        scores[key] = score;
+        completed++;
+        setProgress(Math.round((completed / Math.max(total, 1)) * 100));
+      })
+    )
+  );
 
   for (const c of [1, 2, 3, 4, 5]) {
     if (scores[`c${c}`] === undefined) scores[`c${c}`] = 0;
   }
-
   setProgress(100);
   return scores;
 }
@@ -352,15 +363,6 @@ export default function LearningPathClient({
   // Generating state
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // Node session state
-  const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [nodeSessionData, setNodeSessionData] = useState<{
-    nodeType: string;
-    component: number;
-    focusArea: string;
-    questions: unknown[];
-  } | null>(null);
-  const [nodeLoading, setNodeLoading] = useState(false);
 
   // Checkpoint state
   const [checkpointNumber, setCheckpointNumber] = useState(1);
@@ -388,75 +390,13 @@ export default function LearningPathClient({
     }
   }, []);
 
-  // ---- Start a node session ----
-  const startNodeSession = useCallback(async (nodeId: string) => {
-    setActiveNodeId(nodeId);
-    setNodeLoading(true);
-    setNodeSessionData(null);
-    setView("node_session");
-
-    try {
-      const res = await fetchWithRetry("/api/learning/node/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodeId }),
-      });
-      if (!res.ok) throw new Error("Failed to start node");
-      const data = await res.json();
-      setNodeSessionData(data);
-    } catch {
-      setNodeSessionData(null);
-    } finally {
-      setNodeLoading(false);
-    }
-  }, []);
-
-  // ---- Complete a node ----
-  const completeNode = useCallback(async (score: number) => {
-    if (!activeNodeId) return;
-    try {
-      const res = await fetchWithRetry("/api/learning/node/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nodeId: activeNodeId,
-          score: Math.round(score),
-          xpEarned: Math.round(score * 0.5),
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to complete node");
-      const data = await res.json();
-
-      // Show achievement toasts if any were unlocked
-      if (data.newAchievements?.length > 0) {
-        showAchievementToasts(data.newAchievements as UnlockedAchievement[]);
-      }
-
-      // Check if checkpoint is ready
-      if (data.isCheckpointReady) {
-        const node = nodes.find((n) => n.id === activeNodeId);
-        setCheckpointNumber(node?.phase ?? 1);
-        setCheckpointScores({});
-        await refetchPlan();
-        setView("checkpoint");
-      } else if (data.isLastPhase && data.allPhaseComplete) {
-        // Plan is now "completed" — update local state directly instead of
-        // refetching (GET /plan only returns active plans, so refetch would null it)
-        setPlan((prev) => prev ? { ...prev, status: "completed" } : prev);
-        // Mark the completed node locally so FinalReportView has up-to-date nodes
-        setNodes((prev) => prev.map((n) =>
-          n.id === activeNodeId ? { ...n, status: "completed" as const } : n
-        ));
-        setView("final_report");
-      } else {
-        await refetchPlan();
-        setView("roadmap");
-      }
-    } catch {
-      await refetchPlan();
-      setView("roadmap");
-    }
-  }, [activeNodeId, nodes, refetchPlan, showAchievementToasts]);
+  // ---- Start a node session — navigate to practice page ----
+  const router = useRouter();
+  const startNodeSession = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    router.push(`/component-${node.component}?lpNode=${nodeId}`);
+  }, [nodes, router]);
 
   // ---- Submit checkpoint ----
   const submitCheckpoint = useCallback(async (scores: Record<string, number>) => {
@@ -572,18 +512,23 @@ export default function LearningPathClient({
             setCheckpointResult(null);
             setView("checkpoint");
           }}
-        />
-      );
-
-    case "node_session":
-      return (
-        <NodeSessionView
-          node={nodes.find((n) => n.id === activeNodeId) ?? null}
-          sessionData={nodeSessionData}
-          loading={nodeLoading}
-          assessmentData={assessmentData}
-          onComplete={completeNode}
-          onCancel={() => setView("roadmap")}
+          onReset={async () => {
+            try {
+              const res = await fetchWithRetry("/api/learning/plan/reset", {
+                method: "POST",
+              });
+              if (!res.ok) throw new Error("Reset failed");
+              setPlan(null);
+              setNodes([]);
+              setCheckpoints([]);
+              setAssessmentScores({});
+              setExamDate("");
+              setGenerateError(null);
+              setView("welcome");
+            } catch {
+              // silently fail
+            }
+          }}
         />
       );
 
@@ -633,16 +578,16 @@ export default function LearningPathClient({
 
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
-    <div className="pixel-border chinese-corner bg-card p-6 space-y-6">
+    <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="text-center space-y-3">
         <GraduationCap className="h-12 w-12 mx-auto text-primary" />
-        <h2 className="font-pixel text-sm text-primary pixel-glow leading-relaxed">
-          Personalized Learning Path
+        <h2 className="font-pixel text-lg sm:text-xl text-primary pixel-glow leading-relaxed">
+          Personalized AI Learning Path
         </h2>
         <p className="font-chinese text-lg text-foreground">
           个性化学习计划
         </p>
-        <div className="space-y-2 text-sm text-muted-foreground max-w-md mx-auto">
+        <div className="space-y-2 text-base sm:text-2xl text-muted-foreground max-w-md mx-auto">
           <p>
             Take a quick assessment to gauge your current PSC proficiency, set your exam date,
             and receive an AI-generated study curriculum tailored to your weaknesses.
@@ -657,11 +602,11 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         <Button
           size="lg"
           onClick={onStart}
-          className="pixel-btn bg-primary text-primary-foreground font-pixel text-sm leading-relaxed px-8"
+          className="pixel-btn bg-primary text-primary-foreground font-pixel text-base sm:text-xl leading-relaxed px-4 sm:px-8"
         >
           <Play className="h-4 w-4 mr-2" />
           Start Assessment
-          <span className="font-chinese ml-2 opacity-80">开始测评</span>
+          <span className="font-chinese ml-2 opacity-80 hidden sm:inline">开始测评</span>
         </Button>
       </div>
     </div>
@@ -690,10 +635,19 @@ function MiniExamFlow({
   header?: React.ReactNode;
   onComplete: (scores: Record<string, number>) => void;
 }) {
+  const { setLearningActive } = useBGM();
   const [phase, setPhase] = useState<AssessmentPhase>("c1_recording");
-  const rawDataRef = useRef<AssessmentRawData[]>([]);
   const [assessProgress, setAssessProgress] = useState(0);
   const processingRef = useRef(false);
+  // Background grading: fire each component's grading immediately when done recording
+  const gradingPromisesRef = useRef<Promise<{ key: string; score: number }>[]>([]);
+
+  // Duck BGM during active assessment phases
+  useEffect(() => {
+    const active = phase !== "assessing";
+    setLearningActive(active);
+    return () => setLearningActive(false);
+  }, [phase, setLearningActive]);
 
   const randomizedQuiz = useMemo(() => {
     return (assessmentData.quizQuestions ?? []).map(randomizeAnswerPositions);
@@ -709,7 +663,9 @@ function MiniExamFlow({
   }, [assessmentData.passage, assessmentData.topics]);
 
   const advancePhase = useCallback((data: AssessmentRawData) => {
-    rawDataRef.current = [...rawDataRef.current, data];
+    // Start grading this component immediately in the background
+    gradingPromisesRef.current.push(gradeComponent(data));
+
     setPhase(prev => {
       let idx = ASSESSMENT_PHASE_ORDER.indexOf(prev);
       // Advance to next phase, skipping phases with missing data
@@ -721,22 +677,23 @@ function MiniExamFlow({
     });
   }, [shouldSkipPhase]);
 
+  // When all components done, just wait for any remaining in-flight grading
   useEffect(() => {
     if (phase !== "assessing" || processingRef.current) return;
     processingRef.current = true;
-    processAssessmentResults(rawDataRef.current, setAssessProgress).then(onComplete);
+    collectGradingResults(gradingPromisesRef.current, setAssessProgress).then(onComplete);
   }, [phase, onComplete]);
 
   if (phase === "assessing") {
     return (
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-6">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="text-center space-y-4">
           <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
-          <h2 className="font-pixel text-sm text-primary leading-relaxed">{assessingTitle}</h2>
+          <h2 className="font-pixel text-lg sm:text-xl text-primary leading-relaxed">{assessingTitle}</h2>
           <p className="font-chinese text-muted-foreground">正在分析测评结果...</p>
           <div className="max-w-xs mx-auto">
             <Progress value={assessProgress} className="h-3" />
-            <p className="text-xs text-muted-foreground mt-2">{Math.round(assessProgress)}% complete</p>
+            <p className="text-base text-muted-foreground mt-2">{Math.round(assessProgress)}% complete</p>
           </div>
         </div>
       </div>
@@ -747,7 +704,7 @@ function MiniExamFlow({
     <div className="space-y-3">
       {header}
 
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center gap-2 text-base text-muted-foreground">
         <span>{stepLabel}: Step {currentIndex + 1} of {ASSESSMENT_PHASE_ORDER.length}</span>
         <Progress value={progressPercent} className="flex-1 h-2" />
       </div>
@@ -758,7 +715,6 @@ function MiniExamFlow({
           items={assessmentData.characters}
           timeLimitSeconds={90}
           onComplete={(data) => advancePhase(data)}
-          onSkip={() => advancePhase({ componentNumber: 1 })}
         />
       )}
 
@@ -768,7 +724,6 @@ function MiniExamFlow({
           items={assessmentData.words}
           timeLimitSeconds={90}
           onComplete={(data) => advancePhase(data)}
-          onSkip={() => advancePhase({ componentNumber: 2 })}
         />
       )}
 
@@ -784,7 +739,6 @@ function MiniExamFlow({
           passage={assessmentData.passage}
           timeLimitSeconds={240}
           onComplete={(data) => advancePhase(data)}
-          onSkip={() => advancePhase({ componentNumber: 4 })}
         />
       )}
 
@@ -793,7 +747,6 @@ function MiniExamFlow({
           topics={assessmentData.topics}
           timeLimitSeconds={180}
           onComplete={(data) => advancePhase(data)}
-          onSkip={() => advancePhase({ componentNumber: 5 })}
         />
       )}
     </div>
@@ -823,13 +776,11 @@ function MiniExamPronunciation({
   items,
   timeLimitSeconds,
   onComplete,
-  onSkip,
 }: {
   componentNumber: 1 | 2;
   items: string[];
   timeLimitSeconds: number;
   onComplete: (data: AssessmentRawData) => void;
-  onSkip: () => void;
 }) {
   const info = COMPONENT_INFO[componentNumber];
   const recorderRef = useRef<AudioRecorderHandle>(null);
@@ -868,25 +819,26 @@ function MiniExamPronunciation({
     <Card>
       <CardContent className="pt-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-sm px-3 py-1">
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">
             {info?.short}: {info?.name}
           </Badge>
-          <Badge variant={timer.isRunning && timer.timeRemaining <= 10 ? "destructive" : "secondary"}>
+          <Badge variant={timer.isRunning && timer.timeRemaining <= 10 ? "destructive" : "secondary"} className="text-xl sm:text-3xl px-2 py-1 sm:px-4 sm:py-2">
             {timer.isRunning ? timer.formatTime : formatTimerDisplay(timeLimitSeconds)}
           </Badge>
         </div>
-        <p className="font-chinese text-sm text-center text-muted-foreground">{info?.chineseName}</p>
+        <p className="font-chinese text-lg sm:text-xl text-center text-muted-foreground">{info?.chineseName}</p>
 
-        <p className="text-sm text-center text-muted-foreground">
+        <p className="text-base sm:text-xl text-center text-muted-foreground">
           Read all {componentNumber === 1 ? "characters" : "words"} aloud in a single recording:
         </p>
 
-        <div className={`grid gap-2 ${componentNumber === 1 ? "grid-cols-5" : "grid-cols-3"} max-h-[250px] overflow-y-auto rounded-lg border bg-muted/30 p-3`}>
+        <div className={`grid gap-2 sm:gap-3 ${componentNumber === 1 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-5" : "grid-cols-2 sm:grid-cols-3"} w-full max-w-4xl mx-auto`}>
           {items.map((item, i) => (
-            <div key={i} className="text-center rounded border bg-card p-2">
-              <span className={`font-chinese ${componentNumber === 1 ? "text-xl" : "text-base"}`}>
-                {item}
-              </span>
+            <div
+              key={i}
+              className="w-full flex items-center justify-center rounded-lg border-2 border-muted p-2 sm:p-4"
+            >
+              <p className="text-2xl sm:text-4xl font-bold font-chinese">{item}</p>
             </div>
           ))}
         </div>
@@ -897,12 +849,6 @@ function MiniExamPronunciation({
           onRecordingStart={handleRecordingStart}
         />
 
-        <div className="flex justify-center">
-          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-            <SkipForward className="h-4 w-4 mr-1" />
-            Skip this step
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
@@ -913,12 +859,10 @@ function MiniExamPassage({
   passage,
   timeLimitSeconds,
   onComplete,
-  onSkip,
 }: {
   passage: { id: string; title: string; content: string };
   timeLimitSeconds: number;
   onComplete: (data: AssessmentRawData) => void;
-  onSkip: () => void;
 }) {
   const [recording, setRecording] = useState(false);
   const [isDone, setIsDone] = useState(false);
@@ -974,14 +918,14 @@ function MiniExamPassage({
     <Card>
       <CardContent className="pt-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-sm px-3 py-1">
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">
             C4: Passage Reading
           </Badge>
           <Badge variant={timer.isRunning && timer.timeRemaining <= 30 ? "destructive" : "secondary"}>
             {timer.isRunning ? timer.formatTime : formatTimerDisplay(timeLimitSeconds)}
           </Badge>
         </div>
-        <p className="font-chinese text-sm text-center text-muted-foreground">朗读短文</p>
+        <p className="font-chinese text-xl text-center text-muted-foreground">朗读短文</p>
 
         <h3 className="font-chinese text-center text-lg font-bold">{passage.title}</h3>
         <div className="rounded-lg border bg-muted/30 p-4 max-h-[300px] overflow-y-auto">
@@ -1002,14 +946,6 @@ function MiniExamPassage({
           )}
         </div>
 
-        {!recording && !isDone && (
-          <div className="flex justify-center">
-            <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-              <SkipForward className="h-4 w-4 mr-1" />
-              Skip this step
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -1020,12 +956,10 @@ function MiniExamSpeaking({
   topics,
   timeLimitSeconds,
   onComplete,
-  onSkip,
 }: {
   topics: string[];
   timeLimitSeconds: number;
   onComplete: (data: AssessmentRawData) => void;
-  onSkip: () => void;
 }) {
   const [topicChoices] = useState<string[]>(() => {
     const shuffled = [...topics].sort(() => Math.random() - 0.5);
@@ -1142,10 +1076,10 @@ function MiniExamSpeaking({
     return (
       <Card>
         <CardContent className="pt-6 space-y-4 text-center">
-          <Badge variant="outline" className="text-sm px-3 py-1">C5: Prompted Speaking</Badge>
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">C5: Prompted Speaking</Badge>
           <p className="font-chinese text-lg font-bold">{selectedTopic}</p>
-          <p className="text-6xl font-bold text-primary animate-pulse">{countdown}</p>
-          <p className="text-sm text-muted-foreground">Get ready to speak...</p>
+          <p className="text-5xl sm:text-6xl font-bold text-primary animate-pulse">{countdown}</p>
+          <p className="text-base text-muted-foreground">Get ready to speak...</p>
         </CardContent>
       </Card>
     );
@@ -1158,8 +1092,8 @@ function MiniExamSpeaking({
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center justify-between">
-            <Badge variant="outline">C5: Prompted Speaking</Badge>
-            <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "secondary"}>
+            <Badge variant="outline" className="font-pixel text-base px-3 py-1">C5: Prompted Speaking</Badge>
+            <Badge variant={timer.timeRemaining <= 30 ? "destructive" : "secondary"} className="text-3xl px-4 py-2">
               {timer.formatTime}
             </Badge>
           </div>
@@ -1186,15 +1120,15 @@ function MiniExamSpeaking({
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-sm px-3 py-1">C5: Prompted Speaking</Badge>
-            <Badge variant="secondary">
+            <Badge variant="outline" className="font-pixel text-base px-3 py-1">C5: Prompted Speaking</Badge>
+            <Badge variant="secondary" className="text-3xl px-4 py-2">
               {formatTimerDisplay(timeLimitSeconds)}
             </Badge>
           </div>
           <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">Your topic:</p>
+            <p className="text-base text-muted-foreground">Your topic:</p>
             <p className="font-chinese text-xl font-bold text-foreground">{selectedTopic}</p>
-            <p className="text-xs text-muted-foreground">Speak for 2-3 minutes. A 3-second countdown will start.</p>
+            <p className="text-base text-muted-foreground">Speak for 2-3 minutes. A 3-second countdown will start.</p>
           </div>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => { setSelectedTopic(null); selectedTopicRef.current = null; setSpeakPhase("choosing"); }}>
@@ -1215,14 +1149,14 @@ function MiniExamSpeaking({
     <Card>
       <CardContent className="pt-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className="text-sm px-3 py-1">C5: Prompted Speaking</Badge>
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">C5: Prompted Speaking</Badge>
           <Badge variant="secondary">
             {formatTimerDisplay(timeLimitSeconds)}
           </Badge>
         </div>
-        <p className="font-chinese text-sm text-center text-muted-foreground">命题说话</p>
+        <p className="font-chinese text-lg sm:text-xl text-center text-muted-foreground">命题说话</p>
 
-        <p className="text-sm text-center text-muted-foreground">
+        <p className="text-base sm:text-xl text-center text-muted-foreground">
           Choose a topic, then speak for 2-3 minutes:
         </p>
         <div className="space-y-2">
@@ -1235,12 +1169,6 @@ function MiniExamSpeaking({
               <span className="font-chinese text-base">{topic}</span>
             </button>
           ))}
-        </div>
-        <div className="flex justify-center">
-          <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-            <SkipForward className="h-4 w-4 mr-1" />
-            Skip this step
-          </Button>
         </div>
       </CardContent>
     </Card>
@@ -1257,37 +1185,25 @@ function QuizAssessment({
 }) {
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<number[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [showResult, setShowResult] = useState(false);
 
   const q = questions[currentQ];
 
   const handleSelect = (index: number) => {
-    if (showResult) return;
-    setSelected(index);
-    setShowResult(true);
-
     const newAnswers = [...answers, index];
     setAnswers(newAnswers);
 
-    // Auto-advance after 1.5s
-    setTimeout(() => {
-      if (currentQ + 1 >= questions.length) {
-        // Calculate score
-        let correct = 0;
-        questions.forEach((question, i) => {
-          if (newAnswers[i] === question.correctIndex) correct++;
-        });
-        const score = questions.length > 0
-          ? Math.round((correct / questions.length) * 100)
-          : 0;
-        onComplete(score);
-      } else {
-        setCurrentQ(currentQ + 1);
-        setSelected(null);
-        setShowResult(false);
-      }
-    }, 1500);
+    if (currentQ + 1 >= questions.length) {
+      let correct = 0;
+      questions.forEach((question, i) => {
+        if (newAnswers[i] === question.correctIndex) correct++;
+      });
+      const score = questions.length > 0
+        ? Math.round((correct / questions.length) * 100)
+        : 0;
+      onComplete(score);
+    } else {
+      setCurrentQ(currentQ + 1);
+    }
   };
 
   if (!q) {
@@ -1305,46 +1221,26 @@ function QuizAssessment({
     <Card>
       <CardContent className="pt-6 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge variant="outline">C3: Vocabulary & Grammar</Badge>
-          <span className="text-sm text-muted-foreground">
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">C3: Vocabulary & Grammar</Badge>
+          <span className="font-pixel text-xl text-muted-foreground">
             {currentQ + 1} / {questions.length}
           </span>
         </div>
-        <Progress value={((currentQ) / questions.length) * 100} className="h-1.5" />
+        <Progress value={((currentQ) / questions.length) * 100} className="h-2" />
 
-        <p className="font-chinese text-lg text-center py-2">{q.prompt}</p>
+        <p className="font-chinese text-xl sm:text-2xl text-center py-2">{q.prompt}</p>
 
-        <div className="space-y-2">
-          {q.options.map((opt, i) => {
-            let style = "border-border hover:border-primary/50";
-            if (showResult) {
-              if (i === q.correctIndex) {
-                style = "border-green-500 bg-green-50 dark:bg-green-950/30";
-              } else if (i === selected && i !== q.correctIndex) {
-                style = "border-red-500 bg-red-50 dark:bg-red-950/30";
-              }
-            } else if (i === selected) {
-              style = "border-primary bg-primary/10";
-            }
-
-            return (
-              <button
-                key={i}
-                onClick={() => handleSelect(i)}
-                disabled={showResult}
-                className={`w-full text-left px-4 py-3 rounded-lg border transition-all font-chinese text-base ${style}`}
-              >
-                {opt}
-              </button>
-            );
-          })}
+        <div className="space-y-2 sm:space-y-3">
+          {q.options.map((opt, i) => (
+            <button
+              key={i}
+              onClick={() => handleSelect(i)}
+              className="w-full text-left px-3 py-3 sm:px-5 sm:py-4 rounded-lg border-2 border-border hover:border-primary/50 transition-all font-chinese text-base sm:text-xl cursor-pointer"
+            >
+              {opt}
+            </button>
+          ))}
         </div>
-
-        {showResult && (
-          <p className="text-sm text-muted-foreground text-center">
-            {q.explanation}
-          </p>
-        )}
       </CardContent>
     </Card>
   );
@@ -1365,26 +1261,26 @@ function AssessmentResultsView({
   const gradeInfo = getPSCGrade(weightedScore);
 
   return (
-    <div className="pixel-border chinese-corner bg-card p-6 space-y-6">
+    <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="text-center space-y-2">
         <BarChart3 className="h-10 w-10 mx-auto text-primary" />
-        <h2 className="font-pixel text-sm text-primary leading-relaxed">Assessment Results</h2>
+        <h2 className="font-pixel text-lg sm:text-xl text-primary leading-relaxed">Assessment Results</h2>
         <p className="font-chinese text-muted-foreground">测评结果</p>
       </div>
 
       {/* Overall score */}
       <div className="text-center py-3">
-        <p className={`text-4xl font-bold ${scoreColor(weightedScore)}`}>
+        <p className={`text-3xl sm:text-4xl font-bold ${scoreColor(weightedScore)}`}>
           {Math.round(weightedScore)}
         </p>
-        <p className="text-sm text-muted-foreground">Weighted Score</p>
+        <p className="text-base text-muted-foreground">Weighted Score</p>
         <Badge
           variant={weightedScore >= 80 ? "default" : weightedScore >= 60 ? "secondary" : "destructive"}
           className="mt-2 text-base px-3 py-0.5"
         >
           {gradeInfo.grade}
         </Badge>
-        <p className="text-xs text-muted-foreground mt-1">{gradeInfo.description}</p>
+        <p className="text-base text-muted-foreground mt-1">{gradeInfo.description}</p>
       </div>
 
       {/* Per-component scores */}
@@ -1396,8 +1292,8 @@ function AssessmentResultsView({
           return (
             <div key={key} className={`flex items-center justify-between rounded-lg border p-3 ${scoreBgColor(s)}`}>
               <div>
-                <p className="font-medium text-sm">{info?.short}: {info?.name}</p>
-                <p className="text-xs text-muted-foreground font-chinese">{info?.chineseName}</p>
+                <p className="font-medium text-xl">{info?.short}: {info?.name}</p>
+                <p className="text-base text-muted-foreground font-chinese">{info?.chineseName}</p>
               </div>
               <span className={`text-lg font-bold ${scoreColor(s)}`}>{s}</span>
             </div>
@@ -1434,12 +1330,12 @@ function TimeInputView({
   const days = examDate ? daysUntil(examDate) : 0;
 
   return (
-    <div className="pixel-border chinese-corner bg-card p-6 space-y-6">
+    <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="text-center space-y-2">
         <Calendar className="h-10 w-10 mx-auto text-primary" />
-        <h2 className="font-pixel text-sm text-primary leading-relaxed">Set Your Exam Date</h2>
+        <h2 className="font-pixel text-lg sm:text-xl text-primary leading-relaxed">Set Your Exam Date</h2>
         <p className="font-chinese text-muted-foreground">设置考试日期</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           We will create a study plan tailored to your timeline.
         </p>
       </div>
@@ -1456,7 +1352,7 @@ function TimeInputView({
         {examDate && days > 0 && (
           <div className="text-center pixel-border bg-muted px-4 py-2">
             <Clock className="h-4 w-4 inline-block mr-1 text-primary" />
-            <span className="font-pixel text-sm text-foreground leading-relaxed">
+            <span className="font-pixel text-xl text-foreground leading-relaxed">
               {days} day{days !== 1 ? "s" : ""} remaining
             </span>
           </div>
@@ -1468,11 +1364,11 @@ function TimeInputView({
           size="lg"
           onClick={onGenerate}
           disabled={!examDate || days <= 0}
-          className="pixel-btn bg-primary text-primary-foreground font-pixel text-sm leading-relaxed px-8"
+          className="pixel-btn bg-primary text-primary-foreground font-pixel text-base sm:text-xl leading-relaxed px-4 sm:px-8"
         >
           <Target className="h-4 w-4 mr-2" />
           Generate My Study Plan
-          <span className="font-chinese ml-2 opacity-80">生成计划</span>
+          <span className="font-chinese ml-2 opacity-80 hidden sm:inline">生成计划</span>
         </Button>
       </div>
     </div>
@@ -1499,11 +1395,15 @@ function GeneratingView({
   onRetry: () => void;
 }) {
   const hasStarted = useRef(false);
+  const [barWidth, setBarWidth] = useState(0);
 
   // Trigger generation on mount
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
+
+    // Kick off the animated bar from 0 → 90% after first paint
+    requestAnimationFrame(() => setBarWidth(90));
 
     (async () => {
       try {
@@ -1517,6 +1417,7 @@ function GeneratingView({
           throw new Error(body.error || "Failed to generate plan");
         }
         const data = await res.json();
+        setBarWidth(100);
         onSuccess(data.newAchievements);
       } catch (err) {
         onError((err as Error).message);
@@ -1527,11 +1428,11 @@ function GeneratingView({
 
   if (error) {
     return (
-      <div className="pixel-border bg-card p-6 space-y-4">
+      <div className="pixel-border bg-card p-4 sm:p-6 space-y-4">
         <div className="text-center space-y-3">
           <AlertTriangle className="h-10 w-10 mx-auto text-destructive" />
-          <h2 className="font-pixel text-sm text-destructive leading-relaxed">Generation Failed</h2>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <h2 className="font-pixel text-lg sm:text-xl text-destructive leading-relaxed">Generation Failed</h2>
+          <p className="text-base text-muted-foreground">{error}</p>
         </div>
         <div className="flex justify-center">
           <Button onClick={onRetry}>
@@ -1543,18 +1444,21 @@ function GeneratingView({
   }
 
   return (
-    <div className="pixel-border chinese-corner bg-card p-6 space-y-6">
+    <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="text-center space-y-4">
         <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
-        <h2 className="font-pixel text-sm text-primary leading-relaxed">Generating Your Study Plan</h2>
+        <h2 className="font-pixel text-lg sm:text-xl text-primary leading-relaxed">Generating Your Study Plan</h2>
         <p className="font-chinese text-muted-foreground">正在生成学习计划...</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           Our AI is analyzing your scores and creating a personalized curriculum.
           This may take up to 30 seconds.
         </p>
         <div className="max-w-xs mx-auto">
           <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary animate-pulse rounded-full" style={{ width: "60%" }} />
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-[20s] ease-out"
+              style={{ width: `${barWidth}%` }}
+            />
           </div>
         </div>
       </div>
@@ -1572,16 +1476,21 @@ function CurriculumRoadmap({
   checkpoints,
   onStartNode,
   onStartCheckpoint,
+  onReset,
 }: {
   plan: LearningPlan | null;
   nodes: LearningNode[];
   checkpoints: LearningCheckpoint[];
   onStartNode: (nodeId: string) => void;
   onStartCheckpoint: (cpNum: number) => void;
+  onReset: () => void;
 }) {
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [expandedPhase, setExpandedPhase] = useState<number | "none" | null>(null);
+
   if (!plan) {
     return (
-      <div className="pixel-border bg-card p-6 text-center">
+      <div className="pixel-border bg-card p-4 sm:p-6 text-center">
         <p className="text-muted-foreground">No active plan found.</p>
       </div>
     );
@@ -1595,272 +1504,569 @@ function CurriculumRoadmap({
   }
   const phaseNumbers = Object.keys(phases).map(Number).sort((a, b) => a - b);
 
-  // Calculate stats
+  // Stats
   const completedCount = nodes.filter((n) => n.status === "completed").length;
   const totalCount = nodes.length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const daysLeft = daysUntil(plan.exam_date);
-
-  // Which checkpoints exist
+  const totalCheckpoints = plan.total_checkpoints ?? 2;
+  const totalPhases = totalCheckpoints + 1;
   const completedCheckpoints = new Set(checkpoints.map((cp) => cp.checkpoint_number));
 
+  // Calculate time estimates per phase
+  const phaseTimeEstimates: Record<number, number> = {};
+  for (const [phaseNum, phaseNodes] of Object.entries(phases)) {
+    phaseTimeEstimates[Number(phaseNum)] = phaseNodes.reduce(
+      (sum, n) => sum + (n.estimated_minutes || 10), 0
+    );
+  }
+
+  // Future phases that haven't been generated yet
+  const futurePhaseNumbers: number[] = [];
+  for (let p = Math.max(...phaseNumbers, 0) + 1; p <= totalPhases; p++) {
+    futurePhaseNumbers.push(p);
+  }
+
+  // Calculate recommended dates based on workload (~15 min/day practice pace)
+  const DAILY_PACE_MIN = 15;
+  const phaseDeadlines: Record<number, { date: string; daysNeeded: number }> = {};
+  let cumulativeDays = 0;
+  for (const pNum of phaseNumbers) {
+    const mins = phaseTimeEstimates[pNum] ?? 0;
+    // Completed phases: 0 days remaining, incomplete: ceil(remaining mins / daily pace)
+    const completedMins = (phases[pNum] ?? [])
+      .filter(n => n.status === "completed")
+      .reduce((s, n) => s + (n.estimated_minutes || 10), 0);
+    const remainingMins = Math.max(0, mins - completedMins);
+    const daysNeeded = remainingMins > 0 ? Math.max(1, Math.ceil(remainingMins / DAILY_PACE_MIN)) : 0;
+    cumulativeDays += daysNeeded + (daysNeeded > 0 ? 1 : 0); // +1 day buffer for mid-assessment
+    const d = new Date();
+    d.setDate(d.getDate() + cumulativeDays);
+    phaseDeadlines[pNum] = {
+      date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      daysNeeded,
+    };
+  }
+  // For future (ungenerated) phases, distribute remaining days evenly
+  const usedDays = cumulativeDays;
+  const remainingDaysForFuture = Math.max(0, daysLeft - usedDays);
+  const futureCount = futurePhaseNumbers.length + 1; // +1 for final exams
+  const daysPerFuturePhase = Math.max(1, Math.floor(remainingDaysForFuture / Math.max(1, futureCount)));
+  function getFutureDate(idx: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + usedDays + (idx + 1) * daysPerFuturePhase);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  // Auto-expand current phase
+  const activePhase = expandedPhase === "none" ? null : (expandedPhase ?? plan.current_phase);
+
   return (
-    <div className="space-y-4">
-      {/* Stats bar */}
-      <div className="pixel-border bg-card p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5 text-primary" />
-            <span className="font-pixel text-sm text-foreground leading-relaxed">
-              Phase {plan.current_phase} of {phaseNumbers.length}
-            </span>
+    <div className="space-y-5">
+
+      {/* ── Hero Stats ── */}
+      <div className="pixel-border chinese-corner bg-card p-3 sm:p-5">
+        <div className="flex items-center gap-3 sm:gap-5">
+          {/* Progress ring */}
+          <div className="relative shrink-0">
+            <svg width="80" height="80" viewBox="0 0 80 80" className="transform -rotate-90 animate-ring-grow">
+              <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6"
+                className="text-muted/40" />
+              <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6"
+                className="text-primary transition-all duration-700"
+                strokeDasharray={`${2 * Math.PI * 34}`}
+                strokeDashoffset={`${2 * Math.PI * 34 * (1 - progressPercent / 100)}`}
+                strokeLinecap="round" />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="font-pixel text-lg text-primary leading-none">{progressPercent}%</span>
+            </div>
           </div>
-          <Badge variant="outline" className="font-pixel text-xs">
-            {daysLeft} day{daysLeft !== 1 ? "s" : ""} left
-          </Badge>
+
+          {/* Stats text */}
+          <div className="flex-1 min-w-0 space-y-1">
+            <h2 className="font-pixel text-xl text-foreground leading-relaxed">
+              Phase {plan.current_phase}
+            </h2>
+            <p className="text-base text-muted-foreground">
+              {completedCount}/{totalCount} drills completed
+            </p>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Badge variant="outline" className="font-pixel text-sm px-2.5 py-0.5">
+                <Calendar className="h-3 w-3 mr-1" />
+                {daysLeft}d left
+              </Badge>
+              <Badge variant="outline" className="font-pixel text-sm px-2.5 py-0.5">
+                <Target className="h-3 w-3 mr-1" />
+                {totalCheckpoints} checkpoints
+              </Badge>
+              {/* Total estimated time for current phase */}
+              {phaseTimeEstimates[plan.current_phase] && (
+                <Badge variant="outline" className="font-pixel text-sm px-2.5 py-0.5">
+                  <Timer className="h-3 w-3 mr-1" />
+                  ~{phaseTimeEstimates[plan.current_phase]}min
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Reset */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => setShowResetConfirm(true)}
+            title="Reset learning path"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
         </div>
-        <Progress value={progressPercent} className="h-3" />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{completedCount}/{totalCount} nodes completed</span>
-          <span>{progressPercent}% complete</span>
-        </div>
+
+        {/* Reset confirmation */}
+        {showResetConfirm && (
+          <div className="mt-4 border border-destructive/50 rounded-lg p-3 bg-destructive/5 space-y-2">
+            <p className="text-sm text-destructive font-medium">
+              Reset your learning path? All progress will be lost.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => { setShowResetConfirm(false); onReset(); }}>
+                Reset
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Roadmap timeline */}
-      <div className="overflow-x-auto pb-4">
-        <div className="flex items-center gap-2 min-w-max px-2">
+      {/* ── AI Analysis Card ── */}
+      {plan.ai_analysis && (
+        <div className="pixel-border bg-linear-to-br from-primary/5 to-transparent p-3 sm:p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Brain className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <span className="font-pixel text-base text-primary leading-relaxed block">
+                AI Analysis
+              </span>
+              <span className="text-sm text-muted-foreground">Phase {plan.current_phase} Focus</span>
+            </div>
+          </div>
+          <p className="text-lg text-foreground leading-relaxed">
+            {plan.ai_analysis}
+          </p>
+        </div>
+      )}
+
+      {/* ── Vertical Phase Timeline ── */}
+      <div className="relative pb-2">
+        {/* Vertical connector line */}
+        <div className="absolute left-[23px] top-0 bottom-0 w-0.5 bg-border" />
+
+        <div className="space-y-0">
+          {/* ── Existing phases (with nodes) ── */}
           {phaseNumbers.map((phaseNum, phaseIdx) => {
             const phaseNodes = phases[phaseNum];
-            const isCheckpointPhase = phaseNum < 4;
-            const allPhaseComplete = phaseNodes.every((n) => n.status === "completed");
-            const checkpointReady = isCheckpointPhase && allPhaseComplete && !completedCheckpoints.has(phaseNum);
+            const isCheckpointPhase = phaseNum <= totalCheckpoints;
+            const allComplete = phaseNodes.every((n) => n.status === "completed");
+            const anyAvailable = phaseNodes.some((n) => n.status === "available");
+            const isCurrentPhase = phaseNum === plan.current_phase;
+            const isExpanded = activePhase === phaseNum;
+            const phaseCompletedCount = phaseNodes.filter((n) => n.status === "completed").length;
+            const checkpointReady = isCheckpointPhase && allComplete && !completedCheckpoints.has(phaseNum);
             const checkpointDone = completedCheckpoints.has(phaseNum);
+            const phaseMinutes = phaseTimeEstimates[phaseNum] ?? 0;
+
+            // Phase status
+            const phaseStatus = allComplete ? "completed" : anyAvailable ? "active" : "locked";
 
             return (
-              <div key={phaseNum} className="flex items-center gap-2">
-                {/* Phase label */}
-                {phaseIdx > 0 && (
-                  <div className="w-px h-8 bg-border mx-1" />
-                )}
+              <div key={phaseNum} className="animate-phase-enter" style={{ animationDelay: `${phaseIdx * 100}ms` }}>
+                {/* ── Phase Card ── */}
+                <div className="relative pl-12 pb-4">
+                  {/* Timeline node */}
+                  <div className={`absolute left-[12px] top-3 w-[24px] h-[24px] rounded-full border-[3px] z-10 transition-all ${
+                    phaseStatus === "completed"
+                      ? "bg-green-500 border-green-400"
+                      : phaseStatus === "active"
+                      ? "bg-primary border-primary/60 ring-4 ring-primary/20 animate-glow-pulse"
+                      : "bg-muted border-muted-foreground/30"
+                  }`}>
+                    {phaseStatus === "completed" && (
+                      <CheckCircle2 className="h-full w-full text-white p-0.5" />
+                    )}
+                    {phaseStatus === "active" && (
+                      <div className="h-full w-full rounded-full bg-primary-foreground/80 scale-[0.4]" />
+                    )}
+                  </div>
 
-                {/* Phase nodes */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-pixel text-muted-foreground leading-relaxed mr-1 whitespace-nowrap">
-                    P{phaseNum}
-                  </span>
-                  {phaseNodes.map((node) => (
-                    <NodeCircle
-                      key={node.id}
-                      node={node}
-                      onClick={() => {
-                        if (node.status === "available") onStartNode(node.id);
-                      }}
-                    />
-                  ))}
+                  {/* Phase header — clickable to expand/collapse */}
+                  <button
+                    className={`w-full text-left pixel-border p-4 transition-all ${
+                      isCurrentPhase
+                        ? "bg-card ring-1 ring-primary/30"
+                        : "bg-card hover:bg-accent/50"
+                    }`}
+                    onClick={() => setExpandedPhase(isExpanded ? "none" : phaseNum)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-pixel text-lg text-foreground leading-relaxed">
+                              Phase {phaseNum}
+                            </span>
+                            {isCurrentPhase && (
+                              <Badge className="text-sm px-2 py-0.5 bg-primary/20 text-primary border-0">
+                                CURRENT
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="text-base text-muted-foreground">
+                              {phaseCompletedCount}/{phaseNodes.length} drills
+                            </span>
+                            {/* Mini progress dots (sorted by component to match expanded view) */}
+                            <div className="flex items-center gap-1">
+                              {[...phaseNodes].sort((a, b) => a.component - b.component).map((n) => (
+                                <div
+                                  key={n.id}
+                                  className={`w-2.5 h-2.5 rounded-full ${
+                                    n.status === "completed"
+                                      ? "bg-green-500"
+                                      : n.status === "available"
+                                      ? "bg-primary"
+                                      : "bg-muted-foreground/30"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          {/* Time estimate & recommended date */}
+                          <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
+                            <Timer className="h-3.5 w-3.5" />
+                            <span>~{phaseMinutes}min total</span>
+                            {phaseStatus !== "completed" && phaseDeadlines[phaseNum] && (
+                              <>
+                                <span className="mx-0.5">·</span>
+                                <span>~{phaseDeadlines[phaseNum].daysNeeded}d at {DAILY_PACE_MIN}min/day</span>
+                                <span className="mx-0.5">·</span>
+                                <Calendar className="h-3.5 w-3.5" />
+                                <span>by {phaseDeadlines[phaseNum].date}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Expanded component list (grouped by component) */}
+                  {isExpanded && (
+                    <div className="mt-2 space-y-2 animate-slide-down">
+                      {groupNodesByComponent(phaseNodes).map((group, groupIdx) => (
+                        <div key={group.component} className="animate-node-card-enter" style={{ animationDelay: `${groupIdx * 60}ms` }}>
+                          <ComponentRow
+                            component={group.component}
+                            nodes={group.nodes}
+                            onStart={onStartNode}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Checkpoint diamond (after phases 1-3) */}
+                {/* ── Checkpoint Marker ── */}
                 {isCheckpointPhase && (
-                  <CheckpointDiamond
-                    number={phaseNum}
-                    ready={checkpointReady}
-                    done={checkpointDone}
-                    onClick={() => {
-                      if (checkpointReady) onStartCheckpoint(phaseNum);
-                    }}
-                  />
+                  <div className="relative pl-12 pb-4">
+                    {/* Diamond on timeline */}
+                    <div className="absolute left-[8px] top-2 w-8 h-8 z-10">
+                      <div className={`w-6 h-6 rotate-45 mx-auto border-2 transition-all ${
+                        checkpointDone
+                          ? "bg-green-500 border-green-400"
+                          : checkpointReady
+                          ? "bg-primary border-primary animate-pulse"
+                          : "bg-muted border-muted-foreground/30"
+                      }`} />
+                    </div>
+
+                    {/* Checkpoint card */}
+                    <button
+                      onClick={() => { if (checkpointReady) onStartCheckpoint(phaseNum); }}
+                      disabled={!checkpointReady}
+                      className={`w-full text-left rounded-lg border-2 border-dashed p-3 transition-all ${
+                        checkpointDone
+                          ? "border-green-500/40 bg-green-500/5"
+                          : checkpointReady
+                          ? "border-primary bg-primary/5 cursor-pointer hover:bg-primary/10 animate-checkpoint-shimmer"
+                          : "border-muted-foreground/20 bg-muted/30 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Swords className={`h-5 w-5 shrink-0 ${
+                          checkpointDone ? "text-green-500" : checkpointReady ? "text-primary" : "text-muted-foreground"
+                        }`} />
+                        <div className="flex-1">
+                          <span className={`font-pixel text-base leading-relaxed ${
+                            checkpointDone ? "text-green-500" : checkpointReady ? "text-primary" : "text-muted-foreground"
+                          }`}>
+                            Mid-Assessment {phaseNum}
+                          </span>
+                          <p className="text-base text-muted-foreground">
+                            {checkpointDone
+                              ? "Completed — scores updated"
+                              : checkpointReady
+                              ? "Ready! Take assessment to unlock next phase"
+                              : "Complete all drills above first"}
+                          </p>
+                        </div>
+                        {checkpointDone && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+                        {checkpointReady && <Sparkles className="h-5 w-5 text-primary shrink-0 animate-pulse" />}
+                      </div>
+                    </button>
+                  </div>
                 )}
               </div>
             );
           })}
+
+          {/* ── Future phases (not yet generated) ── */}
+          {futurePhaseNumbers.map((phaseNum, idx) => {
+            const isCheckpointPhase = phaseNum <= totalCheckpoints;
+            const delayBase = phaseNumbers.length * 100;
+            return (
+              <div key={`future-${phaseNum}`} className="animate-phase-enter" style={{ animationDelay: `${delayBase + idx * 100}ms` }}>
+                {/* Future phase placeholder */}
+                <div className="relative pl-12 pb-4">
+                  <div className="absolute left-[12px] top-3 w-[24px] h-[24px] rounded-full border-[3px] z-10 bg-muted border-dashed border-muted-foreground/30" />
+                  <div className="w-full pixel-border p-4 bg-card opacity-50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-pixel text-lg text-muted-foreground leading-relaxed">
+                            Phase {phaseNum}
+                          </span>
+                          <Badge variant="outline" className="text-sm px-2 py-0.5 text-muted-foreground border-dashed">
+                            UPCOMING
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 text-base text-muted-foreground/70">
+                          <Lock className="h-3.5 w-3.5" />
+                          <span>Unlocks after Mid-Assessment {phaseNum - 1}</span>
+                          <span className="mx-0.5">·</span>
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>Target: {getFutureDate(idx)}</span>
+                        </div>
+                      </div>
+                      <Lock className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Future checkpoint marker */}
+                {isCheckpointPhase && (
+                  <div className="relative pl-12 pb-4">
+                    <div className="absolute left-[8px] top-2 w-8 h-8 z-10">
+                      <div className="w-6 h-6 rotate-45 mx-auto border-2 border-dashed border-muted-foreground/30 bg-muted" />
+                    </div>
+                    <div className="w-full rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/30 p-3 opacity-50">
+                      <div className="flex items-center gap-3">
+                        <Swords className="h-5 w-5 shrink-0 text-muted-foreground/50" />
+                        <div>
+                          <span className="font-pixel text-base leading-relaxed text-muted-foreground/70">
+                            Mid-Assessment {phaseNum}
+                          </span>
+                          <p className="text-sm text-muted-foreground/50">Locked</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* ── Final Mock Exams ── */}
+          <div className="animate-phase-enter" style={{ animationDelay: `${(phaseNumbers.length + futurePhaseNumbers.length) * 100}ms` }}>
+            <div className="relative pl-12 pb-2">
+              {/* Flag node on timeline */}
+              <div className="absolute left-[12px] top-3 w-[24px] h-[24px] rounded-full border-[3px] z-10 bg-amber-500/20 border-amber-500/40">
+                <Flag className="h-full w-full text-amber-500 p-0.5" />
+              </div>
+
+              <div className={`w-full pixel-border p-4 bg-linear-to-r from-amber-500/5 to-transparent ${
+                plan.current_phase > totalPhases ? "opacity-100" : "opacity-50"
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-pixel text-lg text-amber-600 dark:text-amber-400 leading-relaxed">
+                    Final Mock Exams
+                  </span>
+                  <Badge variant="outline" className="text-sm px-2 py-0.5 border-amber-500/40 text-amber-600 dark:text-amber-400">
+                    3 EXAMS
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {[1, 2, 3].map((examNum) => (
+                    <div key={examNum} className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                      <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                        <Trophy className="h-5 w-5 text-amber-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-base font-medium">Mock Exam {examNum}</span>
+                        <p className="text-sm text-muted-foreground">
+                          Full PSC simulation (C1–C5) · ~30min
+                        </p>
+                      </div>
+                      <Lock className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground mt-3 flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Exam date: {new Date(plan.exam_date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* Detailed node list grouped by phase */}
-      {phaseNumbers.map((phaseNum) => {
-        const phaseNodes = phases[phaseNum];
-        return (
-          <div key={phaseNum} className="space-y-2">
-            <h3 className="font-pixel text-xs text-muted-foreground leading-relaxed">
-              Phase {phaseNum}
-            </h3>
-            {phaseNodes.map((node) => (
-              <NodeListItem
-                key={node.id}
-                node={node}
-                onStart={() => onStartNode(node.id)}
-              />
-            ))}
-
-            {/* Checkpoint indicator */}
-            {phaseNum < 4 && (
-              <div className="flex items-center gap-2 px-3 py-2">
-                <div className="h-px flex-1 bg-border" />
-                {completedCheckpoints.has(phaseNum) ? (
-                  <Badge variant="default" className="text-xs">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Checkpoint {phaseNum} Complete
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant={
-                      phaseNodes.every((n) => n.status === "completed") ? "default" : "secondary"
-                    }
-                    className={`text-xs ${
-                      phaseNodes.every((n) => n.status === "completed")
-                        ? "cursor-pointer hover:brightness-110"
-                        : "opacity-50"
-                    }`}
-                    onClick={() => {
-                      if (phaseNodes.every((n) => n.status === "completed")) {
-                        onStartCheckpoint(phaseNum);
-                      }
-                    }}
-                  >
-                    <Target className="h-3 w-3 mr-1" />
-                    Checkpoint {phaseNum}
-                  </Badge>
-                )}
-                <div className="h-px flex-1 bg-border" />
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
 
-// ---- Node Circle (timeline dot) ----
-function NodeCircle({ node, onClick }: { node: LearningNode; onClick: () => void }) {
-  const info = COMPONENT_INFO[node.component];
-  const isCompleted = node.status === "completed";
-  const isAvailable = node.status === "available";
-  const isLocked = node.status === "locked";
+// ── Group nodes by component ──
+const COMPONENT_COLORS: Record<number, string> = {
+  1: "from-red-500/10 to-transparent border-red-500/20",
+  2: "from-orange-500/10 to-transparent border-orange-500/20",
+  3: "from-yellow-500/10 to-transparent border-yellow-500/20",
+  4: "from-blue-500/10 to-transparent border-blue-500/20",
+  5: "from-purple-500/10 to-transparent border-purple-500/20",
+  6: "from-teal-500/10 to-transparent border-teal-500/20",
+  7: "from-pink-500/10 to-transparent border-pink-500/20",
+};
 
-  return (
-    <button
-      onClick={onClick}
-      disabled={!isAvailable}
-      className="flex flex-col items-center gap-0.5 group"
-      title={`${info?.short}: ${node.focus_area}`}
-    >
-      <div
-        className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
-          isCompleted
-            ? "bg-green-500 border-green-600 text-white"
-            : isAvailable
-            ? "bg-primary border-primary text-primary-foreground cursor-pointer hover:scale-110"
-            : "bg-muted border-muted-foreground/30 text-muted-foreground"
-        }`}
-      >
-        {isCompleted ? (
-          <CheckCircle2 className="h-4 w-4" />
-        ) : isLocked ? (
-          <Lock className="h-3 w-3" />
-        ) : (
-          info?.short
-        )}
-      </div>
-      <span className="text-[8px] text-muted-foreground max-w-[50px] text-center truncate leading-tight">
-        {node.focus_area.length > 12 ? node.focus_area.slice(0, 12) + "..." : node.focus_area}
-      </span>
-      {isCompleted && node.score !== null && (
-        <Badge variant="default" className="text-[8px] px-1 py-0 h-3.5">
-          {node.score}
-        </Badge>
-      )}
-    </button>
-  );
+const COMPONENT_ACCENT: Record<number, string> = {
+  1: "bg-red-500", 2: "bg-orange-500", 3: "bg-yellow-500",
+  4: "bg-blue-500", 5: "bg-purple-500", 6: "bg-teal-500", 7: "bg-pink-500",
+};
+
+function groupNodesByComponent(nodes: LearningNode[]): { component: number; nodes: LearningNode[] }[] {
+  const groups: Record<number, LearningNode[]> = {};
+  for (const node of nodes) {
+    if (!groups[node.component]) groups[node.component] = [];
+    groups[node.component].push(node);
+  }
+  return Object.keys(groups)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map(c => ({ component: c, nodes: groups[c] }));
 }
 
-// ---- Checkpoint Diamond ----
-function CheckpointDiamond({
-  number,
-  ready,
-  done,
-  onClick,
+function ComponentRow({
+  component,
+  nodes,
+  onStart,
 }: {
-  number: number;
-  ready: boolean;
-  done: boolean;
-  onClick: () => void;
+  component: number;
+  nodes: LearningNode[];
+  onStart: (nodeId: string) => void;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={!ready}
-      className="flex flex-col items-center gap-0.5 mx-1"
-      title={`Checkpoint ${number}`}
-    >
-      <div
-        className={`w-8 h-8 rotate-45 flex items-center justify-center border-2 transition-all ${
-          done
-            ? "bg-green-500 border-green-600"
-            : ready
-            ? "bg-primary border-primary cursor-pointer hover:scale-110 animate-pulse"
-            : "bg-muted border-muted-foreground/30"
-        }`}
-      >
-        <span className={`-rotate-45 text-[10px] font-bold ${
-          done || ready ? "text-white" : "text-muted-foreground"
-        }`}>
-          {done ? "✓" : number}
-        </span>
-      </div>
-      <span className="text-[8px] text-muted-foreground whitespace-nowrap">CP{number}</span>
-    </button>
-  );
-}
+  const info = COMPONENT_INFO[component];
+  const completedCount = nodes.filter(n => n.status === "completed").length;
+  const totalCount = nodes.length;
+  const allDone = completedCount === totalCount;
+  const nextNode = nodes.find(n => n.status === "available");
+  const totalMinutes = nodes.reduce((s, n) => s + (n.estimated_minutes || 10), 0);
 
-// ---- Node List Item (detailed) ----
-function NodeListItem({ node, onStart }: { node: LearningNode; onStart: () => void }) {
-  const info = COMPONENT_INFO[node.component];
-  const isCompleted = node.status === "completed";
-  const isAvailable = node.status === "available";
+  // Average score of completed nodes
+  const completedScores = nodes
+    .filter(n => n.status === "completed" && n.score !== null)
+    .map(n => n.score!);
+  const avgScore = completedScores.length > 0
+    ? Math.round(completedScores.reduce((a, b) => a + b, 0) / completedScores.length)
+    : null;
 
   return (
     <div
-      className={`pixel-border bg-card px-4 py-2.5 flex items-center gap-3 ${
-        isAvailable ? "hover:pixel-border-primary cursor-pointer" : ""
-      } ${isCompleted ? "opacity-75" : ""}`}
-      onClick={isAvailable ? onStart : undefined}
+      className={`rounded-lg border bg-linear-to-r p-3.5 transition-all ${
+        COMPONENT_COLORS[component] ?? ""
+      } ${nextNode ? "cursor-pointer hover:scale-[1.01] hover:shadow-md" : ""} ${
+        !allDone && !nextNode ? "opacity-50" : ""
+      }`}
+      onClick={nextNode ? () => onStart(nextNode.id) : undefined}
     >
-      {/* Status icon */}
-      <div className={`shrink-0 ${
-        isCompleted ? "text-green-500" : isAvailable ? "text-primary" : "text-muted-foreground"
-      }`}>
-        {isCompleted ? (
-          <CheckCircle2 className="h-5 w-5" />
-        ) : isAvailable ? (
-          <Play className="h-5 w-5" />
-        ) : (
-          <Lock className="h-5 w-5" />
-        )}
-      </div>
+      <div className="flex items-center gap-3">
+        {/* Component badge */}
+        <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${
+          allDone ? "bg-green-500" : COMPONENT_ACCENT[component] ?? "bg-muted"
+        }`}>
+          {allDone ? (
+            <CheckCircle2 className="h-5 w-5 text-white" />
+          ) : (
+            <span className="font-pixel text-sm text-white leading-none">{info?.short}</span>
+          )}
+        </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
-          {info?.short}: {node.focus_area}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {node.node_type === "mock_exam" ? "Mock Exam" : "Drill"} &middot;{" "}
-          {info?.chineseName}
-        </p>
-      </div>
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-base font-medium truncate">
+              {info?.name}
+            </span>
+            <Badge variant="secondary" className="text-sm px-2 py-0.5 shrink-0">
+              {completedCount}/{totalCount}
+            </Badge>
+          </div>
+          <p className="text-base text-muted-foreground">
+            <span className="font-chinese">{info?.chineseName}</span>
+            <span className="ml-1.5 text-sm text-muted-foreground/60">· ~{totalMinutes}min</span>
+          </p>
+          {/* Session progress dots */}
+          <div className="flex items-center gap-1.5 mt-1">
+            {nodes.map(n => (
+              <div key={n.id} className="flex items-center gap-0.5">
+                <div className={`w-3 h-3 rounded-full ${
+                  n.status === "completed"
+                    ? "bg-green-500"
+                    : n.status === "available"
+                    ? "bg-primary"
+                    : "bg-muted-foreground/30"
+                }`} />
+                {n.status === "completed" && n.score !== null && (
+                  <span className={`text-xs font-medium ${
+                    n.score >= 80 ? "text-green-600" : n.score >= 60 ? "text-yellow-600" : "text-red-500"
+                  }`}>{n.score}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
-      {/* Score / action */}
-      {isCompleted && node.score !== null && (
-        <Badge
-          variant={node.score >= 80 ? "default" : node.score >= 60 ? "secondary" : "destructive"}
-        >
-          {node.score}
-        </Badge>
-      )}
-      {isAvailable && (
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-      )}
+        {/* Right side: avg score or play button */}
+        {allDone && avgScore !== null ? (
+          <div className={`shrink-0 text-center px-2.5 py-1.5 rounded-lg font-pixel text-base ${
+            avgScore >= 80
+              ? "bg-green-500/20 text-green-500"
+              : avgScore >= 60
+              ? "bg-yellow-500/20 text-yellow-600"
+              : "bg-red-500/20 text-red-500"
+          }`}>
+            {avgScore}
+          </div>
+        ) : nextNode ? (
+          <div className="shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center">
+            <Play className="h-4 w-4 text-primary-foreground ml-0.5" />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1886,10 +2092,10 @@ function NodeSessionView({
 }) {
   if (loading || !sessionData || !node) {
     return (
-      <div className="pixel-border bg-card p-6 space-y-4">
+      <div className="pixel-border bg-card p-4 sm:p-6 space-y-4">
         <div className="text-center space-y-3">
           <Loader2 className="h-8 w-8 mx-auto text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading practice session...</p>
+          <p className="text-base text-muted-foreground">Loading practice session...</p>
         </div>
         <div className="flex justify-center">
           <Button variant="outline" onClick={onCancel}>
@@ -1904,17 +2110,17 @@ function NodeSessionView({
   // Mock exam nodes — link to mock exam page
   if (sessionData.nodeType === "mock_exam") {
     return (
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div className="text-center space-y-2">
           <BookOpen className="h-10 w-10 mx-auto text-primary" />
-          <h2 className="font-pixel text-sm text-foreground leading-relaxed">
+          <h2 className="font-pixel text-xl text-foreground leading-relaxed">
             Mock Exam Node
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             This node requires completing a full or partial mock exam for
             {" "}{COMPONENT_INFO[sessionData.component]?.short}: {COMPONENT_INFO[sessionData.component]?.name}.
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Focus: {sessionData.focusArea}
           </p>
         </div>
@@ -2037,7 +2243,7 @@ function NodeSessionView({
 
   // Fallback: unknown component
   return (
-    <div className="pixel-border bg-card p-6 space-y-4 text-center">
+    <div className="pixel-border bg-card p-4 sm:p-6 space-y-4 text-center">
       <p className="text-muted-foreground">
         Unsupported component type (C{component}).
       </p>
@@ -2074,7 +2280,7 @@ function DrillQuizSession({
 
   if (questions.length === 0) {
     return (
-      <div className="pixel-border bg-card p-6 space-y-4 text-center">
+      <div className="pixel-border bg-card p-4 sm:p-6 space-y-4 text-center">
         <p className="text-muted-foreground">No quiz questions available for this drill.</p>
         <div className="flex justify-center gap-3">
           <Button variant="outline" onClick={onCancel}>Back</Button>
@@ -2086,12 +2292,12 @@ function DrillQuizSession({
 
   if (done) {
     return (
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div className="text-center space-y-2">
           <CheckCircle2 className="h-10 w-10 mx-auto text-green-500" />
-          <h2 className="font-pixel text-sm text-foreground leading-relaxed">Drill Complete!</h2>
-          <p className={`text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
-          <p className="text-sm text-muted-foreground">Score</p>
+          <h2 className="font-pixel text-lg sm:text-xl text-foreground leading-relaxed">Drill Complete!</h2>
+          <p className={`text-3xl sm:text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
+          <p className="text-base text-muted-foreground">Score</p>
         </div>
         <div className="flex justify-center">
           <Button onClick={() => onComplete(finalScore)}>
@@ -2135,13 +2341,13 @@ function DrillQuizSession({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Badge variant="outline">{info?.short} Drill</Badge>
+        <Badge variant="outline" className="font-pixel text-base px-3 py-1">{info?.short} Drill</Badge>
       </div>
-      <p className="text-xs text-muted-foreground">Focus: {focusArea}</p>
+      <p className="text-base text-muted-foreground">Focus: {focusArea}</p>
 
       <Card>
         <CardContent className="pt-4 space-y-4">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center justify-between text-base text-muted-foreground">
             <span>Question {currentQ + 1} / {questions.length}</span>
             <Progress value={(currentQ / questions.length) * 100} className="w-32 h-1.5" />
           </div>
@@ -2171,7 +2377,7 @@ function DrillQuizSession({
           </div>
 
           {showResult && (
-            <p className="text-sm text-muted-foreground text-center">{q.explanation}</p>
+            <p className="text-base text-muted-foreground text-center">{q.explanation}</p>
           )}
         </CardContent>
       </Card>
@@ -2180,6 +2386,12 @@ function DrillQuizSession({
 }
 
 // ---- Pronunciation Drill Session (C1/C2/C6) ----
+interface WordScoreItem {
+  word: string;
+  score: number | null;
+  toneScore?: number;
+}
+
 function PronunciationDrillSession({
   items,
   component,
@@ -2193,14 +2405,14 @@ function PronunciationDrillSession({
   onComplete: (score: number) => void;
   onCancel: () => void;
 }) {
-  const [assessing, setAssessing] = useState(false);
-  const [done, setDone] = useState(false);
+  const [phase, setPhase] = useState<"recording" | "assessing" | "feedback">("recording");
   const [finalScore, setFinalScore] = useState(0);
+  const [wordScores, setWordScores] = useState<WordScoreItem[]>([]);
   const recorderRef = useRef<AudioRecorderHandle>(null);
   const info = COMPONENT_INFO[component];
 
   const handleRecordingComplete = useCallback(async (audioBlob: Blob) => {
-    setAssessing(true);
+    setPhase("assessing");
 
     try {
       const category = component === 1 ? "read_syllable" : "read_word";
@@ -2216,41 +2428,170 @@ function PronunciationDrillSession({
 
       if (!res.ok) throw new Error("Assessment failed");
       const data = await res.json();
-      const score = data.pronunciationScore ?? 0;
-      setFinalScore(Math.round(score));
+
+      // Extract per-word scores with tone (same logic as practice session)
+      const filteredWords: Array<{ word: string; accuracyScore: number; errorType: string; toneScore?: number }> =
+        (data.words ?? []).filter(
+          (w: { errorType?: string }) => w.errorType !== "Insertion" && w.errorType !== "Omission"
+        );
+
+      const usedIndices = new Set<number>();
+      let searchFrom = 0;
+      const scores: WordScoreItem[] = items.map((word) => {
+        let idx = -1;
+        for (let i = searchFrom; i < filteredWords.length; i++) {
+          if (filteredWords[i].word === word && !usedIndices.has(i)) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx < 0) {
+          idx = filteredWords.findIndex(
+            (w, i) => w.word === word && !usedIndices.has(i)
+          );
+        }
+        if (idx >= 0) {
+          usedIndices.add(idx);
+          searchFrom = idx + 1;
+          return { word, score: filteredWords[idx]?.accuracyScore ?? null, toneScore: filteredWords[idx]?.toneScore };
+        }
+
+        // Character-level aggregation for multi-char words
+        if (word.length > 1) {
+          const charScores: number[] = [];
+          const charToneScores: number[] = [];
+          let charSearchFrom = searchFrom;
+          for (const char of word) {
+            let charIdx = -1;
+            for (let i = charSearchFrom; i < filteredWords.length; i++) {
+              if (filteredWords[i].word === char && !usedIndices.has(i)) {
+                charIdx = i;
+                break;
+              }
+            }
+            if (charIdx >= 0) {
+              usedIndices.add(charIdx);
+              charSearchFrom = charIdx + 1;
+              charScores.push(filteredWords[charIdx].accuracyScore ?? 0);
+              if (filteredWords[charIdx].toneScore !== undefined) {
+                charToneScores.push(filteredWords[charIdx].toneScore!);
+              }
+            }
+          }
+          if (charScores.length > 0) {
+            searchFrom = charSearchFrom;
+            return {
+              word,
+              score: Math.round(charScores.reduce((a, b) => a + b, 0) / charScores.length),
+              toneScore: charToneScores.length > 0
+                ? Math.round(charToneScores.reduce((a, b) => a + b, 0) / charToneScores.length)
+                : undefined,
+            };
+          }
+        }
+
+        return { word, score: null };
+      });
+
+      setWordScores(scores);
+      setFinalScore(Math.round(data.pronunciationScore ?? 0));
     } catch {
-      // Fallback to a reasonable score
+      setWordScores(items.map((word) => ({ word, score: null })));
       setFinalScore(65);
     } finally {
-      setAssessing(false);
-      setDone(true);
+      setPhase("feedback");
     }
   }, [component, items]);
 
-  if (done) {
+  if (phase === "feedback") {
+    const validScores = wordScores.filter((w) => w.score !== null).map((w) => w.score!);
+    const avgScore = validScores.length > 0 ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 0;
+    const toneScores = wordScores.filter((w) => w.toneScore !== undefined).map((w) => w.toneScore!);
+    const avgTone = toneScores.length > 0 ? Math.round(toneScores.reduce((a, b) => a + b, 0) / toneScores.length) : null;
+
     return (
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
-        <div className="text-center space-y-2">
-          <Mic className="h-10 w-10 mx-auto text-primary" />
-          <h2 className="font-pixel text-sm text-foreground leading-relaxed">Drill Complete!</h2>
-          <p className={`text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
-          <p className="text-sm text-muted-foreground">Pronunciation Score</p>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">{info?.short} Pronunciation Drill</Badge>
         </div>
-        <div className="flex justify-center">
-          <Button onClick={() => onComplete(finalScore)}>
-            Return to Roadmap
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+
+        <Card>
+          <CardContent className="pt-4 sm:pt-6 space-y-4 sm:space-y-6">
+            {/* Per-word scores */}
+            <div className={`grid gap-2 sm:gap-3 ${component === 1 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-5" : "grid-cols-2 sm:grid-cols-3"} w-full max-w-4xl mx-auto`}>
+              {wordScores.map((item, idx) => (
+                <div key={idx} className="text-center space-y-1">
+                  <p className="text-xl sm:text-2xl font-bold font-chinese">{item.word}</p>
+                  {item.score !== null ? (
+                    <>
+                      <p className={`text-lg font-bold ${
+                        item.score >= 90 ? "text-green-600" :
+                        item.score >= 60 ? "text-yellow-600" : "text-red-600"
+                      }`}>
+                        {item.score}
+                      </p>
+                      {item.toneScore !== undefined && (
+                        <Badge
+                          variant={
+                            item.toneScore >= 80 ? "default" :
+                            item.toneScore >= 60 ? "secondary" : "destructive"
+                          }
+                          className="text-base"
+                        >
+                          声调 {item.toneScore}
+                        </Badge>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xl text-muted-foreground">--</p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Averages panel */}
+            <div className="flex items-center justify-center gap-4 sm:gap-6 rounded-lg border-2 border-primary/20 bg-card p-3 sm:p-4">
+              <div className="text-center">
+                <p className="font-pixel text-xl text-muted-foreground mb-1">Pronunciation</p>
+                <p className={`text-3xl font-bold ${
+                  avgScore >= 90 ? "text-green-600" : avgScore >= 60 ? "text-yellow-600" : "text-red-600"
+                }`}>
+                  {avgScore}
+                </p>
+              </div>
+              {avgTone !== null && (
+                <>
+                  <div className="h-10 w-px bg-border" />
+                  <div className="text-center">
+                    <p className="font-pixel text-xl text-muted-foreground mb-1">Tone 声调</p>
+                    <p className={`text-3xl font-bold ${
+                      avgTone >= 80 ? "text-green-600" : avgTone >= 50 ? "text-yellow-600" : "text-red-600"
+                    }`}>
+                      {avgTone}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              <Button onClick={() => onComplete(finalScore)}>
+                Return to Roadmap
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (assessing) {
+  if (phase === "assessing") {
     return (
-      <div className="pixel-border bg-card p-6 text-center space-y-4">
-        <Loader2 className="h-8 w-8 mx-auto text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">Assessing your pronunciation...</p>
+      <div className="pixel-border bg-card p-4 sm:p-6 text-center space-y-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+        <p className="text-base sm:text-xl font-medium">Analyzing pronunciation...</p>
+        <p className="text-base text-muted-foreground">Checking tones, accuracy, and fluency</p>
       </div>
     );
   }
@@ -2261,26 +2602,24 @@ function PronunciationDrillSession({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Badge variant="outline">{info?.short} Pronunciation Drill</Badge>
+        <Badge variant="outline" className="font-pixel text-base px-3 py-1">{info?.short} Pronunciation Drill</Badge>
       </div>
-      <p className="text-xs text-muted-foreground">Focus: {focusArea}</p>
+      <p className="text-base text-muted-foreground">Focus: {focusArea}</p>
 
       <Card>
         <CardContent className="pt-6 space-y-4">
-          <p className="text-sm text-center text-muted-foreground">
+          <p className="text-base sm:text-xl text-center text-muted-foreground">
             Read the following items aloud in a single recording:
           </p>
 
           {/* Display items */}
-          <div className={`grid gap-2 ${component === 1 ? "grid-cols-5" : "grid-cols-3"} max-h-[300px] overflow-y-auto rounded-lg border bg-muted/30 p-3`}>
+          <div className={`grid gap-2 sm:gap-3 ${component === 1 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-5" : "grid-cols-2 sm:grid-cols-3"} w-full max-w-4xl mx-auto`}>
             {items.map((item, i) => (
               <div
                 key={i}
-                className="text-center rounded border bg-card p-2"
+                className="w-full flex items-center justify-center rounded-lg border-2 border-muted p-2 sm:p-4"
               >
-                <span className={`font-chinese ${component === 1 ? "text-xl" : "text-base"}`}>
-                  {item}
-                </span>
+                <p className="text-2xl sm:text-4xl font-bold font-chinese">{item}</p>
               </div>
             ))}
           </div>
@@ -2340,7 +2679,7 @@ function PassageDrillSession({
 
   if (!passage) {
     return (
-      <div className="pixel-border bg-card p-6 space-y-4 text-center">
+      <div className="pixel-border bg-card p-4 sm:p-6 space-y-4 text-center">
         <p className="text-muted-foreground">No passage available.</p>
         <div className="flex justify-center gap-3">
           <Button variant="outline" onClick={onCancel}>Back</Button>
@@ -2352,12 +2691,12 @@ function PassageDrillSession({
 
   if (done) {
     return (
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div className="text-center space-y-2">
           <BookOpen className="h-10 w-10 mx-auto text-primary" />
-          <h2 className="font-pixel text-sm text-foreground leading-relaxed">Passage Reading Complete!</h2>
-          <p className={`text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
-          <p className="text-sm text-muted-foreground">Score</p>
+          <h2 className="font-pixel text-xl text-foreground leading-relaxed">Passage Reading Complete!</h2>
+          <p className={`text-3xl sm:text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
+          <p className="text-base text-muted-foreground">Score</p>
         </div>
         <div className="flex justify-center">
           <Button onClick={() => onComplete(finalScore)}>
@@ -2371,9 +2710,9 @@ function PassageDrillSession({
 
   if (assessing) {
     return (
-      <div className="pixel-border bg-card p-6 text-center space-y-4">
+      <div className="pixel-border bg-card p-4 sm:p-6 text-center space-y-4">
         <Loader2 className="h-8 w-8 mx-auto text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">Assessing your reading...</p>
+        <p className="text-base text-muted-foreground">Assessing your reading...</p>
       </div>
     );
   }
@@ -2384,9 +2723,9 @@ function PassageDrillSession({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back
         </Button>
-        <Badge variant="outline">C4 Passage Reading</Badge>
+        <Badge variant="outline" className="font-pixel text-base px-3 py-1">C4 Passage Reading</Badge>
       </div>
-      <p className="text-xs text-muted-foreground">Focus: {focusArea}</p>
+      <p className="text-base text-muted-foreground">Focus: {focusArea}</p>
 
       <Card>
         <CardContent className="pt-6 space-y-4">
@@ -2453,12 +2792,12 @@ function SpeakingDrillSession({
 
   if (done) {
     return (
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div className="text-center space-y-2">
           <Mic className="h-10 w-10 mx-auto text-primary" />
-          <h2 className="font-pixel text-sm text-foreground leading-relaxed">Speaking Complete!</h2>
-          <p className={`text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
-          <p className="text-sm text-muted-foreground">Score</p>
+          <h2 className="font-pixel text-xl text-foreground leading-relaxed">Speaking Complete!</h2>
+          <p className={`text-3xl sm:text-4xl font-bold ${scoreColor(finalScore)}`}>{finalScore}</p>
+          <p className="text-base text-muted-foreground">Score</p>
         </div>
         <div className="flex justify-center">
           <Button onClick={() => onComplete(finalScore)}>
@@ -2472,9 +2811,9 @@ function SpeakingDrillSession({
 
   if (assessing) {
     return (
-      <div className="pixel-border bg-card p-6 text-center space-y-4">
+      <div className="pixel-border bg-card p-4 sm:p-6 text-center space-y-4">
         <Loader2 className="h-8 w-8 mx-auto text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">Analyzing your speaking...</p>
+        <p className="text-base text-muted-foreground">Analyzing your speaking...</p>
       </div>
     );
   }
@@ -2486,11 +2825,11 @@ function SpeakingDrillSession({
           <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
-          <Badge variant="outline">C5 Speaking</Badge>
+          <Badge variant="outline" className="font-pixel text-base px-3 py-1">C5 Speaking</Badge>
         </div>
         <Card>
-          <CardContent className="pt-6 space-y-4">
-            <p className="text-sm text-center text-muted-foreground">
+          <CardContent className="pt-4 sm:pt-6 space-y-4">
+            <p className="text-base sm:text-xl text-center text-muted-foreground">
               Choose a topic and speak for at least 2 minutes:
             </p>
             <div className="space-y-2">
@@ -2516,16 +2855,16 @@ function SpeakingDrillSession({
         <Button variant="ghost" size="sm" onClick={() => setSelectedTopic(null)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Change Topic
         </Button>
-        <Badge variant="outline">C5 Speaking</Badge>
+        <Badge variant="outline" className="font-pixel text-base px-3 py-1">C5 Speaking</Badge>
       </div>
-      <p className="text-xs text-muted-foreground">Focus: {focusArea}</p>
+      <p className="text-base text-muted-foreground">Focus: {focusArea}</p>
 
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">Your topic:</p>
+            <p className="text-base text-muted-foreground">Your topic:</p>
             <p className="font-chinese text-xl font-bold text-foreground py-2">{selectedTopic}</p>
-            <p className="text-xs text-muted-foreground">Speak for 2-3 minutes</p>
+            <p className="text-base text-muted-foreground">Speak for 2-3 minutes</p>
           </div>
           <AudioRecorder
             onRecordingComplete={handleRecordingComplete}
@@ -2558,10 +2897,10 @@ function CheckpointView({
 }) {
   if (loading) {
     return (
-      <div className="pixel-border bg-card p-6 space-y-4">
+      <div className="pixel-border bg-card p-4 sm:p-6 space-y-4">
         <div className="text-center space-y-3">
           <Loader2 className="h-8 w-8 mx-auto text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Submitting checkpoint results...</p>
+          <p className="text-base text-muted-foreground">Submitting checkpoint results...</p>
         </div>
       </div>
     );
@@ -2576,7 +2915,7 @@ function CheckpointView({
         <div className="pixel-border bg-card p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
-            <span className="font-pixel text-sm text-foreground leading-relaxed">
+            <span className="font-pixel text-xl text-foreground leading-relaxed">
               Checkpoint {checkpointNumber} of {totalCheckpoints}
             </span>
           </div>
@@ -2613,10 +2952,10 @@ function CheckpointReportView({
 
   return (
     <div className="space-y-4">
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div className="text-center space-y-2">
           <Trophy className="h-10 w-10 mx-auto text-primary" />
-          <h2 className="font-pixel text-sm text-primary leading-relaxed">
+          <h2 className="font-pixel text-lg sm:text-xl text-primary leading-relaxed">
             Checkpoint {checkpointNumber} Complete!
           </h2>
           <p className="font-chinese text-muted-foreground">
@@ -2635,15 +2974,15 @@ function CheckpointReportView({
             return (
               <div key={key} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
-                  <p className="font-medium text-sm">{info?.short}: {info?.name}</p>
-                  <p className="text-xs text-muted-foreground font-chinese">{info?.chineseName}</p>
+                  <p className="font-medium text-xl">{info?.short}: {info?.name}</p>
+                  <p className="text-base text-muted-foreground font-chinese">{info?.chineseName}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-lg font-bold ${scoreColor(s)}`}>{s}</span>
                   {delta !== 0 && (
                     <Badge
                       variant={delta > 0 ? "default" : "destructive"}
-                      className="text-xs"
+                      className="text-base"
                     >
                       {delta > 0 ? "+" : ""}{delta}
                     </Badge>
@@ -2657,11 +2996,11 @@ function CheckpointReportView({
         {/* Predicted grade */}
         {result?.predictedGrade && (
           <div className="text-center py-2">
-            <p className="text-sm text-muted-foreground">Predicted PSC Grade:</p>
+            <p className="text-base text-muted-foreground">Predicted PSC Grade:</p>
             <Badge variant="default" className="text-lg px-4 py-1 mt-1">
               {result.predictedGrade}
             </Badge>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-base text-muted-foreground mt-1">
               Weighted: {Math.round(weightedScore)}
             </p>
           </div>
@@ -2670,8 +3009,8 @@ function CheckpointReportView({
         {/* LLM Feedback */}
         {result?.feedback && (
           <div className="rounded-lg border bg-muted/30 p-4">
-            <h3 className="text-sm font-bold text-muted-foreground mb-2">AI Feedback</h3>
-            <p className="text-sm text-foreground whitespace-pre-line">{result.feedback}</p>
+            <h3 className="text-base sm:text-xl font-bold text-muted-foreground mb-2">AI Feedback</h3>
+            <p className="text-base sm:text-xl text-foreground whitespace-pre-line">{result.feedback}</p>
           </div>
         )}
 
@@ -2743,7 +3082,7 @@ function FinalReportView({
   return (
     <div className="space-y-4">
       {/* Hero card */}
-      <div className="pixel-border chinese-corner bg-card p-6 space-y-5">
+      <div className="pixel-border chinese-corner bg-card p-4 sm:p-6 space-y-4 sm:space-y-5">
         <div className="text-center space-y-3">
           <Trophy className="h-14 w-14 mx-auto text-yellow-500" />
           <h2 className="font-pixel text-base text-primary pixel-glow leading-relaxed">
@@ -2756,22 +3095,22 @@ function FinalReportView({
 
         {/* Final grade */}
         <div className="text-center py-3">
-          <p className={`text-5xl font-bold ${scoreColor(finalWeighted)}`}>
+          <p className={`text-4xl sm:text-5xl font-bold ${scoreColor(finalWeighted)}`}>
             {Math.round(finalWeighted)}
           </p>
-          <p className="text-sm text-muted-foreground">Final Predicted Score</p>
+          <p className="text-base text-muted-foreground">Final Predicted Score</p>
           <Badge variant="default" className="text-lg px-4 py-1 mt-2">
             {gradeInfo.grade}
           </Badge>
-          <p className="text-xs text-muted-foreground mt-1">{gradeInfo.description}</p>
+          <p className="text-base text-muted-foreground mt-1">{gradeInfo.description}</p>
         </div>
 
         {/* Growth trajectory */}
         <div className="space-y-2">
-          <h3 className="font-pixel text-xs text-muted-foreground leading-relaxed">Growth Trajectory</h3>
+          <h3 className="font-pixel text-base text-muted-foreground leading-relaxed">Growth Trajectory</h3>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm sm:text-xl">
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 pr-2 text-muted-foreground font-medium">Component</th>
@@ -2826,28 +3165,28 @@ function FinalReportView({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="pixel-border bg-muted p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="pixel-border bg-muted p-2 sm:p-3 text-center">
+            <p className="text-xl sm:text-2xl font-bold text-primary">
               {reportData?.completedNodes?.length ?? plan?.total_nodes ?? "—"}
             </p>
-            <p className="text-xs text-muted-foreground">Nodes Completed</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Nodes Completed</p>
           </div>
-          <div className="pixel-border bg-muted p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
+          <div className="pixel-border bg-muted p-2 sm:p-3 text-center">
+            <p className="text-xl sm:text-2xl font-bold text-primary">
               {loading ? "..." : `${Math.round((reportData?.totalStudyMinutes ?? 0) / 60)}h`}
             </p>
-            <p className="text-xs text-muted-foreground">Est. Study Time</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Est. Study Time</p>
           </div>
-          <div className="pixel-border bg-muted p-3 text-center">
-            <p className={`text-2xl font-bold ${finalWeighted > initialWeighted ? "text-green-600" : "text-red-600"}`}>
+          <div className="pixel-border bg-muted p-2 sm:p-3 text-center">
+            <p className={`text-xl sm:text-2xl font-bold ${finalWeighted > initialWeighted ? "text-green-600" : "text-red-600"}`}>
               {finalWeighted > initialWeighted ? "+" : ""}{Math.round(finalWeighted - initialWeighted)}
             </p>
-            <p className="text-xs text-muted-foreground">Score Change</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Score Change</p>
           </div>
-          <div className="pixel-border bg-muted p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{checkpoints.length}</p>
-            <p className="text-xs text-muted-foreground">Checkpoints</p>
+          <div className="pixel-border bg-muted p-2 sm:p-3 text-center">
+            <p className="text-xl sm:text-2xl font-bold text-primary">{checkpoints.length}</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Checkpoints</p>
           </div>
         </div>
 
