@@ -40,13 +40,13 @@ function getTrackForPathname(pathname: string): string | null {
   if (pathname === "/dashboard") return "/audio/main-theme.mp3";
   if (pathname === "/main-quest" || pathname === "/companion-chat")
     return "/audio/MainQuestStageSelection_companionChat.mp3";
-  if (pathname.startsWith("/component-")) return null; // Stop music during practice
+  // Stop music during all practice/study sessions
   if (
-    pathname === "/practice" ||
+    pathname.startsWith("/component-") ||
     pathname === "/mock-exam" ||
     pathname === "/learning-path"
   )
-    return "/audio/PracticeSession_MockExam_LearningPath.mp3";
+    return null;
   if (pathname === "/leaderboard" || pathname === "/achievements")
     return "/audio/Leaderboard_Achievement.mp3";
   if (
