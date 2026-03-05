@@ -10,7 +10,8 @@ interface BossAttackAnimationResult {
 
 export function useBossAttackAnimation(
   attackFrames: string[],
-  onComplete: () => void
+  onComplete: () => void,
+  frameDurationMs = 120,
 ): BossAttackAnimationResult {
   const [bossAttackFrame, setBossAttackFrame] = useState<string | null>(null);
   const [isBossAttacking, setIsBossAttacking] = useState(false);
@@ -62,10 +63,10 @@ export function useBossAttackAnimation(
           setIsBossAttacking(false);
           isBossAttackingRef.current = false;
           onComplete();
-        }, 200);
+        }, frameDurationMs);
       }
-    }, 200);
-  }, [attackFrames, onComplete, cleanup]);
+    }, frameDurationMs);
+  }, [attackFrames, onComplete, cleanup, frameDurationMs]);
 
   return { triggerBossAttack, bossAttackFrame, isBossAttacking };
 }

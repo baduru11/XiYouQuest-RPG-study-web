@@ -194,6 +194,12 @@
   100% { opacity: 0; }
 }
 
+@keyframes divine-fall {
+  0% { top: -15%; opacity: 0.7; transform: scale(0.5); }
+  40% { top: 10%; opacity: 0.9; transform: scale(0.8); }
+  100% { top: 55%; opacity: 1; transform: scale(1.1); }
+}
+
 /* Learning path animations */
 @keyframes slide-down {
   0% { opacity: 0; max-height: 0; transform: translateY(-8px); }
@@ -349,6 +355,10 @@
 
   .animate-red-flash {
     animation: red-flash 0.4s ease-out forwards;
+  }
+
+  .animate-divine-fall {
+    animation: divine-fall 0.7s cubic-bezier(0.55, 0, 1, 0.45) forwards;
   }
 
   .animate-trail-glow {

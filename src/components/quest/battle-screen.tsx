@@ -105,8 +105,12 @@ export function BattleScreen({
   const [isDefending, setIsDefending] = useState(false);
   const [isGotHit, setIsGotHit] = useState(false);
 
-  // Boss attack animation gate: MCQ only shows after boss attack anim completes
+  // MCQ visibility gate: hidden during boss attack + result animation
   const [showMCQAfterBossAnim, setShowMCQAfterBossAnim] = useState(true);
+
+  // Pending MCQ result — stored while boss attack animation plays
+  const pendingMCQResultRef = useRef<{ isCorrect: boolean; newState: BattleState } | null>(null);
+  const checkOutcomeRef = useRef<(s: BattleState) => void>(() => {});
 
   // MCQ effect overlays
   const [mcqDamageText, setMcqDamageText] = useState<string | null>(null);
@@ -144,19 +148,59 @@ export function BattleScreen({
   const bossAttackFrames = useMemo(() => config.bossAttackFrames ?? [], [config.bossAttackFrames]);
   const bossHitFrame = config.bossHitFrame ?? null;
 
-  // Boss attack animation hook
+  // Boss attack animation hook — after each MCQ answer, boss attacks then defend/got-hit plays
   const handleBossAttackAnimComplete = useCallback(() => {
-    setShowMCQAfterBossAnim(true);
+    const pending = pendingMCQResultRef.current;
+    if (!pending) {
+      setShowMCQAfterBossAnim(true);
+      return;
+    }
+
+    pendingMCQResultRef.current = null;
+    const { isCorrect, newState } = pending;
+
+    if (!isCorrect) {
+      setShowRedFlash(true);
+      setIsFlinching(true);
+      setIsGotHit(true);
+      setShatteringHeartIndex(newState.playerHP);
+      setTimeout(() => {
+        setShowRedFlash(false);
+        setIsFlinching(false);
+        setIsGotHit(false);
+        setShatteringHeartIndex(null);
+      }, 250);
+    } else {
+      setShowGreenFlash(true);
+      setIsBossRecoiling(true);
+      setIsDefending(true);
+      setMcqDamageText("BLOCKED!");
+      setMcqDamageType("block");
+      setShowMcqDamage(true);
+      setTimeout(() => {
+        setShowGreenFlash(false);
+        setIsBossRecoiling(false);
+        setIsDefending(false);
+      }, 250);
+    }
+
+    setBattleState(newState);
+    setTimeout(() => {
+      setShowMCQAfterBossAnim(true);
+      checkOutcomeRef.current(newState);
+    }, 300);
   }, []);
 
+  const bossFrameDuration = config.bossProjectile ? 200 : 120;
   const { triggerBossAttack, bossAttackFrame } =
-    useBossAttackAnimation(bossAttackFrames, handleBossAttackAnimComplete);
+    useBossAttackAnimation(bossAttackFrames, handleBossAttackAnimComplete, bossFrameDuration);
 
   // Preload animation frames
   useEffect(() => {
     const frames = [
       ...bossAttackFrames,
       bossHitFrame,
+      config.bossProjectile,
       wukong.defendFrame,
       wukong.gotHitFrame,
     ].filter(Boolean) as string[];
@@ -186,19 +230,18 @@ export function BattleScreen({
         if (advancedState.phase === "boss_attack") {
           flashTurnBanner("boss_attack");
           setEnemyTaunt(getBossNarration(stage));
-          setShowMCQAfterBossAnim(false);
-          triggerBossAttack();
+          // MCQ shows immediately — boss attacks after each answer
         } else if (advancedState.phase === "player_menu") {
           flashTurnBanner("player_attack");
           setEnemyTaunt(null);
-          setShowMCQAfterBossAnim(false);
         }
       }
 
       setBattleState(advancedState);
     },
-    [onVictory, onDefeat, flashTurnBanner, stage, triggerBossAttack]
+    [onVictory, onDefeat, flashTurnBanner, stage]
   );
+  checkOutcomeRef.current = checkOutcomeAndAdvance;
 
   // Attack animation hook
   const handleAttackAnimComplete = useCallback(
@@ -231,37 +274,12 @@ export function BattleScreen({
     (isCorrect: boolean) => {
       const newState = processMCQAnswer(battleStateRef.current, isCorrect);
 
-      if (!isCorrect) {
-        setShowRedFlash(true);
-        setIsFlinching(true);
-        setIsGotHit(true);
-        setShatteringHeartIndex(newState.playerHP);
-        setTimeout(() => {
-          setShowRedFlash(false);
-          setIsFlinching(false);
-          setIsGotHit(false);
-          setShatteringHeartIndex(null);
-        }, 400);
-      } else {
-        setShowGreenFlash(true);
-        setIsBossRecoiling(true);
-        setIsDefending(true);
-        setMcqDamageText("BLOCKED!");
-        setMcqDamageType("block");
-        setShowMcqDamage(true);
-        setTimeout(() => {
-          setShowGreenFlash(false);
-          setIsBossRecoiling(false);
-          setIsDefending(false);
-        }, 400);
-      }
-
-      setBattleState(newState);
-      setTimeout(() => {
-        checkOutcomeAndAdvance(newState);
-      }, 500);
+      // Hide MCQ, store result, trigger boss attack animation
+      setShowMCQAfterBossAnim(false);
+      pendingMCQResultRef.current = { isCorrect, newState };
+      triggerBossAttack();
     },
-    [checkOutcomeAndAdvance]
+    [triggerBossAttack]
   );
 
   const handleRecordingComplete = useCallback(
@@ -346,6 +364,7 @@ export function BattleScreen({
         onDamageComplete={handleDamageComplete}
         showRedFlash={showRedFlash}
         showGreenFlash={showGreenFlash}
+        bossProjectile={config.bossProjectile}
       />
 
       {/* RPG Dialogue Scroll — overlaid on arena, uses dvh to avoid mobile browser chrome issues */}

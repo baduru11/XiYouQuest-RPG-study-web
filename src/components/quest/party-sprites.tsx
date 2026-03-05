@@ -38,20 +38,23 @@ export function PartySprites({
   );
 
   return (
-    <div className="absolute bottom-6 sm:bottom-10 left-[8%] sm:left-[15%] md:left-[18%] flex items-end gap-0">
-      {/* Other support characters behind (not Sam Jang) — 80% of Wukong, each at own position */}
+    <div className="absolute bottom-6 sm:bottom-10 left-[5%] sm:left-[15%] md:left-[18%] flex items-end gap-0">
+      {/* Other support characters — above Sam Jang on mobile, spread left on desktop */}
       {otherMembers.slice(0, 2).map((name, i) => {
         const char = QUEST_CHARACTERS[name];
         if (!char) return null;
-        // Each member gets progressively further left
         const leftOffsets = [
-          "left-[-35px] sm:left-[-125px] md:left-[-210px]",
-          "left-[-55px] sm:left-[-180px] md:left-[-305px]",
+          "left-[-30px] sm:left-[-125px] md:left-[-210px]",
+          "left-[-50px] sm:left-[-180px] md:left-[-305px]",
+        ];
+        const bottomOffsets = [
+          "bottom-[170px] sm:bottom-[65px] md:bottom-[80px]",
+          "bottom-[250px] sm:bottom-[65px] md:bottom-[80px]",
         ];
         return (
           <div
             key={name}
-            className={`absolute bottom-[35px] sm:bottom-[65px] md:bottom-[80px] z-0 ${leftOffsets[i]} ${isFlinching ? "animate-flinch" : ""}`}
+            className={`absolute z-0 ${bottomOffsets[i]} ${leftOffsets[i]} ${isFlinching ? "animate-flinch" : ""}`}
             style={{ animationDelay: `${(i + 2) * 0.1}s` }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -59,7 +62,7 @@ export function PartySprites({
               src={char.image}
               alt={char.name}
               loading="eager"
-              className="w-[100px] h-[133px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg"
+              className="w-[140px] h-[187px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -translate-y-8 sm:translate-y-0"
               style={{ animationDelay: `${(i + 2) * 0.3}s` }}
               draggable={false}
             />
@@ -67,10 +70,10 @@ export function PartySprites({
         );
       })}
 
-      {/* Sam Jang — behind Wukong, facing backwards, 80% of Wukong */}
+      {/* Sam Jang — bottom-most companion on mobile, behind Wukong */}
       {samJang && (
         <div
-          className={`absolute bottom-[35px] sm:bottom-[65px] md:bottom-[80px] z-0 left-[-20px] sm:left-[-70px] md:left-[-115px] ${isFlinching ? "animate-flinch" : ""}`}
+          className={`absolute bottom-[45px] sm:bottom-[65px] md:bottom-[80px] z-0 left-[-25px] sm:left-[-70px] md:left-[-115px] ${isFlinching ? "animate-flinch" : ""}`}
           style={{ animationDelay: "0.1s" }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -78,7 +81,7 @@ export function PartySprites({
             src={samJang.image}
             alt={samJang.name}
             loading="eager"
-            className="w-[100px] h-[133px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -scale-x-100"
+            className="w-[140px] h-[187px] sm:w-[176px] sm:h-[235px] md:w-[307px] md:h-[384px] object-contain animate-idle-bob drop-shadow-lg -scale-x-100 -translate-y-8 sm:translate-y-0"
             style={{ animationDelay: "0.3s" }}
             draggable={false}
           />
@@ -108,14 +111,14 @@ export function PartySprites({
           }
           alt="Son Wukong"
           loading="eager"
-          className={`w-[110px] h-[147px] sm:w-[150px] sm:h-[200px] md:w-[384px] md:h-[480px] object-contain drop-shadow-xl ${
+          className={`w-[187px] h-[250px] sm:w-[150px] sm:h-[200px] md:w-[384px] md:h-[480px] object-contain drop-shadow-xl -translate-y-8 translate-x-3 sm:translate-x-0 sm:translate-y-0 ${
             attackFrame || isGotHit || isDefending ? "" : "animate-idle-bob"
           }`}
           draggable={false}
         />
 
         {/* Player HP box with names + hearts below character */}
-        <div className="relative mt-1 border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[120px] sm:max-w-[150px] md:max-w-[384px]">
+        <div className="relative mt-1 border-2 border-amber-800/60 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0] rounded-sm overflow-hidden shadow-md max-w-[140px] sm:max-w-[150px] md:max-w-[384px]">
           <div className="h-1 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
           <div className="px-1.5 py-1 sm:px-3 sm:py-1.5 space-y-1">
             <div>

@@ -141,6 +141,7 @@ export const STAGE_CONFIGS: Record<StageNumber, StageConfig> = {
       "/img/boss/7/animationframes/attack3.webp",
     ],
     bossHitFrame: "/img/boss/7/animationframes/gothit.webp",
+    bossProjectile: "/img/boss/7/animationframes/divine punishment.webp",
   },
 };
 

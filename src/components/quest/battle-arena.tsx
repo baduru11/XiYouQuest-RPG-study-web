@@ -43,6 +43,8 @@ interface BattleArenaProps {
   // Flash overlays
   showRedFlash: boolean;
   showGreenFlash: boolean;
+  // Boss projectile (e.g. divine punishment)
+  bossProjectile?: string;
 }
 
 export function BattleArena({
@@ -77,6 +79,7 @@ export function BattleArena({
   onDamageComplete,
   showRedFlash,
   showGreenFlash,
+  bossProjectile,
 }: BattleArenaProps) {
   return (
     <div
@@ -127,6 +130,19 @@ export function BattleArena({
         isHit={isBossHit}
         isRecoiling={isBossRecoiling}
       />
+
+      {/* Boss projectile — falls onto player during boss attack */}
+      {bossProjectile && bossAttackFrame && (
+        <div className="absolute left-[15%] sm:left-[22%] md:left-[25%] z-20 animate-divine-fall pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={bossProjectile}
+            alt="Boss projectile"
+            className="w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] md:w-[300px] md:h-[300px] object-contain drop-shadow-[0_0_20px_rgba(255,200,0,0.8)]"
+            draggable={false}
+          />
+        </div>
+      )}
 
       {/* Floating damage near boss */}
       {showDamage && damageText && (

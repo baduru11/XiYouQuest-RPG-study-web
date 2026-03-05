@@ -80,6 +80,8 @@ export interface StageConfig {
   bossAttackFrames?: string[];
   /** Path to boss got-hit frame */
   bossHitFrame?: string;
+  /** Path to projectile image that falls onto player during boss attack */
+  bossProjectile?: string;
 }
 
 /** Persisted quest progress for one user */
