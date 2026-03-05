@@ -148,6 +148,7 @@ export default function CompanionChatClient({
 
   // Background overlay (C4 pattern)
   const bgOverlayRef = useRef<HTMLDivElement | null>(null);
+  const pendingBgImageRef = useRef<string | null>(null);
 
   // Message scroll
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -171,6 +172,18 @@ export default function CompanionChatClient({
     `;
     document.body.appendChild(overlay);
     bgOverlayRef.current = overlay;
+
+    // Restore background image on resume (pending from handleResumeSession)
+    if (pendingBgImageRef.current) {
+      const pendingUrl = pendingBgImageRef.current;
+      pendingBgImageRef.current = null;
+      const img = new window.Image();
+      img.onload = () => {
+        overlay.style.backgroundImage = `url("${pendingUrl.replace(/["\\]/g, "")}")`;
+        requestAnimationFrame(() => { overlay.style.opacity = "1"; });
+      };
+      img.src = pendingUrl;
+    }
 
     return () => {
       overlay.remove();
@@ -484,6 +497,13 @@ export default function CompanionChatClient({
       setTurnCount(Math.floor((data.session.message_count ?? 0) / 2));
       setSoftLimitDismissed(false);
       setShowSoftLimitDialog(false);
+
+      // Queue the last generated image to show once the overlay mounts
+      const lastImageMsg = [...(data.messages ?? [])].reverse().find(
+        (m: { image_url: string | null }) => m.image_url
+      );
+      pendingBgImageRef.current = lastImageMsg?.image_url ?? null;
+
       setPhase("chatting");
       setActiveTab("chat");
       setHistoryDetail(null);
@@ -700,7 +720,7 @@ export default function CompanionChatClient({
             {historyDetail.messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[80%] pixel-border p-3 ${
-                  msg.role === "user" ? "bg-primary/10 border-primary/30" : "bg-card"
+                  msg.role === "user" ? "bg-card border-primary/30" : "bg-card"
                 }`}>
                   <p className="font-chinese text-sm">{msg.content}</p>
                   {msg.pronunciationScore !== undefined && (
@@ -1136,7 +1156,7 @@ export default function CompanionChatClient({
   // Phase: Chatting
   if (phase === "chatting") {
     return (
-      <div className="mx-auto max-w-2xl flex flex-col" style={{ height: "calc(100vh - 5rem)" }}>
+      <div className="mx-auto max-w-2xl flex flex-col" style={{ height: "calc(100dvh - 5rem)" }}>
         {/* Top bar */}
         <div className="pixel-border chinese-corner bg-card/90 backdrop-blur-sm p-3 flex items-center gap-3 shrink-0">
           {selectedCharacter?.image && (

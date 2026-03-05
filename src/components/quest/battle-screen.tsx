@@ -3,7 +3,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { BattleState, StageNumber } from "@/lib/quest/types";
 import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
-import { STAGE_QUESTIONS } from "@/lib/quest/stage-questions";
 import {
   processMCQAnswer,
   processRecordingComplete,
@@ -121,7 +120,8 @@ export function BattleScreen({
   }, []);
 
   const config = STAGE_CONFIGS[stage];
-  const questions = useMemo(() => STAGE_QUESTIONS[stage], [stage]);
+
+  const sectionLabel = `Section ${battleState.currentRecordingIndex + 1}/${battleState.totalRecordings}`;
 
   const checkOutcomeAndAdvance = useCallback(
     (newState: BattleState) => {
@@ -237,24 +237,17 @@ export function BattleScreen({
 
   const currentMCQ = useMemo(() => {
     if (battleState.phase !== "boss_attack") return null;
-    const round = battleState.rounds[battleState.currentRound];
-    if (!round) return null;
-    const mcqIndex = round.mcqIndices[battleState.currentMCQInRound];
+    const mcqIndex = battleState.mcqBatchIndices[battleState.currentMCQInBatch];
     if (mcqIndex === undefined) return null;
-    return questions.mcqQuestions[mcqIndex];
-  }, [battleState, questions]);
+    return battleState.mcqQuestions[mcqIndex] ?? null;
+  }, [battleState]);
 
   const currentRecordingGroup = useMemo(() => {
     if (battleState.phase !== "player_attack") return null;
-    const round = battleState.rounds[battleState.currentRound];
-    if (!round || round.recordingGroupIndex < 0) return null;
-    return battleState.recordingGroups[round.recordingGroupIndex] ?? null;
+    return battleState.recordingGroups[battleState.currentRecordingIndex] ?? null;
   }, [battleState]);
 
-  const mcqTotalInRound = useMemo(() => {
-    const round = battleState.rounds[battleState.currentRound];
-    return round?.mcqIndices.length ?? 0;
-  }, [battleState]);
+  const mcqTotalInBatch = battleState.mcqBatchIndices.length;
 
   const isAnimating = attackState !== "idle";
 
@@ -287,7 +280,7 @@ export function BattleScreen({
         bossHP={battleState.bossHP}
         bossMaxHP={config.bossMaxHP}
         totalRecordings={battleState.totalRecordings}
-        roundInfo={`R${battleState.currentRound + 1}/${battleState.rounds.length}`}
+        roundInfo={sectionLabel}
         isBossHit={isBossHit}
         isBossRecoiling={isBossRecoiling}
         showTurnBanner={showTurnBanner}
@@ -300,35 +293,36 @@ export function BattleScreen({
         showGreenFlash={showGreenFlash}
       />
 
-      {/* RPG Dialogue Scroll — top of screen */}
+      {/* RPG Dialogue Scroll — overlaid on arena, uses dvh to avoid mobile browser chrome issues */}
       {!isAnimating && battleState.phase !== "animating" && (
-        <div className="absolute top-0 left-0 right-0 z-30 p-2 sm:p-3 md:p-5">
-          <div className={`w-full max-w-2xl mx-auto relative`}>
+        <div className="absolute inset-0 z-30 flex flex-col p-2 sm:p-3 md:p-5"
+          style={{ maxHeight: "100dvh" }}>
+          <div className="w-full max-w-2xl mx-auto relative flex flex-col min-h-0 max-h-full">
             {/* Scroll body */}
             <div
               className={`relative border-2 ${scrollAccent}
                 bg-linear-to-b from-[#f5e6c8] via-[#f0dbb5] to-[#e8d0a0]
-                rounded-sm overflow-hidden`}
+                rounded-sm overflow-hidden flex flex-col min-h-0 max-h-full`}
             >
               {/* Decorative top edge */}
-              <div className="h-1.5 sm:h-2 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+              <div className="h-1.5 sm:h-2 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30 shrink-0" />
 
               {/* Speaker name banner */}
               {speakerName && (
-                <div className="px-3 pt-2 pb-1 sm:px-6 sm:pt-3 flex items-center gap-2">
+                <div className="px-3 pt-2 pb-1 sm:px-6 sm:pt-3 flex items-center gap-2 shrink-0">
                   <div className={`w-1.5 h-4 sm:h-5 rounded-sm ${isPlayerTurn ? "bg-amber-600" : "bg-red-700"}`} />
                   <span className={`font-pixel text-[8px] sm:text-[10px] md:text-xs font-bold ${speakerColor} tracking-wide truncate`}>
                     {speakerName}
                   </span>
                   <div className="flex-1 h-px bg-amber-800/20" />
                   <span className="font-retro text-[10px] text-amber-800/40 shrink-0">
-                    R{battleState.currentRound + 1}/{battleState.rounds.length}
+                    {sectionLabel}
                   </span>
                 </div>
               )}
 
-              {/* Scroll content */}
-              <div className="px-3 py-3 sm:px-6 sm:py-4 space-y-3 sm:space-y-4 max-h-[35vh] sm:max-h-[45vh] overflow-y-auto">
+              {/* Scroll content — flex-1 + overflow so it shrinks to fit without pushing buttons off-screen */}
+              <div className="px-3 py-2 sm:px-6 sm:py-3 space-y-3 sm:space-y-4 flex-1 overflow-y-auto min-h-0">
                 {/* Player Menu */}
                 {battleState.phase === "player_menu" && (
                   <div className="text-center space-y-4">
@@ -338,7 +332,7 @@ export function BattleScreen({
                     <div className="flex justify-center gap-3 sm:gap-4">
                       <button
                         onClick={handleAttackChoice}
-                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-3 sm:px-6 sm:py-3 border-2 border-amber-700/50 bg-amber-100/60
+                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:px-6 sm:py-3 border-2 border-amber-700/50 bg-amber-100/60
                           hover:bg-amber-200/80 hover:border-amber-700 transition-all cursor-pointer rounded-sm min-h-[44px]"
                       >
                         <Swords className="w-4 h-4 sm:w-5 sm:h-5 text-amber-700" />
@@ -346,7 +340,7 @@ export function BattleScreen({
                       </button>
                       <button
                         onClick={onFlee}
-                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-3 sm:px-6 sm:py-3 border-2 border-stone-400/50 bg-stone-100/60
+                        className="flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 sm:px-6 sm:py-3 border-2 border-stone-400/50 bg-stone-100/60
                           hover:bg-red-100/60 hover:border-red-400 transition-all cursor-pointer rounded-sm min-h-[44px]"
                       >
                         <DoorOpen className="w-4 h-4 sm:w-5 sm:h-5 text-stone-500" />
@@ -359,7 +353,7 @@ export function BattleScreen({
                 {/* Player Attack — recording */}
                 {battleState.phase === "player_attack" && currentRecordingGroup && (
                   <PlayerAttack
-                    key={`rec-${battleState.currentRound}`}
+                    key={`rec-${battleState.currentRecordingIndex}-${battleState.isRetry ? "retry" : "first"}`}
                     recordingGroup={currentRecordingGroup}
                     isRetry={battleState.isRetry}
                     onComplete={handleRecordingComplete}
@@ -370,16 +364,16 @@ export function BattleScreen({
                 {battleState.phase === "boss_attack" && currentMCQ && (
                   <div className="space-y-3">
                     {enemyTaunt && (
-                      <p className="font-retro text-sm md:text-base text-red-900/70 text-center leading-relaxed">
+                      <p className="font-retro text-xs sm:text-sm text-red-900/70 text-center leading-relaxed">
                         {enemyTaunt}
                       </p>
                     )}
                     <BossAttack
-                      key={`mcq-${battleState.currentRound}-${battleState.currentMCQInRound}`}
+                      key={`mcq-${battleState.mcqCursor}-${battleState.currentMCQInBatch}`}
                       mcq={currentMCQ}
                       timerSeconds={config.mcqTimerSeconds}
-                      mcqNumber={battleState.currentMCQInRound + 1}
-                      mcqTotal={mcqTotalInRound}
+                      mcqNumber={battleState.currentMCQInBatch + 1}
+                      mcqTotal={mcqTotalInBatch}
                       onAnswer={handleMCQAnswer}
                     />
                   </div>
@@ -387,7 +381,7 @@ export function BattleScreen({
               </div>
 
               {/* Decorative bottom edge */}
-              <div className="h-1.5 sm:h-2 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30" />
+              <div className="h-1.5 sm:h-2 bg-linear-to-r from-amber-900/30 via-amber-700/20 to-amber-900/30 shrink-0" />
             </div>
           </div>
         </div>

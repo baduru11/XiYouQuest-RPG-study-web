@@ -84,7 +84,7 @@ export function BossAttack({
     if (mcq.highlightedChar) {
       const parts = text.split(/\*\*(.*?)\*\*/);
       return (
-        <p className="font-chinese text-lg md:text-xl text-amber-900/90 mb-3 leading-relaxed text-center">
+        <p className="font-chinese text-base sm:text-lg md:text-xl text-amber-900/90 mb-2 sm:mb-3 leading-relaxed text-center">
           {parts.map((part, i) =>
             i % 2 === 1 ? (
               <span
@@ -102,14 +102,14 @@ export function BossAttack({
     }
 
     return (
-      <p className="font-chinese text-lg md:text-xl text-amber-900/90 mb-3 leading-relaxed text-center">
+      <p className="font-chinese text-base sm:text-lg md:text-xl text-amber-900/90 mb-2 sm:mb-3 leading-relaxed text-center">
         {text}
       </p>
     );
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 sm:space-y-3">
       {/* Question counter + Timer */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -138,15 +138,15 @@ export function BossAttack({
       {renderContext()}
 
       {/* Question prompt */}
-      <p className="font-chinese text-xl md:text-2xl text-amber-950 font-bold text-center leading-relaxed">
+      <p className="font-chinese text-base sm:text-xl md:text-2xl text-amber-950 font-bold text-center leading-relaxed">
         {mcq.prompt}
       </p>
 
       {/* Options */}
-      <div className="grid gap-2">
+      <div className="grid gap-1.5 sm:gap-2">
         {mcq.options.map((option, i) => {
           let optionClass =
-            "w-full text-center px-3 py-3 sm:px-4 font-chinese text-base sm:text-lg md:text-xl border-2 transition-all rounded-sm min-h-[44px] ";
+            "w-full text-center px-3 py-2 sm:py-3 sm:px-4 font-chinese text-base sm:text-lg md:text-xl border-2 transition-all rounded-sm min-h-[44px] ";
 
           if (showResult) {
             if (i === mcq.correctIndex) {

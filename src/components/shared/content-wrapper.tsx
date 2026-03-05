@@ -40,7 +40,7 @@ export function ContentWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div style={{ position: "relative", marginTop: 28, marginBottom: 32 }}>
+    <div className="relative mt-4 mb-5 sm:mt-7 sm:mb-8">
       {/* ── Top scroll roller (挂杆) ── */}
       <div
         style={{
@@ -64,7 +64,7 @@ export function ContentWrapper({ children }: { children: React.ReactNode }) {
 
       {/* ── Scroll body (rice paper) ── */}
       <div
-        className={`backdrop-blur-sm px-9 py-8 ${
+        className={`backdrop-blur-sm px-4 py-5 sm:px-9 sm:py-8 ${
           isPassageReading ? "bg-card/50" : "bg-card/80"
         }`}
         style={{

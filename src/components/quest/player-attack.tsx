@@ -298,19 +298,19 @@ export function PlayerAttack({
       {/* Word display */}
       <div className="py-2">
         {isPassage ? (
-          <div className="max-h-48 overflow-y-auto text-center">
+          <div className="max-h-24 sm:max-h-48 overflow-y-auto text-center">
             <p className="font-chinese text-xl md:text-2xl leading-relaxed text-amber-950 whitespace-pre-wrap">
               {recordingGroup.passageText}
             </p>
           </div>
         ) : (
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
             {recordingGroup.words.map((word, i) => (
               <div
                 key={i}
-                className="flex flex-col items-center gap-1 px-3 py-2 border border-amber-800/20 bg-amber-50/40 rounded-sm"
+                className="flex flex-col items-center gap-0.5 sm:gap-1 px-2 py-1.5 sm:px-3 sm:py-2 border border-amber-800/20 bg-amber-50/40 rounded-sm"
               >
-                <span className="font-chinese text-xl sm:text-2xl md:text-3xl text-amber-950 font-bold">
+                <span className="font-chinese text-lg sm:text-2xl md:text-3xl text-amber-950 font-bold">
                   {word}
                 </span>
                 {showPinyin && recordingGroup.pinyin?.[i] && (
