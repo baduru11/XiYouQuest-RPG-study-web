@@ -8,7 +8,10 @@ const EDGE_ROUTES: Record<string, string> = {
   "/api/chat/start": "chat-start",
   "/api/chat/respond": "chat-respond",
   "/api/speech/c5-assess": "speech-c5-assess",
+  "/api/speech/assess": "speech-assess",
   "/api/learning/generate-plan": "learning-generate-plan",
+  "/api/tts/speak": "tts-speak",
+  "/api/tts/companion": "tts-companion",
 };
 
 /**

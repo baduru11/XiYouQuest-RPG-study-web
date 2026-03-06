@@ -83,6 +83,8 @@ export function ReadingSession({ passages, character, characterId, component, lp
   const audioCache = useRef(new Map<string, string>());
   // Reference to current playing audio for stop functionality
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Abort flag for sequential model reading
+  const modelReadingAbortRef = useRef(false);
 
   const sentences = useMemo(
     () => (selectedPassage ? splitIntoSentences(selectedPassage.content) : []),
@@ -103,6 +105,7 @@ export function ReadingSession({ passages, character, characterId, component, lp
 
   // Stop currently playing audio
   const stopAudio = useCallback(() => {
+    modelReadingAbortRef.current = true;
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current.currentTime = 0;
@@ -205,68 +208,73 @@ export function ReadingSession({ passages, character, characterId, component, lp
     saveProgress();
   }, [phase, overallScore]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Play the entire passage as a model reading
+  // Play the entire passage as a model reading (sentence-by-sentence to avoid Vercel timeout)
   const playModelReading = useCallback(async () => {
     if (!selectedPassage || isPlayingAudio || isLoadingAudio) return;
+    modelReadingAbortRef.current = false;
     setIsLoadingAudio(true);
     setPhase("listening-model");
     setExpression("happy");
     setDialogue(getDialogue(character.name, "c4_loading_model"));
 
+    const passageSentences = splitIntoSentences(selectedPassage.content);
+
     const onFinished = () => {
       setIsPlayingAudio(false);
       setIsLoadingAudio(false);
+      setPlayingSentenceIndex(null);
       setPhase("ready");
       setExpression("encouraging");
       setDialogue(getDialogue(character.name, "c4_your_turn"));
     };
 
-    try {
-      const response = await fetchWithRetry("/api/tts/speak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          voiceId: character.voiceId,
-          text: selectedPassage.content,
-        }),
-      });
+    setIsLoadingAudio(false);
+    setIsPlayingAudio(true);
+    setDialogue(getDialogue(character.name, "c4_listening"));
 
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        applyTtsVolume(audio);
-        currentAudioRef.current = audio;
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-          currentAudioRef.current = null;
-          onFinished();
-        };
-        audio.onerror = async () => {
-          URL.revokeObjectURL(audioUrl);
-          currentAudioRef.current = null;
-          await speakWithBrowserTTS(selectedPassage.content);
-          onFinished();
-        };
-        setIsLoadingAudio(false);
-        setIsPlayingAudio(true);
-        setDialogue(getDialogue(character.name, "c4_listening"));
-        await audio.play();
-      } else {
-        setIsLoadingAudio(false);
-        setIsPlayingAudio(true);
-        setDialogue(getDialogue(character.name, "c4_listening"));
-        await speakWithBrowserTTS(selectedPassage.content);
-        onFinished();
-      }
-    } catch {
+    for (let i = 0; i < passageSentences.length; i++) {
+      if (modelReadingAbortRef.current) break;
+      setPlayingSentenceIndex(i);
+      const sentenceText = passageSentences[i].trim();
+      if (!sentenceText) continue;
+
       try {
-        setIsLoadingAudio(false);
-        setIsPlayingAudio(true);
-        await speakWithBrowserTTS(selectedPassage.content);
-      } catch { /* ignore */ }
-      onFinished();
+        const cacheKey = `${character.voiceId}:${sentenceText}`;
+        let audioUrl = audioCache.current.get(cacheKey);
+
+        if (!audioUrl) {
+          const response = await fetchWithRetry("/api/tts/speak", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ voiceId: character.voiceId, text: sentenceText }),
+          });
+          if (response.ok) {
+            const blob = await response.blob();
+            audioUrl = URL.createObjectURL(blob);
+            audioCache.current.set(cacheKey, audioUrl);
+          }
+        }
+
+        if (modelReadingAbortRef.current) break;
+
+        if (audioUrl) {
+          await new Promise<void>((resolve) => {
+            const audio = new Audio(audioUrl);
+            applyTtsVolume(audio);
+            currentAudioRef.current = audio;
+            audio.onended = () => { currentAudioRef.current = null; resolve(); };
+            audio.onerror = () => { currentAudioRef.current = null; resolve(); };
+            audio.play().catch(() => resolve());
+          });
+        } else {
+          await speakWithBrowserTTS(sentenceText);
+        }
+      } catch {
+        try { await speakWithBrowserTTS(sentenceText); } catch { /* ignore */ }
+      }
     }
+
+    onFinished();
   }, [selectedPassage, character.voiceId, isPlayingAudio, isLoadingAudio, speakWithBrowserTTS, applyTtsVolume, character.name]);
 
   // Play a single sentence (with client-side caching)
