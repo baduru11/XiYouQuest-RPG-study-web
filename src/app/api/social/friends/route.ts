@@ -62,7 +62,7 @@ async function getUserStats(
   // Calculate total sessions and avg scores per component
   const totalSessions = sessions.length;
   const avgScores: Record<number, number | null> = {};
-  for (let c = 1; c <= 5; c++) {
+  for (let c = 1; c <= 7; c++) {
     const componentSessions = sessions.filter(
       (s: { component: number; score: number }) => s.component === c
     );

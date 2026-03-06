@@ -144,12 +144,13 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
             <Menu className="h-5 w-5" />
           </Button>
 
+          {/* Desktop profile dropdown — hidden on mobile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className="flex items-center gap-1.5"
+                className="hidden md:flex items-center gap-1.5"
               >
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -163,7 +164,7 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
                 ) : (
                   <User className="h-4 w-4" />
                 )}
-                <span className="hidden sm:inline">{displayName || "Profile"}</span>
+                <span>{displayName || "Profile"}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[10rem] p-2">
@@ -202,7 +203,25 @@ export function Navbar({ totalXP, displayName, avatarUrl, pendingRequestCount }:
     <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
       <SheetContent side="right" className="w-[280px] bg-card p-0">
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-border">
-          <SheetTitle className="font-pixel text-base text-foreground">Navigation</SheetTitle>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 pixel-border bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User className="h-5 w-5 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <SheetTitle className="font-pixel text-base text-foreground truncate">
+                {displayName || "Traveler"}
+              </SheetTitle>
+            </div>
+          </div>
         </SheetHeader>
         <nav className="flex flex-col gap-1 p-3">
           {NAV_LINKS.map((link) => {
