@@ -48,6 +48,7 @@ export function MainQuestClient({
     useState<QuestProgress[]>(initialProgress);
   const [unlockedCharacters, setUnlockedCharacters] =
     useState<string[]>(initialCharacters);
+  const [invincible, setInvincible] = useState(false);
 
   const getAttempts = useCallback(
     (stage: StageNumber) => {
@@ -78,7 +79,7 @@ export function MainQuestClient({
     if (!selectedStage) return;
     const isRetry = getAttempts(selectedStage) > 0;
     const state = createBattleState(selectedStage, isRetry, unlockedCharacters);
-    setBattleState(state);
+    setBattleState({ ...state, invincible });
     setScreen("battle");
   }, [selectedStage, getAttempts, unlockedCharacters]);
 
@@ -133,6 +134,8 @@ export function MainQuestClient({
           unlockedCharacters={unlockedCharacters}
           onStageSelect={handleStageSelect}
           onWatchPrologue={handleWatchPrologue}
+          invincible={invincible}
+          onToggleInvincible={() => setInvincible((v) => !v)}
         />
       );
     case "story":

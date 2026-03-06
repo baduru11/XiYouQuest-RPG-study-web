@@ -4,13 +4,15 @@ import { useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import type { QuestProgress, StageNumber } from "@/lib/quest/types";
 import { STAGE_CONFIGS, QUEST_CHARACTERS } from "@/lib/quest/stage-config";
-import { Check, Lock } from "lucide-react";
+import { Check, Lock, ShieldCheck } from "lucide-react";
 
 interface StageSelectProps {
   questProgress: QuestProgress[];
   unlockedCharacters: string[];
   onStageSelect: (stage: StageNumber) => void;
   onWatchPrologue?: () => void;
+  invincible: boolean;
+  onToggleInvincible: () => void;
 }
 
 /** S-curve node positions mapped to a 1000x500 viewBox */
@@ -44,6 +46,8 @@ export function StageSelect({
   unlockedCharacters,
   onStageSelect,
   onWatchPrologue,
+  invincible,
+  onToggleInvincible,
 }: StageSelectProps) {
   const [hoveredStage, setHoveredStage] = useState<StageNumber | null>(null);
 
@@ -124,15 +128,28 @@ export function StageSelect({
         {/* Parchment tint overlay for readability */}
         <div className="absolute inset-0 bg-[#FDF6E3]/40 pointer-events-none" />
 
-        {/* Watch Prologue button */}
-        {onWatchPrologue && (
+        {/* Top-left controls */}
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
+          {onWatchPrologue && (
+            <button
+              onClick={onWatchPrologue}
+              className="font-pixel text-[10px] text-black pixel-border bg-card px-2 py-1 hover:pixel-border-primary hover:scale-110 transition-transform duration-150"
+            >
+              ▶ Prologue
+            </button>
+          )}
           <button
-            onClick={onWatchPrologue}
-            className="absolute top-3 left-3 z-10 font-pixel text-[10px] text-black pixel-border bg-card px-2 py-1 hover:pixel-border-primary hover:scale-110 transition-transform duration-150"
+            onClick={onToggleInvincible}
+            className={`flex items-center gap-1 font-pixel text-[10px] px-2 py-1 transition-all duration-150 hover:scale-110 ${
+              invincible
+                ? "pixel-border bg-cyan-100 text-cyan-700 shadow-[0_0_8px_rgba(6,182,212,0.3)]"
+                : "pixel-border bg-card text-stone-500 hover:pixel-border-primary"
+            }`}
           >
-            ▶ Prologue
+            <ShieldCheck className="w-3 h-3" />
+            {invincible ? "Invincible" : "Mortal"}
           </button>
-        )}
+        </div>
 
         {/* SVG paths */}
         <svg

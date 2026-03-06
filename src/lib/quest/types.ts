@@ -125,6 +125,8 @@ export interface BattleState {
   totalRecordings: number;
   /** Is this a retry attempt (enables hints) */
   isRetry: boolean;
+  /** Invincible mode — player never loses HP */
+  invincible: boolean;
   /** Per-question results for scoring */
   results: {
     mcqCorrect: number;

@@ -16,24 +16,24 @@ import {
 } from "../battle-logic";
 import type { RecordingGroup } from "../types";
 
-/** Wukong + 1 companion = HP 5 */
+/** Wukong + 1 companion = HP 7 */
 const WITH_ONE_COMPANION = ["Son Wukong", "Sam Jang"];
-/** Wukong only = HP 3 */
+/** Wukong only = HP 5 */
 const WUKONG_ONLY = ["Son Wukong"];
 
 describe("calculatePlayerMaxHP", () => {
-  it("returns 3 for Wukong only", () => {
-    expect(calculatePlayerMaxHP(WUKONG_ONLY)).toBe(3);
+  it("returns 5 for Wukong only", () => {
+    expect(calculatePlayerMaxHP(WUKONG_ONLY)).toBe(5);
   });
 
-  it("returns 5 for Wukong + 1 companion", () => {
-    expect(calculatePlayerMaxHP(WITH_ONE_COMPANION)).toBe(5);
+  it("returns 7 for Wukong + 1 companion", () => {
+    expect(calculatePlayerMaxHP(WITH_ONE_COMPANION)).toBe(7);
   });
 
-  it("returns 9 for all 4 characters", () => {
+  it("returns 11 for all 4 characters", () => {
     expect(
       calculatePlayerMaxHP(["Son Wukong", "Sam Jang", "Sha Wujing", "Zhu Baijie"])
-    ).toBe(9);
+    ).toBe(11);
   });
 });
 
@@ -41,8 +41,8 @@ describe("createBattleState", () => {
   it("initializes with correct HP and recordings for stage 1", () => {
     const state = createBattleState(1, false, WITH_ONE_COMPANION);
 
-    expect(state.playerHP).toBe(5); // 3 base + 1 companion * 2
-    expect(state.playerMaxHP).toBe(5);
+    expect(state.playerHP).toBe(7); // 5 base + 1 companion * 2
+    expect(state.playerMaxHP).toBe(7);
     expect(state.bossHP).toBe(100);
     expect(state.currentRecordingIndex).toBe(0);
     expect(state.currentMCQInBatch).toBe(0);
@@ -66,7 +66,7 @@ describe("createBattleState", () => {
 
   it("initializes with correct HP for Wukong only", () => {
     const state = createBattleState(5, false, WUKONG_ONLY);
-    expect(state.playerHP).toBe(3); // 3 base + 0 companions
+    expect(state.playerHP).toBe(5); // 5 base + 0 companions
   });
 
   it("stores recording groups and MCQ questions from stage data", () => {
@@ -147,7 +147,7 @@ describe("processMCQAnswer", () => {
 
     expect(state.results.mcqCorrect).toBe(2);
     expect(state.results.mcqTotal).toBe(3);
-    expect(state.playerHP).toBe(4); // 5 - 1 = 4
+    expect(state.playerHP).toBe(6); // 7 - 1 = 6
   });
 });
 

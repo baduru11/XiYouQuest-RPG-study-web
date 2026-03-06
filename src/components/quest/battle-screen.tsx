@@ -82,6 +82,7 @@ export function BattleScreen({
   const battleStateRef = useRef(battleState);
   battleStateRef.current = battleState;
 
+
   // Duck BGM during active play phases (recording + MCQ)
   const { setLearningActive } = useBGM();
   useEffect(() => {

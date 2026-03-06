@@ -397,21 +397,44 @@ function parseIseXml(
   };
 }
 
+// ---------- Erhua normalization ----------
+
+const NON_ERHUA_PREFIXES = new Set([
+  '女', '婴', '幼', '少', '孤', '男', '胎', '健',
+  '宠', '育', '托', '侍', '产', '弃', '遗', '乳',
+  '小', '娇', '骄', '贫',
+]);
+
+/**
+ * Strip erhua 儿 suffixes so ISE doesn't expect a separate syllable for
+ * the merged 儿. Keeps 儿 in non-erhua words (女儿, 婴儿, etc.).
+ */
+function normalizeErhua(text: string): string {
+  return text.replace(
+    /([\u4e00-\u9fff])儿/g,
+    (match, precedingChar: string) => {
+      if (NON_ERHUA_PREFIXES.has(precedingChar)) return match;
+      return precedingChar;
+    },
+  );
+}
+
 // ---------- Text formatting ----------
 
 function formatText(referenceText: string, category: IseCategory): string {
+  const normalized = normalizeErhua(referenceText);
   if (category === "read_syllable" || category === "read_word") {
-    const items = referenceText.trim().split(/\s+/);
+    const items = normalized.trim().split(/\s+/);
     return "\uFEFF" + items.join("\n");
   }
   if (category === "read_sentence" || category === "read_chapter") {
-    const sentences = referenceText
+    const sentences = normalized
       .split(/(?<=[。！？；])/g)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
     return "\uFEFF" + sentences.join("\n");
   }
-  return "\uFEFF" + referenceText;
+  return "\uFEFF" + normalized;
 }
 
 // ---------- Main assessment ----------

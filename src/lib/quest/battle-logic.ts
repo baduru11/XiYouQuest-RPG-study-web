@@ -5,7 +5,7 @@ import { getStageConfig } from "./stage-config";
 import { STAGE_QUESTIONS } from "./stage-questions";
 
 /** Base HP for Wukong alone */
-const BASE_PLAYER_HP = 3;
+const BASE_PLAYER_HP = 5;
 /** Extra HP per unlocked companion */
 const HP_PER_COMPANION = 2;
 
@@ -65,7 +65,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 /**
  * Calculates player max HP based on unlocked characters.
- * Wukong alone = 3 HP, each companion adds 2 HP.
+ * Wukong alone = 5 HP, each companion adds 2 HP.
  */
 export function calculatePlayerMaxHP(unlockedCharacters: string[]): number {
   const companions = unlockedCharacters.filter((n) => n !== "Son Wukong").length;
@@ -75,7 +75,7 @@ export function calculatePlayerMaxHP(unlockedCharacters: string[]): number {
 /**
  * Creates initial battle state.
  * Recording groups are split into max-5-word sub-groups.
- * Player HP = 3 base + 2 per unlocked companion.
+ * Player HP = 5 base + 2 per unlocked companion.
  */
 export function createBattleState(
   stage: StageNumber,
@@ -103,6 +103,7 @@ export function createBattleState(
     recordingsCompleted: 0,
     totalRecordings,
     isRetry,
+    invincible: false,
     results: {
       mcqCorrect: 0,
       mcqTotal: 0,
@@ -170,7 +171,7 @@ export function processMCQAnswer(
 ): BattleState {
   return {
     ...state,
-    playerHP: isCorrect ? state.playerHP : Math.max(0, state.playerHP - 1),
+    playerHP: isCorrect || state.invincible ? state.playerHP : Math.max(0, state.playerHP - 1),
     results: {
       ...state.results,
       mcqCorrect: isCorrect
@@ -238,13 +239,15 @@ export function advanceBattle(state: BattleState): {
     const lastScore = state.results.pronunciationScores[state.results.pronunciationScores.length - 1] ?? 0;
     const passed = lastScore >= ATTACK_THRESHOLD;
 
-    // Always go to boss_attack (MCQ defense) after recording, regardless of pass/fail
+    // Immediate victory if boss is dead
+    if (passed && (state.bossHP <= 0 || state.recordingsCompleted >= state.totalRecordings)) {
+      return { state, outcome: "victory" };
+    }
+
+    // Always go to boss_attack (MCQ defense) after recording
     if (state.mcqQuestions.length === 0) {
       // No MCQs available — skip boss_attack phase
       if (passed) {
-        if (state.bossHP <= 0 || state.recordingsCompleted >= state.totalRecordings) {
-          return { state, outcome: "victory" };
-        }
         return {
           state: {
             ...state,
