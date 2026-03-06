@@ -21,8 +21,8 @@
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss" alt="Tailwind" />
   <img src="https://img.shields.io/badge/iFlytek-ISE_+_ASR_+_TTS-FF6B35" alt="iFlytek" />
-  <img src="https://img.shields.io/badge/DeepSeek-v3.2-5B6EE1" alt="DeepSeek" />
-  <img src="https://img.shields.io/badge/Gemini-2.5_Flash_(Chat_+_Image)-4285F4?logo=google" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?logo=google" alt="Gemini 2.5 Flash" />
+  <img src="https://img.shields.io/badge/MiniMax-M2.5_(fallback)-8B5CF6" alt="MiniMax M2.5" />
   <img src="https://img.shields.io/badge/Vercel-Deployed-000?logo=vercel" alt="Vercel" />
 </p>
 
@@ -76,7 +76,7 @@ XiYouQuest transforms Putonghua Proficiency Test (PSC / 普通话水平测试) p
 Every practice session flows through a multi-service pipeline:
 
 ```
-Record -> WAV Encode -> iFlytek ISE -> XML Parse -> DeepSeek Feedback -> XP Award -> Achievement Check
+Record -> WAV Encode -> iFlytek ISE -> XML Parse -> Gemini Feedback -> XP Award -> Achievement Check
 ```
 
 ---
@@ -91,7 +91,7 @@ Record -> WAV Encode -> iFlytek ISE -> XML Parse -> DeepSeek Feedback -> XP Awar
 | **Personalized Learning Path** | AI-generated adaptive curriculum with multi-phase study plans, checkpoint assessments, and predicted PSC grade tracking |
 | **Real-time Speech Scoring** | Phone-level accuracy, tone analysis, fluency metrics via iFlytek Intelligent Speech Evaluation |
 | **AI Companions** | 4 Journey to the West characters with unique personalities, expressions, voice lines, and conversation styles |
-| **AI Feedback** | Character-personalized, context-aware study tips powered by DeepSeek v3.2 via OpenRouter |
+| **AI Feedback** | Character-personalized, context-aware study tips powered by Gemini 2.5 Flash via OpenRouter |
 | **AI Image Generation** | Context-aware pixel-art scene images auto-generated every 3 chat turns via Gemini 2.5 Flash |
 | **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping (一级甲等 to 三级乙等) and AI feedback reports |
 | **TTS Playback** | Native Putonghua model audio for every word, sentence, and passage via iFlytek TTS |
@@ -132,11 +132,13 @@ Record -> WAV Encode -> iFlytek ISE -> XML Parse -> DeepSeek Feedback -> XP Awar
 +---------+--------------+-----+---------+-----------------+----------+
           |              |               |                 |
    +-----------+  +----------+   +------------+   +-------------+
-   |  Supabase |  | DeepSeek |   | iFlytek    |   | Gemini      |
-   | PostgreSQL|  |   v3.2   |   | ISE+ASR+TTS|   | 2.5 Flash   |
-   |  + RLS    |  |(OpenRouter)|  | (wss://)   |   |(OpenRouter) |
-   |  + Storage|  | Feedback |   |            |   | Chat + Image|
-   +-----------+  +----------+   +------------+   +-------------+
+   +-----------+  +---------------+   +------------+
+   |  Supabase |  | Gemini 2.5    |   | iFlytek    |
+   | PostgreSQL|  | Flash         |   | ISE+ASR+TTS|
+   |  + RLS    |  | (OpenRouter)  |   | (wss://)   |
+   |  + Storage|  | Chat+Feedback |   |            |
+   |           |  | +Image Gen    |   |            |
+   +-----------+  +---------------+   +------------+
 ```
 
 **Dual-deployment model:** Lightweight routes (CRUD, auth, social) run on Vercel. Long-running routes (AI, speech, TTS) run as Supabase Edge Functions (Deno, 150s timeout). Client-side `fetchWithRetry` transparently routes via `resolveEdgeRoute()`.
@@ -163,7 +165,7 @@ Client (PracticeSession):
      -> iFlytek ISE WebSocket -> SSB + AUW frames -> base64 XML
      -> Parse per-word accuracy, tone, dp_message, perr_msg
   5. Score matching: filter insertions/omissions -> sequential word match
-  6. POST /api/ai/feedback -> DeepSeek personality-driven feedback
+  6. POST /api/ai/feedback -> Gemini personality-driven feedback
   7. XP: >=90 -> 10, >=60 -> 5, <60 -> 2 (x streak multiplier)
 
   After final group -> POST /api/progress/update -> achievement check
@@ -190,7 +192,7 @@ Multiple-choice quiz testing vocabulary accuracy and grammatical judgment — no
 | **measure-word** (量词搭配) | Choose the correct measure word | 一___书 -> 本/个/条/只 |
 | **sentence-order** (语序判断) | Select the grammatically correct sentence | Reordered sentence options |
 
-5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct -> 10 XP + static explanation. Wrong -> 2 XP + DeepSeek-generated explanation.
+5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct -> 10 XP + static explanation. Wrong -> 2 XP + AI-generated explanation.
 
 ### C4: Passage Reading (朗读短文)
 
@@ -202,7 +204,7 @@ Phase 2 - READY: Interactive passage with per-sentence TTS playback
 Phase 3 - RECORD: Full passage recording via AudioRecorder
 Phase 4 - ASSESS: ISE read_chapter -> sentence-level scores + word detail
 Phase 5 - FEEDBACK: Color-coded sentences (green >=80, yellow >=60, red <60)
-           -> DeepSeek feedback -> companion dialogue -> progress update
+           -> Gemini feedback -> companion dialogue -> progress update
 ```
 
 ### C5: Prompted Speaking (命题说话)
@@ -215,12 +217,12 @@ Step 1: ASR Transcription (iFlytek IST WebSocket)
 
 Step 2: Parallel Assessment (Promise.all)
   +-- ISE Pronunciation (read_chapter, auto-chunked if >90s)
-  +-- DeepSeek Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
+  +-- Gemini Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
 
 Step 3: calculateC5Score() - Official PSC rubric (30 pts -> normalized 0-100)
   +-- Pronunciation (20 pts): error count + dialect detection
-  +-- Vocabulary/Grammar (5 pts): DeepSeek level 1-3
-  +-- Fluency (5 pts): 3-tier ISE/DeepSeek fallback
+  +-- Vocabulary/Grammar (5 pts): Gemini level 1-3
+  +-- Fluency (5 pts): 3-tier ISE/Gemini fallback
   +-- Time penalty: -1/sec under 3 minutes
 ```
 
@@ -370,7 +372,7 @@ Initial Assessment (C1-C5 quick quizzes)
 
 ### Key Features
 
-- **AI-generated curriculum** — DeepSeek analyzes initial scores and creates a personalized multi-phase plan
+- **AI-generated curriculum** — Gemini 2.5 Flash analyzes initial scores and creates a personalized multi-phase plan
 - **Learning nodes** — drill and mock_exam type nodes targeting specific components and focus areas
 - **Checkpoint assessments** — mid-plan quizzes with score delta tracking and AI-written progress feedback
 - **Predicted grade trajectory** — shows expected PSC grade at each checkpoint
@@ -478,7 +480,7 @@ All TTS uses **iFlytek's WebSocket API** (`wss://tts-api-sg.xf-yun.com/v2/tts`) 
 
 ## AI Feedback Pipeline
 
-**DeepSeek v3.2** (via OpenRouter) generates contextual, personality-driven feedback across multiple systems:
+**Gemini 2.5 Flash** (via OpenRouter, fallback: MiniMax M2.5) generates contextual, personality-driven feedback across multiple systems:
 
 ### Practice Feedback
 
@@ -487,7 +489,7 @@ Input:
   characterPrompt + component + questionText + score + isCorrect
                          |
                          v
-  DeepSeek System Prompt:
+  Gemini System Prompt:
     "{personality} helping a PSC student (Component X).
      Chinese+English mix. Under 3 sentences."
                          |
@@ -501,7 +503,7 @@ Input:
 
 ### C5 Content Analysis
 
-For prompted speaking, DeepSeek returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
+For prompted speaking, Gemini returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
 
 ### AI Insights
 
@@ -617,7 +619,7 @@ Four Journey to the West (西游记) companions, unlocked through quest progress
 | Zhu Bajie | 猪八戒 | Stage 6 | The Pig — humorous, warm, celebrates small wins |
 
 Each character has:
-- **Unique personality prompt** for AI feedback personalization (DeepSeek for practice, Gemini for chat)
+- **Unique personality prompt** for Gemini AI feedback and chat personalization
 - **Expression images** (neutral, happy, proud, excited, thinking, encouraging, etc.) with fade transitions
 - **Voice ID** mapped to iFlytek TTS for dialogue voice lines and companion chat
 - **Affection system** — 5 levels from Acquaintance to Soulmate
@@ -675,15 +677,15 @@ Request -> Layer 1: Middleware (src/proxy.ts)
 
 | Vercel Route | Edge Function | External APIs |
 |---|---|---|
-| `/api/ai/feedback` | `ai-feedback` | OpenRouter LLM |
-| `/api/ai/insights` | `ai-insights` | OpenRouter LLM |
-| `/api/ai/mock-exam-feedback` | `ai-mock-exam-feedback` | OpenRouter LLM |
-| `/api/chat/generate-image` | `chat-generate-image` | OpenRouter Image + Supabase Storage |
-| `/api/chat/start` | `chat-start` | OpenRouter LLM + iFlytek TTS |
-| `/api/chat/respond` | `chat-respond` | iFlytek ASR + ISE + OpenRouter LLM |
-| `/api/learning/generate-plan` | `learning-generate-plan` | OpenRouter LLM + DB |
+| `/api/ai/feedback` | `ai-feedback` | Gemini 2.5 Flash |
+| `/api/ai/insights` | `ai-insights` | Gemini 2.5 Flash |
+| `/api/ai/mock-exam-feedback` | `ai-mock-exam-feedback` | Gemini 2.5 Flash |
+| `/api/chat/generate-image` | `chat-generate-image` | Gemini 2.5 Flash Image + Supabase Storage |
+| `/api/chat/start` | `chat-start` | Gemini 2.5 Flash + iFlytek TTS |
+| `/api/chat/respond` | `chat-respond` | iFlytek ASR + ISE + Gemini 2.5 Flash |
+| `/api/learning/generate-plan` | `learning-generate-plan` | Gemini 2.5 Flash + DB |
 | `/api/speech/assess` | `speech-assess` | iFlytek ISE |
-| `/api/speech/c5-assess` | `speech-c5-assess` | iFlytek ASR + ISE + OpenRouter LLM |
+| `/api/speech/c5-assess` | `speech-c5-assess` | iFlytek ASR + ISE + Gemini 2.5 Flash |
 | `/api/tts/speak` | `tts-speak` | iFlytek TTS |
 | `/api/tts/companion` | `tts-companion` | iFlytek TTS |
 
@@ -729,8 +731,7 @@ All 24+ internal API fetch calls across all practice components, companion chat,
 | **Database** | Supabase (PostgreSQL + RLS + Storage) | Data persistence, auth, file storage |
 | **Edge Runtime** | Supabase Edge Functions (Deno) | Long-running AI/speech routes (150s timeout) |
 | **Auth** | Supabase Auth | Email, Google OAuth, Discord OAuth |
-| **AI Feedback** | DeepSeek v3.2 (via OpenRouter) | Practice feedback, C5 content analysis, insights, curriculum |
-| **AI Chat** | Gemini 2.5 Flash (via OpenRouter) | Companion chat conversation (fallback: MiniMax M2.5) |
+| **AI (All)** | Gemini 2.5 Flash (via OpenRouter) | Feedback, chat, insights, curriculum, C5 analysis (fallback: MiniMax M2.5) |
 | **AI Image Generation** | Gemini 2.5 Flash Image (via OpenRouter) | Context-aware pixel-art scene images every 3 chat turns |
 | **Speech Assessment** | iFlytek ISE (WebSocket) | Pronunciation scoring (zh-CN) |
 | **Speech Recognition** | iFlytek IST (WebSocket) | Speech-to-text for C5 and companion chat |
@@ -774,7 +775,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# OpenRouter (DeepSeek v3.2 + Gemini 2.5 Flash)
+# OpenRouter (Gemini 2.5 Flash + MiniMax M2.5 fallback)
 OPENROUTER_API_KEY=your_openrouter_api_key
 
 # iFlytek (shared by ISE, TTS, and IST)
@@ -901,7 +902,7 @@ src/
 |   +-- supabase/                         # Browser + server Supabase clients
 |   +-- iflytek-speech/                   # ISE + IST WebSocket clients
 |   +-- voice/                            # TTS WebSocket client + pinyin lookup data
-|   +-- gemini/                           # DeepSeek AI client (via OpenRouter) with retry logic
+|   +-- gemini/                           # Gemini 2.5 Flash AI client (via OpenRouter) with retry logic
 |   +-- image-gen/                        # Gemini 2.5 Flash image generation client
 |   +-- quest/                            # Battle logic, stage config, story text
 |   +-- chat/                             # Companion chat prompt building, helpers
