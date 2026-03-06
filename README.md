@@ -309,7 +309,7 @@ A 7-stage story campaign themed after Journey to the West (西游记), where pla
 +-----------------------------------------------------------------------+
 ```
 
-**Player HP:** Base 3 + 2 per unlocked companion (max 9 with all 3 companions)
+**Player HP:** Base 5 + 2 per unlocked companion (max 11 with all 3 companions)
 **Boss HP:** 100 (visual), damaged by `ceil(100 / totalRecordingGroups)` per hit
 **XP Reward:** `mcqCorrect * 5 + round(avgPronScore / 10) * totalRecordings + stage * 10`
 
