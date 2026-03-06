@@ -235,49 +235,46 @@ export function advanceBattle(state: BattleState): {
   }
 
   if (state.phase === "player_attack") {
-    // Player just recorded — check if they passed
     const lastScore = state.results.pronunciationScores[state.results.pronunciationScores.length - 1] ?? 0;
     const passed = lastScore >= ATTACK_THRESHOLD;
 
-    if (passed) {
-      // Recording passed — check victory
-      if (state.bossHP <= 0 || state.recordingsCompleted >= state.totalRecordings) {
-        return { state, outcome: "victory" };
-      }
-      // More recordings to go — back to player_menu
-      return {
-        state: {
-          ...state,
-          currentRecordingIndex: state.currentRecordingIndex + 1,
-          phase: "player_menu",
-        },
-        outcome: "continue",
-      };
-    } else {
-      // Recording failed — setup MCQ batch, go to boss_attack
-      if (state.mcqQuestions.length === 0) {
-        // No MCQs available — just retry recording directly
+    // Always go to boss_attack (MCQ defense) after recording, regardless of pass/fail
+    if (state.mcqQuestions.length === 0) {
+      // No MCQs available — skip boss_attack phase
+      if (passed) {
+        if (state.bossHP <= 0 || state.recordingsCompleted >= state.totalRecordings) {
+          return { state, outcome: "victory" };
+        }
         return {
-          state: { ...state, phase: "player_menu", isRetry: true },
+          state: {
+            ...state,
+            currentRecordingIndex: state.currentRecordingIndex + 1,
+            phase: "player_menu",
+          },
           outcome: "continue",
         };
       }
-      const { batchIndices, newCursor } = setupMCQBatch(
-        state.mcqCursor,
-        state.mcqQuestions.length
-      );
       return {
-        state: {
-          ...state,
-          phase: "boss_attack",
-          mcqBatchIndices: batchIndices,
-          currentMCQInBatch: 0,
-          mcqCursor: newCursor,
-          isRetry: true,
-        },
+        state: { ...state, phase: "player_menu", isRetry: true },
         outcome: "continue",
       };
     }
+
+    const { batchIndices, newCursor } = setupMCQBatch(
+      state.mcqCursor,
+      state.mcqQuestions.length
+    );
+    return {
+      state: {
+        ...state,
+        phase: "boss_attack",
+        mcqBatchIndices: batchIndices,
+        currentMCQInBatch: 0,
+        mcqCursor: newCursor,
+        isRetry: !passed,
+      },
+      outcome: "continue",
+    };
   }
 
   if (state.phase === "boss_attack") {
@@ -293,7 +290,21 @@ export function advanceBattle(state: BattleState): {
     if (state.playerHP <= 0) {
       return { state, outcome: "defeat" };
     }
-    // Back to player_attack to retry same recording
+    // If previous recording passed, check victory or advance
+    if (!state.isRetry) {
+      if (state.bossHP <= 0 || state.recordingsCompleted >= state.totalRecordings) {
+        return { state, outcome: "victory" };
+      }
+      return {
+        state: {
+          ...state,
+          currentRecordingIndex: state.currentRecordingIndex + 1,
+          phase: "player_menu",
+        },
+        outcome: "continue",
+      };
+    }
+    // Recording failed — retry same recording
     return {
       state: { ...state, phase: "player_menu" },
       outcome: "continue",
