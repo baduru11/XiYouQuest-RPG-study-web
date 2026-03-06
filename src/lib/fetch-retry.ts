@@ -2,7 +2,11 @@
  * Drop-in replacement for fetch() with automatic retry on transient errors.
  * Retries on 429 (Too Many Requests), 500, 502, 503 status codes and network failures.
  * Uses exponential backoff with jitter. Respects Retry-After header.
+ *
+ * Transparently routes migrated API paths to Supabase Edge Functions.
  */
+
+import { resolveEdgeRoute } from "./edge-routing";
 
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503]);
 
@@ -18,6 +22,15 @@ export async function fetchWithRetry(
   init?: RequestInit,
   { maxRetries = 3, baseDelayMs = 1000 }: RetryOptions = {}
 ): Promise<Response> {
+  // Route to Supabase Edge Function if applicable
+  const edge = await resolveEdgeRoute(input);
+  if (edge) {
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", edge.authHeader);
+    input = edge.url;
+    init = { ...init, headers };
+  }
+
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
