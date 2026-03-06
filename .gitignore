@@ -65,3 +65,6 @@ vitest.setup.ts
 
 # local docs / question data
 doc/
+
+# Supabase CLI temp files
+supabase/.temp/
