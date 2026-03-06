@@ -96,9 +96,10 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
 }
 
 function parseDataUrl(str: string): { base64: string; mimeType: string } | null {
-  const match = str.match(/data:(image\/[\w+]+);base64,([A-Za-z0-9+/=]+)/);
+  const match = str.match(/data:(image\/[\w+.-]+);base64,([A-Za-z0-9+/=\s]+)/);
   if (match) {
-    return { base64: match[2], mimeType: match[1] };
+    // Strip any whitespace/newlines from base64 data
+    return { base64: match[2].replace(/\s/g, ""), mimeType: match[1] };
   }
   return null;
 }

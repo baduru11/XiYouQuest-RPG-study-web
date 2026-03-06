@@ -79,6 +79,10 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
   const targetVolumeRef = useRef(effectiveMusicVolume * VOLUME_SCALE);
   const duckedRef = useRef(false);
   const prevPathnameRef = useRef(pathname);
+  // Web Audio API for cross-platform volume control (iOS requires GainNode)
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   // Clear override when route changes
   useEffect(() => {
@@ -95,10 +99,44 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
   // Update target volume ref
   targetVolumeRef.current = effectiveMusicVolume * VOLUME_SCALE;
 
-  // Smooth volume ramp helper
+  // Initialize Web Audio API context + gain node
+  const ensureAudioContext = useCallback((audio: HTMLAudioElement) => {
+    if (audioCtxRef.current) return;
+    const ctx = new AudioContext();
+    const gain = ctx.createGain();
+    gain.gain.value = targetVolumeRef.current;
+    const source = ctx.createMediaElementSource(audio);
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    audioCtxRef.current = ctx;
+    gainNodeRef.current = gain;
+    sourceNodeRef.current = source;
+  }, []);
+
+  // Smooth volume ramp via GainNode (works on iOS) with HTMLAudioElement fallback
   const rampVolume = useCallback(
-    (audio: HTMLAudioElement, from: number, to: number, duration: number, onDone?: () => void) => {
+    (from: number, to: number, duration: number, onDone?: () => void) => {
       cancelAnimationFrame(fadeRef.current);
+      const gain = gainNodeRef.current;
+      if (gain) {
+        // Use Web Audio API exponential ramp for smooth fading
+        gain.gain.cancelScheduledValues(audioCtxRef.current!.currentTime);
+        gain.gain.setValueAtTime(Math.max(0.001, from), audioCtxRef.current!.currentTime);
+        if (to <= 0.001) {
+          gain.gain.linearRampToValueAtTime(0.001, audioCtxRef.current!.currentTime + duration / 1000);
+        } else {
+          gain.gain.exponentialRampToValueAtTime(Math.max(0.001, to), audioCtxRef.current!.currentTime + duration / 1000);
+        }
+        if (onDone) {
+          const timeoutId = setTimeout(onDone, duration);
+          // Store timeout so we can cancel on next ramp
+          fadeRef.current = timeoutId as unknown as number;
+        }
+        return;
+      }
+      // Fallback: requestAnimationFrame-based volume (non-iOS)
+      const audio = audioRef.current;
+      if (!audio) { onDone?.(); return; }
       const startTime = performance.now();
       const step = (now: number) => {
         const elapsed = now - startTime;
@@ -115,15 +153,28 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  // Set volume instantly (cancel any running ramp)
+  const setVolumeImmediate = useCallback((vol: number) => {
+    const gain = gainNodeRef.current;
+    if (gain && audioCtxRef.current) {
+      gain.gain.cancelScheduledValues(audioCtxRef.current.currentTime);
+      gain.gain.setValueAtTime(Math.max(0, vol), audioCtxRef.current.currentTime);
+    }
+    if (audioRef.current) {
+      // Also set HTMLAudioElement volume as fallback (no-op on iOS but works on desktop)
+      try { audioRef.current.volume = Math.max(0, Math.min(1, vol)); } catch { /* iOS ignores */ }
+    }
+  }, []);
+
   // Handle track changes
   useEffect(() => {
     if (!effectiveTrack) {
       // No track for this route — stop any playing audio
-      if (audioRef.current) {
-        const audio = audioRef.current;
-        rampVolume(audio, audio.volume, 0, FADE_DURATION, () => {
-          audio.pause();
-          audio.src = "";
+      if (audioRef.current && currentSrcRef.current) {
+        const currentVol = gainNodeRef.current?.gain.value ?? audioRef.current.volume;
+        rampVolume(currentVol, 0, FADE_DURATION, () => {
+          audioRef.current?.pause();
+          if (audioRef.current) audioRef.current.src = "";
           currentSrcRef.current = null;
         });
       }
@@ -138,19 +189,28 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
       // First time — create audio
       const audio = new Audio(effectiveTrack);
       audio.loop = true;
-      audio.volume = 0;
+      audio.volume = 1; // Let GainNode control volume; set to 1 so GainNode output is correct
       audio.preload = "auto";
       audioRef.current = audio;
       currentSrcRef.current = effectiveTrack;
 
       const tryPlay = () => {
+        ensureAudioContext(audio);
+        setVolumeImmediate(0);
         audio.play().then(() => {
-          rampVolume(audio, 0, fullVolume, FADE_DURATION);
+          if (audioCtxRef.current?.state === "suspended") {
+            audioCtxRef.current.resume();
+          }
+          rampVolume(0, fullVolume, FADE_DURATION);
         }).catch(() => {
           // Autoplay blocked — wait for user interaction
           const resume = () => {
+            ensureAudioContext(audio);
+            if (audioCtxRef.current?.state === "suspended") {
+              audioCtxRef.current.resume();
+            }
             audio.play().then(() => {
-              rampVolume(audio, 0, fullVolume, FADE_DURATION);
+              rampVolume(0, fullVolume, FADE_DURATION);
             }).catch(() => {});
             document.removeEventListener("click", resume);
             document.removeEventListener("keydown", resume);
@@ -166,12 +226,13 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
     // Track changed — crossfade
     if (currentSrcRef.current !== effectiveTrack) {
       const audio = audioRef.current;
-      rampVolume(audio, audio.volume, 0, FADE_DURATION, () => {
+      const currentVol = gainNodeRef.current?.gain.value ?? audio.volume;
+      rampVolume(currentVol, 0, FADE_DURATION, () => {
         audio.src = effectiveTrack;
         audio.currentTime = 0;
         currentSrcRef.current = effectiveTrack;
         audio.play().then(() => {
-          rampVolume(audio, 0, fullVolume, FADE_DURATION);
+          rampVolume(0, fullVolume, FADE_DURATION);
         }).catch(() => {});
       });
     }
@@ -181,8 +242,8 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
   // Respond to volume changes from settings
   useEffect(() => {
     if (!audioRef.current || !currentSrcRef.current || duckedRef.current) return;
-    audioRef.current.volume = targetVolumeRef.current;
-  }, [effectiveMusicVolume]);
+    setVolumeImmediate(targetVolumeRef.current);
+  }, [effectiveMusicVolume, setVolumeImmediate]);
 
   // Pause/resume when learning is active
   const applyDuck = useCallback(
@@ -191,12 +252,16 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
       if (!audioRef.current || !currentSrcRef.current) return;
       const audio = audioRef.current;
       if (ducked) {
-        rampVolume(audio, audio.volume, 0, DUCK_DURATION, () => {
+        const currentVol = gainNodeRef.current?.gain.value ?? audio.volume;
+        rampVolume(currentVol, 0, DUCK_DURATION, () => {
           audio.pause();
         });
       } else {
         audio.play().then(() => {
-          rampVolume(audio, 0, targetVolumeRef.current, DUCK_DURATION);
+          if (audioCtxRef.current?.state === "suspended") {
+            audioCtxRef.current.resume();
+          }
+          rampVolume(0, targetVolumeRef.current, DUCK_DURATION);
         }).catch(() => {});
       }
     },
@@ -230,6 +295,10 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
         audioRef.current.pause();
         audioRef.current.src = "";
         audioRef.current = null;
+      }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+        audioCtxRef.current = null;
       }
     };
   }, []);

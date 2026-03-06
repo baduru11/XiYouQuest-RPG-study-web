@@ -45,6 +45,7 @@ interface Scenario {
   title: string;
   description: string;
   category: string;
+  background_url: string | null;
 }
 
 interface HistorySession {
@@ -499,10 +500,11 @@ export default function CompanionChatClient({
       setShowSoftLimitDialog(false);
 
       // Queue the last generated image to show once the overlay mounts
+      // Fall back to scenario background if no in-conversation image exists
       const lastImageMsg = [...(data.messages ?? [])].reverse().find(
         (m: { image_url: string | null }) => m.image_url
       );
-      pendingBgImageRef.current = lastImageMsg?.image_url ?? null;
+      pendingBgImageRef.current = lastImageMsg?.image_url ?? scen?.background_url ?? null;
 
       setPhase("chatting");
       setActiveTab("chat");
@@ -1011,40 +1013,12 @@ export default function CompanionChatClient({
               playTTS(data.openingMessage, selectedCharacter!.voiceId);
             }
 
-            // Generate initial scene image — keep loading overlay until image is ready
-            setLoadingStep(3);
-            try {
-              const imgRes = await Promise.race([
-                fetchWithRetry("/api/chat/generate-image", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    sessionId: data.sessionId,
-                    conversationSummary: `${selectedCharacter!.name}: ${data.openingMessage}\nScenario: ${scenario.title} — ${scenario.description}`,
-                    characterName: selectedCharacter!.name,
-                    scenarioTitle: scenario.title,
-                  }),
-                }),
-                new Promise<null>((resolve) => setTimeout(() => resolve(null), 30000)),
-              ]);
-              if (imgRes && imgRes.ok) {
-                const imgData = await imgRes.json();
-                if (imgData.imageUrl) {
-                  // Preload the image before dismissing loading
-                  await new Promise<void>((resolve) => {
-                    const img = new window.Image();
-                    img.onload = () => resolve();
-                    img.onerror = () => resolve();
-                    img.src = imgData.imageUrl;
-                  });
-                  showBackgroundImage(imgData.imageUrl);
-                  setMessages(prev => prev.map(m =>
-                    m.id === openingMsgId ? { ...m, imageUrl: imgData.imageUrl } : m
-                  ));
-                }
-              }
-            } catch (err) {
-              console.error("[Chat] Initial image gen error:", err);
+            // Use pre-generated scenario background if available
+            if (scenario.background_url) {
+              showBackgroundImage(scenario.background_url);
+              setMessages(prev => prev.map(m =>
+                m.id === openingMsgId ? { ...m, imageUrl: scenario.background_url! } : m
+              ));
             }
           } catch (err) {
             console.error("[Chat] Start error:", err);
@@ -1120,7 +1094,6 @@ export default function CompanionChatClient({
             `Summoning ${selectedCharacter?.name ?? "companion"}...`,
             `Setting the scene...`,
             `Preparing dialogue...`,
-            `Painting the scene...`,
           ];
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-300">
@@ -1172,13 +1145,12 @@ export default function CompanionChatClient({
   if (phase === "chatting") {
     return (
       <div className="mx-auto max-w-2xl flex flex-col" style={{ height: "calc(100dvh - 5rem)" }}>
-        {/* Loading overlay — shown while initial background image is generating */}
+        {/* Loading overlay — shown while starting session */}
         {isStarting && (() => {
           const steps = [
             `Summoning ${selectedCharacter?.name ?? "companion"}...`,
             `Setting the scene...`,
             `Preparing dialogue...`,
-            `Painting the scene...`,
           ];
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md animate-in fade-in duration-300">

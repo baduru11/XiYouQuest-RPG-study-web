@@ -51,19 +51,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Image generation failed" }, { status: 502 });
     }
 
+    // Normalize mime type to one Supabase bucket allows
+    const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+    const normalizedMime = ALLOWED_TYPES.includes(imageResult.mimeType)
+      ? imageResult.mimeType
+      : "image/png";
+    const ext = normalizedMime === "image/jpeg" ? "jpg"
+      : normalizedMime === "image/webp" ? "webp"
+      : normalizedMime === "image/gif" ? "gif"
+      : "png";
+
     // Upload to Supabase Storage using service role for storage operations
     const adminClient = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       SUPABASE_SERVICE_ROLE_KEY(),
     );
 
-    const fileName = `${user.id}/${sessionId}/${Date.now()}.png`;
+    const fileName = `${user.id}/${sessionId}/${Date.now()}.${ext}`;
     const imageBuffer = Buffer.from(imageResult.base64, "base64");
 
     const { error: uploadError } = await adminClient.storage
       .from("chat-images")
       .upload(fileName, imageBuffer, {
-        contentType: imageResult.mimeType,
+        contentType: normalizedMime,
         upsert: false,
       });
 
