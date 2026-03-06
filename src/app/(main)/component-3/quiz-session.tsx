@@ -380,12 +380,18 @@ export function QuizSession({ questions, character, characterId, component, lpNo
             </div>
 
             <div className="flex gap-3 justify-center pt-2">
-              <Button onClick={() => window.location.reload()}>
-                Try Again
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/practice">Back to Practice</Link>
-              </Button>
+              {lpNodeId ? (
+                <p className="text-sm text-muted-foreground animate-pulse">Returning to Learning Path...</p>
+              ) : (
+                <>
+                  <Button onClick={() => window.location.reload()}>
+                    Try Again
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/practice">Back to Practice</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

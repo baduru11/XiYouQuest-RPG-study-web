@@ -527,24 +527,30 @@ export function SpeakingSession({ topics, character, characterId, component, lpN
             <DialogueBox text={dialogue} characterName={character.name} />
 
             <div className="flex flex-col gap-2">
-              <Button onClick={() => {
-                setPhase("prepare");
-                setElapsedTime(0);
-                setAnalysis(null);
-                setTotalXPEarned(0);
-                setShowTranscript(false);
-                hasSavedProgress.current = false;
-                setExpression("encouraging");
-                setDialogue(`Let's try "${selectedTopic}" again! Remember to follow the structure.`);
-              }} className="w-full">
-                Try Again
-              </Button>
-              <Button variant="outline" onClick={handleBackToSelection} className="w-full">
-                Choose Another Topic
-              </Button>
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/practice">Back to Practice</Link>
-              </Button>
+              {lpNodeId ? (
+                <p className="text-sm text-muted-foreground animate-pulse text-center">Returning to Learning Path...</p>
+              ) : (
+                <>
+                  <Button onClick={() => {
+                    setPhase("prepare");
+                    setElapsedTime(0);
+                    setAnalysis(null);
+                    setTotalXPEarned(0);
+                    setShowTranscript(false);
+                    hasSavedProgress.current = false;
+                    setExpression("encouraging");
+                    setDialogue(`Let's try "${selectedTopic}" again! Remember to follow the structure.`);
+                  }} className="w-full">
+                    Try Again
+                  </Button>
+                  <Button variant="outline" onClick={handleBackToSelection} className="w-full">
+                    Choose Another Topic
+                  </Button>
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href="/practice">Back to Practice</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 

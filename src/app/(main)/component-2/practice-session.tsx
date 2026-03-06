@@ -612,12 +612,18 @@ export function PracticeSession({ questions, character, characterId, component, 
             </div>
 
             <div className="flex gap-3 justify-center pt-2">
-              <Button onClick={() => window.location.reload()}>
-                Practice Again
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/practice">Back to Practice</Link>
-              </Button>
+              {lpNodeId ? (
+                <p className="text-sm text-muted-foreground animate-pulse">Returning to Learning Path...</p>
+              ) : (
+                <>
+                  <Button onClick={() => window.location.reload()}>
+                    Practice Again
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/practice">Back to Practice</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

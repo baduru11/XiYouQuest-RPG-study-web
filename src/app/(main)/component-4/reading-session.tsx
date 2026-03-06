@@ -621,22 +621,28 @@ export function ReadingSession({ passages, character, characterId, component, lp
             <DialogueBox text={dialogue} characterName={character.name} />
 
             <div className="flex flex-col gap-2">
-              <Button onClick={() => {
-                setPhase("ready");
-                setOverallScore(null);
-                setSentenceScores([]);
-                setFeedbackText("");
-                setExpression("neutral");
-                setDialogue(getDialogue(character.name, "c4_retry"));
-              }} className="w-full">
-                Try Again
-              </Button>
-              <Button variant="outline" onClick={handleBackToSelection} className="w-full">
-                Choose Another Passage
-              </Button>
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/practice">Back to Practice</Link>
-              </Button>
+              {lpNodeId ? (
+                <p className="text-sm text-muted-foreground animate-pulse text-center">Returning to Learning Path...</p>
+              ) : (
+                <>
+                  <Button onClick={() => {
+                    setPhase("ready");
+                    setOverallScore(null);
+                    setSentenceScores([]);
+                    setFeedbackText("");
+                    setExpression("neutral");
+                    setDialogue(getDialogue(character.name, "c4_retry"));
+                  }} className="w-full">
+                    Try Again
+                  </Button>
+                  <Button variant="outline" onClick={handleBackToSelection} className="w-full">
+                    Choose Another Passage
+                  </Button>
+                  <Button variant="outline" asChild className="w-full">
+                    <Link href="/practice">Back to Practice</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
