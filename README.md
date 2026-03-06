@@ -22,7 +22,7 @@
   <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss" alt="Tailwind" />
   <img src="https://img.shields.io/badge/iFlytek-ISE_+_ASR_+_TTS-FF6B35" alt="iFlytek" />
   <img src="https://img.shields.io/badge/DeepSeek-v3.2-5B6EE1" alt="DeepSeek" />
-  <img src="https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?logo=google" alt="Gemini" />
+  <img src="https://img.shields.io/badge/Gemini-2.5_Flash_(Chat_+_Image)-4285F4?logo=google" alt="Gemini" />
   <img src="https://img.shields.io/badge/Vercel-Deployed-000?logo=vercel" alt="Vercel" />
 </p>
 
@@ -92,7 +92,7 @@ Record -> WAV Encode -> iFlytek ISE -> XML Parse -> DeepSeek Feedback -> XP Awar
 | **Real-time Speech Scoring** | Phone-level accuracy, tone analysis, fluency metrics via iFlytek Intelligent Speech Evaluation |
 | **AI Companions** | 4 Journey to the West characters with unique personalities, expressions, voice lines, and conversation styles |
 | **AI Feedback** | Character-personalized, context-aware study tips powered by DeepSeek v3.2 via OpenRouter |
-| **AI Image Generation** | Pixel-art scene images generated during companion chats via Gemini 2.5 Flash |
+| **AI Image Generation** | Context-aware pixel-art scene images auto-generated every 3 chat turns via Gemini 2.5 Flash |
 | **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping (一级甲等 to 三级乙等) and AI feedback reports |
 | **TTS Playback** | Native Putonghua model audio for every word, sentence, and passage via iFlytek TTS |
 | **Practice History** | Detailed session history with score trends, radar charts, component breakdowns, and AI-generated insights |
@@ -131,12 +131,12 @@ Record -> WAV Encode -> iFlytek ISE -> XML Parse -> DeepSeek Feedback -> XP Awar
 |         |              |     |         |                 |          |
 +---------+--------------+-----+---------+-----------------+----------+
           |              |               |                 |
-   +-----------+  +----------+   +------------+   +-----------+
-   |  Supabase |  | DeepSeek |   | iFlytek    |   | Gemini    |
-   | PostgreSQL|  |   v3.2   |   | ISE+ASR+TTS|   | 2.5 Flash |
-   |  + RLS    |  |(OpenRouter)|  | (wss://)   |   |(OpenRouter)|
-   |  + Storage|  |          |   |            |   | Image Gen |
-   +-----------+  +----------+   +------------+   +-----------+
+   +-----------+  +----------+   +------------+   +-------------+
+   |  Supabase |  | DeepSeek |   | iFlytek    |   | Gemini      |
+   | PostgreSQL|  |   v3.2   |   | ISE+ASR+TTS|   | 2.5 Flash   |
+   |  + RLS    |  |(OpenRouter)|  | (wss://)   |   |(OpenRouter) |
+   |  + Storage|  | Feedback |   |            |   | Chat + Image|
+   +-----------+  +----------+   +------------+   +-------------+
 ```
 
 **Dual-deployment model:** Lightweight routes (CRUD, auth, social) run on Vercel. Long-running routes (AI, speech, TTS) run as Supabase Edge Functions (Deno, 150s timeout). Client-side `fetchWithRetry` transparently routes via `resolveEdgeRoute()`.
@@ -323,7 +323,7 @@ A 7-stage story campaign themed after Journey to the West (西游记), where pla
 
 ## Companion Chat
 
-An interactive voice-driven conversation system where users practice Mandarin with Journey to the West character companions in themed scenarios.
+An interactive voice-driven conversation system where users practice Mandarin with Journey to the West character companions in themed scenarios. Powered by **Gemini 2.5 Flash** (via OpenRouter) with **MiniMax M2.5** as fallback.
 
 ### Flow
 
@@ -333,12 +333,15 @@ Select Companion -> Select Scenario -> Chat (voice input + AI reply) -> Summary
 
 ### How It Works
 
-1. **Scenario selection** — scenarios tied to quest stage progression (JTTW themes, modern daily life, PSC exam practice)
+1. **Scenario selection** — scenarios tied to quest stage progression across 3 categories: JTTW (Journey to the West lore), modern daily life, and PSC exam practice
 2. **Voice input** — user speaks -> iFlytek ASR transcription -> ISE pronunciation/tone/fluency scoring
-3. **AI response** — conversation history + user transcript fed to DeepSeek -> character-personalized reply with TTS voice
-4. **Off-topic detection** — off-topic messages are redirected without DB writes
-5. **Image generation** — AI generates pixel-art scene images based on conversation context (Gemini 2.5 Flash)
-6. **Session end** — summary with average scores, XP earned, affection gained, and generated scene images
+3. **AI response** — conversation history + user transcript fed to Gemini 2.5 Flash -> character-personalized reply with TTS voice. Falls back to MiniMax M2.5 after 3 retries with exponential backoff.
+4. **Off-topic detection** — prompt-enforced via mandatory JSON response schema. The LLM must respond with either `{"type": "reply", "content": "..."}` for on-topic exchanges or `{"type": "redirect", "content": "..."}` for off-topic ones. Detection rules vary by scenario category:
+   - **JTTW**: off-topic = unrelated to the scenario, Journey to the West world/lore, Mandarin practice, Chinese culture, or Tang Dynasty life
+   - **Modern/PSC**: off-topic = violence, illegal activities, explicit content, character-breaking, or extended non-Chinese passages
+   - Redirect responses stay in-character (companion expresses confusion and steers back). Off-topic exchanges are **not saved to the database** and award **0 XP / 0 affection**.
+5. **Automatic scene images** — every 3 on-topic turns, the client non-blockingly triggers `/api/chat/generate-image`. It builds a conversation summary from the last 8 messages, sends it to **Gemini 2.5 Flash** (image mode), and the resulting pixel-art scene is uploaded to Supabase Storage and displayed as a context-aware background behind the chat.
+6. **Session end** — summary with average scores, XP earned, affection gained, and all generated scene images
 
 ### Rewards
 
@@ -515,13 +518,15 @@ For prompted speaking, DeepSeek returns structured JSON with `vocabularyLevel` (
 
 ## AI Image Generation
 
-**Gemini 2.5 Flash** (via OpenRouter, `google/gemini-2.5-flash-image:nitro`) generates pixel-art scene images during companion chats.
+**Gemini 2.5 Flash** (via OpenRouter, `google/gemini-2.5-flash-image:nitro`) generates context-aware pixel-art scene images during companion chats.
 
-- **Trigger**: called from `/api/chat/generate-image` at conversation milestones
-- **Input**: companion name + scenario title + conversation summary (max 2000 chars, sanitized)
-- **Output**: 16:9 pixel-art PNG — 16-bit style, muted earth tones, Chinese landscape elements, no text
-- **Storage**: uploaded to `chat-images` bucket in Supabase Storage, URL attached to companion message
-- **Format support**: handles data URLs, inline_data parts, and message.images array responses
+- **Trigger**: automatically fires every **3 on-topic user turns** (turn 3, 6, 9, ...) — non-blocking, runs in the background while the conversation continues
+- **Context building**: summarizes the last 8 messages into a scene description, combined with companion name and scenario title
+- **Input sanitization**: conversation summary capped at 2,000 chars with prompt injection prevention (`[SCENE DESCRIPTION START]`/`[END]` delimiters)
+- **Output**: 16:9 pixel-art PNG — 16-bit style, muted earth tones, warm lighting, Chinese landscape elements, no text in image
+- **Storage**: uploaded to `chat-images` bucket in Supabase Storage, URL attached to the latest companion message record
+- **Display**: rendered as an atmospheric background behind the chat interface, creating an evolving visual narrative as the conversation progresses
+- **Format support**: handles data URLs, inline_data parts, and message.images array responses from OpenRouter
 
 ---
 
@@ -612,7 +617,7 @@ Four Journey to the West (西游记) companions, unlocked through quest progress
 | Zhu Bajie | 猪八戒 | Stage 6 | The Pig — humorous, warm, celebrates small wins |
 
 Each character has:
-- **Unique personality prompt** for DeepSeek AI feedback personalization
+- **Unique personality prompt** for AI feedback personalization (DeepSeek for practice, Gemini for chat)
 - **Expression images** (neutral, happy, proud, excited, thinking, encouraging, etc.) with fade transitions
 - **Voice ID** mapped to iFlytek TTS for dialogue voice lines and companion chat
 - **Affection system** — 5 levels from Acquaintance to Soulmate
@@ -724,8 +729,9 @@ All 24+ internal API fetch calls across all practice components, companion chat,
 | **Database** | Supabase (PostgreSQL + RLS + Storage) | Data persistence, auth, file storage |
 | **Edge Runtime** | Supabase Edge Functions (Deno) | Long-running AI/speech routes (150s timeout) |
 | **Auth** | Supabase Auth | Email, Google OAuth, Discord OAuth |
-| **AI Feedback** | DeepSeek v3.2 (via OpenRouter) | Contextual feedback, content analysis, curriculum |
-| **Image Generation** | Gemini 2.5 Flash (via OpenRouter) | Pixel-art scene images in companion chat |
+| **AI Feedback** | DeepSeek v3.2 (via OpenRouter) | Practice feedback, C5 content analysis, insights, curriculum |
+| **AI Chat** | Gemini 2.5 Flash (via OpenRouter) | Companion chat conversation (fallback: MiniMax M2.5) |
+| **AI Image Generation** | Gemini 2.5 Flash Image (via OpenRouter) | Context-aware pixel-art scene images every 3 chat turns |
 | **Speech Assessment** | iFlytek ISE (WebSocket) | Pronunciation scoring (zh-CN) |
 | **Speech Recognition** | iFlytek IST (WebSocket) | Speech-to-text for C5 and companion chat |
 | **Text-to-Speech** | iFlytek TTS (WebSocket) | Native Putonghua audio synthesis |
