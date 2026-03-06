@@ -5,6 +5,8 @@ import { generateSceneImage } from "@/lib/image-gen/client";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/env";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

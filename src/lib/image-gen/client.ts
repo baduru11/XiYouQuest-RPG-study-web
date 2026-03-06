@@ -54,8 +54,13 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
     const data = await res.json();
     const message = data.choices?.[0]?.message;
 
+    if (!message) {
+      console.error("[ImageGen] No message in response:", JSON.stringify(data).slice(0, 500));
+      return null;
+    }
+
     // Format 1: message.images[] array (OpenRouter standard)
-    if (Array.isArray(message?.images)) {
+    if (Array.isArray(message.images)) {
       for (const img of message.images) {
         const url = img?.image_url?.url ?? img?.url;
         if (url) {
@@ -66,7 +71,7 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
     }
 
     // Format 2: content is an array of parts (multimodal content)
-    const content = message?.content;
+    const content = message.content;
     if (Array.isArray(content)) {
       for (const part of content) {
         // OpenAI-style image_url part
@@ -78,6 +83,11 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
         if (part.inline_data?.data && part.inline_data?.mime_type) {
           return { base64: part.inline_data.data, mimeType: part.inline_data.mime_type };
         }
+        // OpenRouter image part with base64 directly
+        if (part.type === "image" && part.image_url?.url) {
+          const parsed = parseDataUrl(part.image_url.url);
+          if (parsed) return parsed;
+        }
       }
     }
 
@@ -87,7 +97,7 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
       if (parsed) return parsed;
     }
 
-    console.warn("[ImageGen] No image data found in response. Keys:", JSON.stringify(Object.keys(message ?? {})));
+    console.error("[ImageGen] Unhandled response format. message keys:", Object.keys(message), "content type:", typeof content, "content sample:", JSON.stringify(content).slice(0, 300));
     return null;
   } catch (error) {
     console.error("[ImageGen] Generation failed:", error);
