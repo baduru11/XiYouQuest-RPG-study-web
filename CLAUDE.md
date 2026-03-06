@@ -39,12 +39,33 @@ All clients live in `src/lib/`. Env vars in `.env.local`:
 
 | Gemini 3.1 Flash (via OpenRouter) | `image-gen/client.ts` | `OPENROUTER_API_KEY` |
 
+## Edge Function Architecture
+
+8 long-running API routes are deployed as Supabase Edge Functions (Deno runtime, 150s timeout) to avoid Vercel's 10s free-tier limit. Client-side routing is transparent via `fetchWithRetry` → `resolveEdgeRoute()`.
+
+| Vercel Route | Edge Function | External APIs |
+|---|---|---|
+| `/api/ai/feedback` | `ai-feedback` | OpenRouter LLM |
+| `/api/ai/insights` | `ai-insights` | OpenRouter LLM |
+| `/api/ai/mock-exam-feedback` | `ai-mock-exam-feedback` | OpenRouter LLM |
+| `/api/chat/generate-image` | `chat-generate-image` | OpenRouter Image + Storage |
+| `/api/chat/start` | `chat-start` | OpenRouter LLM + iFlytek TTS |
+| `/api/chat/respond` | `chat-respond` | iFlytek ASR+ISE + OpenRouter LLM |
+| `/api/learning/generate-plan` | `learning-generate-plan` | OpenRouter LLM + DB |
+| `/api/speech/c5-assess` | `speech-c5-assess` | iFlytek ASR+ISE + OpenRouter LLM |
+
+- **Routing:** `src/lib/edge-routing.ts` maps paths → edge URLs + injects Supabase auth token. `fetchWithRetry` calls this before any request.
+- **Shared code:** `supabase/functions/_shared/` contains Deno ports of AI, iFlytek, image-gen, scoring, chat-prompt, and validation modules.
+- **Auth:** Edge functions receive `Authorization: Bearer <token>` header, create per-request Supabase client. `--no-verify-jwt` used at deploy (auth handled internally).
+- **Deno specifics:** `npm:` specifiers (not bare imports), `Deno.env.get()`, Web Crypto API, native WebSocket, `Uint8Array` instead of `Buffer`.
+- **tsconfig.json** excludes `supabase/functions` from Next.js type checking.
+
 ## Key Patterns & Gotchas
 
 - **Path alias:** `@/*` maps to `./src/*`
 - **`next.config.ts`** externalizes `ws` — required for iFlytek WebSocket clients (TTS, ISE, ASR) running server-side
 - **Component pages** are server components that fetch data via `Promise.all`, then render heavy client components via `next/dynamic`
-- **`fetchWithRetry`** wrapper: all 24+ client-side API calls use automatic retry for transient failures
+- **`fetchWithRetry`** wrapper: all 24+ client-side API calls use automatic retry for transient failures. Automatically routes migrated endpoints to Supabase Edge Functions via `resolveEdgeRoute()`.
 - **AI retry logic:** 3 retries with exponential backoff (1s, 2s, 4s + jitter), falls back to canned Chinese/English messages on total failure
 - **Achievement checks are event-driven** — action endpoints return `newAchievements` array for toast display via React Context
 - **Loading skeletons** (`loading.tsx`) exist for every route under `(main)/`
@@ -65,4 +86,6 @@ src/components/character/   # Character display, gallery
 src/lib/                    # All business logic and external service clients
 src/types/                  # TypeScript types (database.ts, gamification.ts, etc.)
 public/img/                 # Sprites, backgrounds, boss art (spaces in folder names)
+supabase/functions/         # Deno edge functions (deployed to Supabase)
+supabase/functions/_shared/ # Shared Deno modules (AI, iFlytek, scoring, etc.)
 ```
