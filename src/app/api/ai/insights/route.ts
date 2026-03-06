@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { quickCompletion } from "@/lib/gemini/client";
 import { aiInsightsSchema } from "@/lib/validations";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {

@@ -5,6 +5,8 @@ import { chatConversation } from "@/lib/gemini/client";
 import { buildChatSystemPrompt } from "@/lib/chat/build-system-prompt";
 import { synthesizeAcademic } from "@/lib/voice/client";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

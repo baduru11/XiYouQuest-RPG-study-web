@@ -4,6 +4,8 @@ import { generateFeedback } from "@/lib/gemini/client";
 import { buildPlayerMemory } from "@/lib/gemini/player-memory";
 import { aiFeedbackSchema } from "@/lib/validations";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

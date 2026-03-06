@@ -5,6 +5,8 @@ import type { PhaseGenerationInput } from "@/lib/gemini/client";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 import { generatePlanSchema } from "@/lib/validations";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {

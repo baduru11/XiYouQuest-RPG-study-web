@@ -8,6 +8,8 @@ import { TTS_CACHE_MAX_SIZE } from "@/lib/constants";
 // Key: `academic:${voiceId}:${text}`, Value: Buffer
 const audioCache = new Map<string, Buffer>();
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

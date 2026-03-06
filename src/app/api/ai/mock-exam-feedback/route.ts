@@ -31,6 +31,8 @@ const schema = z.object({
   grade: z.string().max(20),
 });
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
