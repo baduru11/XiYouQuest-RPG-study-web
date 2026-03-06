@@ -31,13 +31,12 @@ export default async function CompanionChatPage() {
     { data: characters },
     { data: userCharacters },
     { data: scenarios },
-    { data: questProgress },
     { data: recentSessions },
+    { data: scenarioBackgrounds },
   ] = await Promise.all([
     supabase.from("characters").select("*").order("unlock_stage", { ascending: true, nullsFirst: true }),
     supabase.from("user_characters").select("character_id, affection_xp, affection_level").eq("user_id", userId),
     supabase.from("chat_scenarios").select("*").order("sort_order", { ascending: true }),
-    supabase.from("quest_progress").select("stage, is_cleared").eq("user_id", userId).eq("is_cleared", true),
     supabase
       .from("chat_sessions")
       .select("*, characters(name, voice_id, image_url), chat_scenarios(title, category)")
@@ -45,11 +44,11 @@ export default async function CompanionChatPage() {
       .order("ended_at", { ascending: true, nullsFirst: true })
       .order("created_at", { ascending: false })
       .limit(20),
+    supabase.from("scenario_backgrounds").select("scenario_id, character_id, background_url"),
   ]);
 
   // Enrich characters with unlock status and images
   const unlockedIds = new Set((userCharacters ?? []).map((uc) => uc.character_id));
-  const clearedStages = new Set((questProgress ?? []).map((qp) => qp.stage));
 
   const enrichedCharacters = (characters ?? []).map((char) => ({
     id: char.id,
@@ -63,15 +62,17 @@ export default async function CompanionChatPage() {
     affectionLevel: (userCharacters ?? []).find((uc) => uc.character_id === char.id)?.affection_level ?? 0,
   }));
 
-  // Include stage 0 (modern/PSC) + stage 1 + cleared stages
-  const availableScenarios = (scenarios ?? []).filter(
-    (s) => s.stage_number <= 1 || clearedStages.has(s.stage_number)
-  );
+  // Build background lookup: "scenarioId:characterId" → url
+  const backgroundMap: Record<string, string> = {};
+  for (const bg of scenarioBackgrounds ?? []) {
+    backgroundMap[`${bg.scenario_id}:${bg.character_id}`] = bg.background_url;
+  }
 
   return (
     <CompanionChatClient
       characters={enrichedCharacters}
-      scenarios={availableScenarios}
+      scenarios={scenarios ?? []}
+      backgroundMap={backgroundMap}
       recentSessions={(recentSessions ?? []).map((s) => ({
         id: s.id,
         characterName: (s.characters as { name: string; voice_id: string; image_url: string | null } | null)?.name ?? "Unknown",

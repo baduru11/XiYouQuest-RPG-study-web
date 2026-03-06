@@ -45,7 +45,6 @@ interface Scenario {
   title: string;
   description: string;
   category: string;
-  background_url: string | null;
 }
 
 interface HistorySession {
@@ -82,25 +81,13 @@ type ChatPhase = "select_companion" | "select_scenario" | "chatting";
 interface CompanionChatClientProps {
   characters: EnrichedCharacter[];
   scenarios: Scenario[];
+  backgroundMap: Record<string, string>;
   recentSessions: HistorySession[];
 }
-
-// ── Stage names ──
-
-const STAGE_NAMES: Record<number, string> = {
-  1: "花果山 — Flower Fruit Mountain",
-  2: "取经启程 — Journey Begins",
-  3: "流沙河 — Flowing Sand River",
-  4: "白骨精 — White Bone Spirit",
-  5: "火焰山 — Flaming Mountain",
-  6: "盘丝洞 — Spider Cave",
-  7: "雷音寺 — Thunder Monastery",
-};
 
 const CATEGORY_LABELS: Record<string, { zh: string; en: string }> = {
   modern_daily: { zh: "现代生活", en: "Modern Daily Life" },
   psc_exam: { zh: "PSC考试练习", en: "PSC Exam Practice" },
-  jttw: { zh: "西游记", en: "Journey to the West" },
 };
 
 // ── Component ──
@@ -108,6 +95,7 @@ const CATEGORY_LABELS: Record<string, { zh: string; en: string }> = {
 export default function CompanionChatClient({
   characters,
   scenarios,
+  backgroundMap,
   recentSessions,
 }: CompanionChatClientProps) {
   // Tab state
@@ -164,27 +152,23 @@ export default function CompanionChatClient({
     if (phase !== "chatting") return;
 
     document.body.style.isolation = "isolate";
+    const pendingUrl = pendingBgImageRef.current;
+    pendingBgImageRef.current = null;
+
     const overlay = document.createElement("div");
+    const hasInitialBg = !!pendingUrl;
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: -1;
       background-color: #0a0a0a;
       background-size: cover; background-position: center; background-attachment: fixed;
-      opacity: 0; transition: opacity 0.8s ease-in-out; pointer-events: none;
+      pointer-events: none;
+      ${hasInitialBg
+        ? `background-image: url("${pendingUrl.replace(/["\\]/g, "")}"); opacity: 1;`
+        : `opacity: 0; transition: opacity 0.8s ease-in-out;`
+      }
     `;
     document.body.appendChild(overlay);
     bgOverlayRef.current = overlay;
-
-    // Restore background image on resume (pending from handleResumeSession)
-    if (pendingBgImageRef.current) {
-      const pendingUrl = pendingBgImageRef.current;
-      pendingBgImageRef.current = null;
-      const img = new window.Image();
-      img.onload = () => {
-        overlay.style.backgroundImage = `url("${pendingUrl.replace(/["\\]/g, "")}")`;
-        requestAnimationFrame(() => { overlay.style.opacity = "1"; });
-      };
-      img.src = pendingUrl;
-    }
 
     return () => {
       overlay.remove();
@@ -267,6 +251,7 @@ export default function CompanionChatClient({
     const overlay = bgOverlayRef.current;
     const img = new window.Image();
     img.onload = () => {
+      overlay.style.transition = "opacity 0.8s ease-in-out";
       overlay.style.backgroundImage = `url("${imageUrl.replace(/["\\]/g, "")}")`;
       requestAnimationFrame(() => { overlay.style.opacity = "1"; });
     };
@@ -500,11 +485,12 @@ export default function CompanionChatClient({
       setShowSoftLimitDialog(false);
 
       // Queue the last generated image to show once the overlay mounts
-      // Fall back to scenario background if no in-conversation image exists
+      // Fall back to character-specific scenario background if no in-conversation image exists
       const lastImageMsg = [...(data.messages ?? [])].reverse().find(
         (m: { image_url: string | null }) => m.image_url
       );
-      pendingBgImageRef.current = lastImageMsg?.image_url ?? scen?.background_url ?? null;
+      const resumeBgKey = `${session.scenarioId}:${session.characterId}`;
+      pendingBgImageRef.current = lastImageMsg?.image_url ?? backgroundMap[resumeBgKey] ?? null;
 
       setPhase("chatting");
       setActiveTab("chat");
@@ -945,16 +931,9 @@ export default function CompanionChatClient({
 
   // Phase: Select Scenario — grouped by category
   if (phase === "select_scenario") {
-    // Group by category, then by stage for jttw
+    // Group by category
     const modernDaily = scenarios.filter(s => s.category === "modern_daily");
     const pscExam = scenarios.filter(s => s.category === "psc_exam");
-    const jttw = scenarios.filter(s => s.category === "jttw");
-
-    // Group jttw by stage
-    const jttwByStage = jttw.reduce<Record<number, Scenario[]>>((acc, s) => {
-      (acc[s.stage_number] ??= []).push(s);
-      return acc;
-    }, {});
 
     const renderScenarioButton = (scenario: Scenario) => (
       <button
@@ -965,6 +944,14 @@ export default function CompanionChatClient({
           setLoadingStep(0);
           setTimeout(() => setLoadingStep(1), 1200);
           setTimeout(() => setLoadingStep(2), 2800);
+
+          // Preload background image while API call runs
+          const bgUrl = backgroundMap[`${scenario.id}:${selectedCharacter!.id}`];
+          if (bgUrl) {
+            const preload = new window.Image();
+            preload.src = bgUrl;
+          }
+
           try {
             const res = await fetchWithRetry("/api/chat/start", {
               method: "POST",
@@ -990,6 +977,10 @@ export default function CompanionChatClient({
             }]);
             setTurnCount(0);
             setSoftLimitDismissed(false);
+
+            // Queue background before phase change so the overlay effect picks it up
+            pendingBgImageRef.current = bgUrl ?? null;
+
             setPhase("chatting");
 
             // Play TTS from inline audio (no extra API call) or fall back
@@ -1013,11 +1004,10 @@ export default function CompanionChatClient({
               playTTS(data.openingMessage, selectedCharacter!.voiceId);
             }
 
-            // Use pre-generated scenario background if available
-            if (scenario.background_url) {
-              showBackgroundImage(scenario.background_url);
+            // Attach background URL to opening message for history
+            if (bgUrl) {
               setMessages(prev => prev.map(m =>
-                m.id === openingMsgId ? { ...m, imageUrl: scenario.background_url! } : m
+                m.id === openingMsgId ? { ...m, imageUrl: bgUrl } : m
               ));
             }
           } catch (err) {
@@ -1076,18 +1066,6 @@ export default function CompanionChatClient({
             {pscExam.map(renderScenarioButton)}
           </div>
         )}
-
-        {/* Journey to the West — grouped by stage */}
-        {Object.entries(jttwByStage)
-          .sort(([a], [b]) => Number(a) - Number(b))
-          .map(([stage, stageScenarios]) => (
-            <div key={stage} className="space-y-2">
-              <p className="font-pixel text-xs text-muted-foreground">
-                Stage {stage}: {STAGE_NAMES[Number(stage)] ?? ""}
-              </p>
-              {stageScenarios.map(renderScenarioButton)}
-            </div>
-          ))}
 
         {isStarting && (() => {
           const steps = [
