@@ -745,6 +745,8 @@ All 24+ internal API fetch calls across all practice components, companion chat,
 | **Testing** | Vitest + Testing Library | Unit & component tests |
 | **Analytics** | Vercel Analytics | Usage tracking |
 | **Fonts** | Press Start 2P, VT323, ZCOOL XiaoWei | Pixel headings, retro body, Chinese display |
+| **Image Assets** | NovelAI + Google Nano Banana | Character sprites, expressions, boss art, backgrounds |
+| **Music** | Suno AI | Original chiptune BGM for dashboard, battles, victory/defeat, chat |
 | **Deployment** | Vercel + Supabase | Frontend hosting + edge functions |
 
 ---
@@ -1133,6 +1135,8 @@ A pixel-art retro aesthetic with Chinese-ink influences:
 - **Effects**: `pixel-border`, `pixel-glow`, `pixel-btn` (4px drop shadow), `border-radius: 0px`
 - **Chinese motifs**: `chinese-frame` (double rosewood/gold border), `chinese-corner` (vermilion L-brackets), `chinese-divider` (gradient diamond line)
 - **Battle animations**: 15+ keyframes including idle-bob, boss-float, flinch, attack-trail, damage-float, heart-shatter
+- **Image assets**: Character sprites, expressions, boss art, and backgrounds generated with **NovelAI** and **Google Nano Banana** (Gemini image generation)
+- **Background music**: Original chiptune/retro tracks generated with **Suno AI** — context-specific BGM for dashboard, battles, victory/defeat, and companion chat
 - **Accessibility**: Full `prefers-reduced-motion` support — all animations disabled when requested
 
 ---
