@@ -287,6 +287,27 @@ export function BGMProvider({ children }: { children: React.ReactNode }) {
     setOverride(null);
   }, []);
 
+  // Auto-resume AudioContext after native dialogs (confirm/alert) suspend it on mobile
+  useEffect(() => {
+    const resumeCtx = () => {
+      const ctx = audioCtxRef.current;
+      if (ctx && ctx.state === "suspended" && !duckedRef.current && currentSrcRef.current) {
+        ctx.resume().then(() => {
+          // Ensure audio element is also playing
+          if (audioRef.current && audioRef.current.paused && currentSrcRef.current) {
+            audioRef.current.play().catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener("click", resumeCtx);
+    document.addEventListener("touchend", resumeCtx);
+    return () => {
+      document.removeEventListener("click", resumeCtx);
+      document.removeEventListener("touchend", resumeCtx);
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
