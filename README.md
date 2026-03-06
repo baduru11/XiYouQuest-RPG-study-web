@@ -20,8 +20,9 @@
   <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase" alt="Supabase" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss" alt="Tailwind" />
-  <img src="https://img.shields.io/badge/iFlytek-ISE_+_TTS-FF6B35" alt="iFlytek" />
+  <img src="https://img.shields.io/badge/iFlytek-ISE_+_ASR_+_TTS-FF6B35" alt="iFlytek" />
   <img src="https://img.shields.io/badge/DeepSeek-v3.2-5B6EE1" alt="DeepSeek" />
+  <img src="https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?logo=google" alt="Gemini" />
   <img src="https://img.shields.io/badge/Vercel-Deployed-000?logo=vercel" alt="Vercel" />
 </p>
 
@@ -46,14 +47,18 @@
   - [C7: Polyphonic Characters Quiz](#c7-polyphonic-characters-quiz-多音字练习)
   - [Mock Exam](#mock-exam-full-psc-simulation)
 - [Main Quest RPG](#main-quest-rpg)
+- [Companion Chat](#companion-chat)
+- [Personalized Learning Path](#personalized-learning-path)
 - [Achievements](#achievements)
 - [Speech Evaluation Engine](#speech-evaluation-engine)
 - [Text-to-Speech System](#text-to-speech-system)
 - [AI Feedback Pipeline](#ai-feedback-pipeline)
+- [AI Image Generation](#ai-image-generation)
 - [Gamification System](#gamification-system)
 - [Social & Leaderboard](#social--leaderboard)
 - [Character Companion System](#character-companion-system)
 - [Authentication & Security](#authentication--security)
+- [Edge Function Architecture](#edge-function-architecture)
 - [Network Resilience](#network-resilience)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
@@ -71,7 +76,7 @@ XiYouQuest transforms Putonghua Proficiency Test (PSC / 普通话水平测试) p
 Every practice session flows through a multi-service pipeline:
 
 ```
-🎙️ Record → 📦 WAV Encode → 🌐 iFlytek ISE → 📊 XML Parse → 🤖 DeepSeek Feedback → 🎮 XP Award → 🏆 Achievement Check
+Record -> WAV Encode -> iFlytek ISE -> XML Parse -> DeepSeek Feedback -> XP Award -> Achievement Check
 ```
 
 ---
@@ -82,14 +87,18 @@ Every practice session flows through a multi-service pipeline:
 |---------|-------------|
 | **7 Practice Components** | All 5 official PSC components + 2 supplementary drills (Cantonese mistakes, polyphonic characters) |
 | **Main Quest RPG** | 7-stage Journey to the West campaign with turn-based pronunciation battles against mythical bosses |
+| **Companion Chat** | Voice-driven conversations with AI companions — real-time pronunciation scoring, image generation, and scenario-based dialogue |
+| **Personalized Learning Path** | AI-generated adaptive curriculum with multi-phase study plans, checkpoint assessments, and predicted PSC grade tracking |
 | **Real-time Speech Scoring** | Phone-level accuracy, tone analysis, fluency metrics via iFlytek Intelligent Speech Evaluation |
-| **AI Companions** | 4 Journey to the West characters with unique personalities, expressions, and voice lines |
+| **AI Companions** | 4 Journey to the West characters with unique personalities, expressions, voice lines, and conversation styles |
 | **AI Feedback** | Character-personalized, context-aware study tips powered by DeepSeek v3.2 via OpenRouter |
-| **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping (一级甲等 → 三级乙等) |
+| **AI Image Generation** | Pixel-art scene images generated during companion chats via Gemini 2.5 Flash |
+| **Full Mock Exam** | Timed 5-component simulation with official PSC grade mapping (一级甲等 to 三级乙等) and AI feedback reports |
 | **TTS Playback** | Native Putonghua model audio for every word, sentence, and passage via iFlytek TTS |
-| **31 Achievements** | 4-tier achievement system (Common/Uncommon/Rare/Epic) with toast notifications and friend activity feed |
+| **Practice History** | Detailed session history with score trends, radar charts, component breakdowns, and AI-generated insights |
+| **44 Achievements** | 4-tier achievement system (Common/Uncommon/Rare/Epic) with toast notifications and friend activity feed |
 | **XP & Levels** | 10-tier progression from Beginner to PSC God with streak multipliers and daily bonuses |
-| **Character Affection** | Build bonds with companions across 5 affection levels by practicing together |
+| **Character Affection** | Build bonds with companions across 5 affection levels by practicing and chatting together |
 | **Social System** | Friends, friend codes (PSC-XXXX), leaderboards, Discord friend suggestions |
 | **Pixel-Art UI** | Press Start 2P fonts, vermilion Chinese-ink motifs, pixel borders, retro battle animations |
 
@@ -98,41 +107,39 @@ Every practice session flows through a multi-service pipeline:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          BROWSER (Client)                          │
-│                                                                     │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────┐  ┌───────────────┐  │
-│  │ Practice  │  │ AudioRecorder│  │ Quest RPG │  │   Quiz/Exam   │  │
-│  │ Session   │  │ (PCM 16kHz)  │  │ Battles   │  │   Sessions    │  │
-│  └─────┬─────┘  └──────┬───────┘  └─────┬─────┘  └──────┬────────┘  │
-│        │               │                │               │           │
-│        └───────────────┼────────────────┼───────────────┘           │
-│                        │ WAV Blob       │ Battle State              │
-│                        ▼                ▼                            │
-├─────────────────── Next.js 16 API Routes ─────────────────────────┤
-│                                                                     │
-│  ┌──────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
-│  │ /speech/     │ │ /tts/       │ │ /ai/        │ │ /progress/  │  │
-│  │  assess      │ │  speak      │ │  feedback   │ │  update     │  │
-│  │  c5-assess   │ │  companion  │ │             │ │             │  │
-│  └──────┬───────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘  │
-│         │                │               │               │          │
-│  ┌──────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
-│  │ /quest/      │ │ /achieve-   │ │ /social/    │ │ /leader-    │  │
-│  │  progress    │ │  ments/     │ │  9 endpoints│ │  board      │  │
-│  └──────┬───────┘ └──────┬──────┘ └──────┬──────┘ └──────┬──────┘  │
-│         │                │               │               │          │
-├─────────┼────────────────┼───────────────┼───────────────┼──────────┤
-│         ▼                ▼               ▼               ▼          │
-│  ┌─────────────┐  ┌─────────────┐ ┌───────────┐  ┌────────────┐   │
-│  │ iFlytek ISE │  │ iFlytek TTS │ │  DeepSeek │  │  Supabase  │   │
-│  │  + IST      │  │  WebSocket  │ │   v3.2    │  │ PostgreSQL │   │
-│  │ (wss://)    │  │ (wss://)    │ │(OpenRouter)│  │  + RLS     │   │
-│  └─────────────┘  └─────────────┘ └───────────┘  └────────────┘   │
-│                                                                     │
-│       HMAC-SHA256 Auth         Retry + Backoff    Row Level Sec.   │
-└─────────────────────────────────────────────────────────────────────┘
++---------------------------------------------------------------------+
+|                          BROWSER (Client)                           |
+|                                                                     |
+|  +----------+  +--------------+  +-----------+  +---------------+   |
+|  | Practice |  | AudioRecorder|  | Quest RPG |  | Companion     |   |
+|  | Session  |  | (PCM 16kHz)  |  | Battles   |  | Chat + Learn  |   |
+|  +----+-----+  +------+-------+  +-----+-----+  +------+--------+   |
+|       |               |                |               |            |
+|       +---------------+----------------+---------------+            |
+|                        | fetchWithRetry                             |
+|                        v (auto edge-routing)                        |
++--- Next.js 16 API Routes ---+--- Supabase Edge Functions ----------+
+|                              |                                      |
+|  +-------------+ +---------+|  +-------------+ +-----------------+ |
+|  | /progress/* | | /social/*||  | ai-feedback | | speech-assess   | |
+|  | /quest/*    | | /leader- ||  | ai-insights | | speech-c5-assess| |
+|  | /mock-exam/*| |  board   ||  | ai-mock-exam| | tts-speak       | |
+|  | /learning/* | | /achieve-||  | chat-start  | | tts-companion   | |
+|  | /auth/*     | |  ments/* ||  | chat-respond| | learning-gen-   | |
+|  | /chat/*     | |          ||  | chat-gen-img|   plan            | |
+|  +------+------+ +----+----+|  +------+------+ +--------+--------+ |
+|         |              |     |         |                 |          |
++---------+--------------+-----+---------+-----------------+----------+
+          |              |               |                 |
+   +-----------+  +----------+   +------------+   +-----------+
+   |  Supabase |  | DeepSeek |   | iFlytek    |   | Gemini    |
+   | PostgreSQL|  |   v3.2   |   | ISE+ASR+TTS|   | 2.5 Flash |
+   |  + RLS    |  |(OpenRouter)|  | (wss://)   |   |(OpenRouter)|
+   |  + Storage|  |          |   |            |   | Image Gen |
+   +-----------+  +----------+   +------------+   +-----------+
 ```
+
+**Dual-deployment model:** Lightweight routes (CRUD, auth, social) run on Vercel. Long-running routes (AI, speech, TTS) run as Supabase Edge Functions (Deno, 150s timeout). Client-side `fetchWithRetry` transparently routes via `resolveEdgeRoute()`.
 
 ---
 
@@ -143,23 +150,23 @@ Every practice session flows through a multi-service pipeline:
 Practice individual Chinese character pronunciation with per-character tone and accuracy analysis.
 
 ```
-Server: fetch 50 chars from question_banks → shuffle → pass to PracticeSession
+Server: fetch 50 chars from question_banks -> shuffle -> pass to PracticeSession
 
 Client (PracticeSession):
-  Split into groups of 10 → display as clickable grid
+  Split into groups of 10 -> display as clickable grid
 
   For each group:
-  1. 👆 Tap character → POST /api/tts/speak → iFlytek TTS → WAV cached
-  2. 🎙️ Record → getUserMedia(16kHz) → ScriptProcessor → Float32 chunks
-  3. ⏹️ Stop → encodeWAV(16kHz, 16-bit, mono) → Blob
-  4. 📡 POST /api/speech/assess { category: "read_syllable" }
-     → iFlytek ISE WebSocket → SSB + AUW frames → base64 XML
-     → Parse per-word accuracy, tone, dp_message, perr_msg
-  5. 🎯 Score matching: filter insertions/omissions → sequential word match
-  6. 🤖 POST /api/ai/feedback → DeepSeek personality-driven feedback
-  7. ✨ XP: ≥90→10, ≥60→5, <60→2 × streak multiplier
+  1. Tap character -> POST /api/tts/speak -> iFlytek TTS -> WAV cached
+  2. Record -> getUserMedia(16kHz) -> ScriptProcessor -> Float32 chunks
+  3. Stop -> encodeWAV(16kHz, 16-bit, mono) -> Blob
+  4. POST /api/speech/assess { category: "read_syllable" }
+     -> iFlytek ISE WebSocket -> SSB + AUW frames -> base64 XML
+     -> Parse per-word accuracy, tone, dp_message, perr_msg
+  5. Score matching: filter insertions/omissions -> sequential word match
+  6. POST /api/ai/feedback -> DeepSeek personality-driven feedback
+  7. XP: >=90 -> 10, >=60 -> 5, <60 -> 2 (x streak multiplier)
 
-  After final group → POST /api/progress/update → achievement check
+  After final group -> POST /api/progress/update -> achievement check
 ```
 
 ### C2: Multisyllabic Words (读多音节词语)
@@ -168,7 +175,7 @@ Same architecture as C1 with key differences:
 
 | Aspect | C1 | C2 |
 |--------|----|----|
-| Questions | Single characters (读, 写, 听) | Compound words (经济, 幸福, 蝴蝶) |
+| Questions | Single characters | Compound words |
 | ISE Category | `read_syllable` | `read_word` |
 | XML Parsing | Per-syllable scores | `<word total_score>` with syllable breakdown |
 | Tone Analysis | Single tone per character | Multi-tone per word (weighted average) |
@@ -180,22 +187,22 @@ Multiple-choice quiz testing vocabulary accuracy and grammatical judgment — no
 | Type | Format | Example |
 |------|--------|---------|
 | **word-choice** (词语判断) | Pick the standard Putonghua form | 垃圾 vs 拉圾 |
-| **measure-word** (量词搭配) | Choose the correct measure word | 一___书 → 本/个/条/只 |
+| **measure-word** (量词搭配) | Choose the correct measure word | 一___书 -> 本/个/条/只 |
 | **sentence-order** (语序判断) | Select the grammatically correct sentence | Reordered sentence options |
 
-5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct → 10 XP + static explanation. Wrong → 2 XP + DeepSeek-generated explanation.
+5 questions per type = 15 total. Answer positions randomized via `useMemo`. Correct -> 10 XP + static explanation. Wrong -> 2 XP + DeepSeek-generated explanation.
 
 ### C4: Passage Reading (朗读短文)
 
 Read a full Chinese passage aloud with sentence-by-sentence scoring.
 
 ```
-Phase 1 — SELECT: Choose passage from grid (30 passages with images)
-Phase 2 — READY: Interactive passage with per-sentence TTS playback
-Phase 3 — RECORD: Full passage recording via AudioRecorder
-Phase 4 — ASSESS: ISE read_chapter → sentence-level scores + word detail
-Phase 5 — FEEDBACK: Color-coded sentences (green ≥80, yellow ≥60, red <60)
-         → DeepSeek feedback → companion dialogue → progress update
+Phase 1 - SELECT: Choose passage from grid (30 passages with images)
+Phase 2 - READY: Interactive passage with per-sentence TTS playback
+Phase 3 - RECORD: Full passage recording via AudioRecorder
+Phase 4 - ASSESS: ISE read_chapter -> sentence-level scores + word detail
+Phase 5 - FEEDBACK: Color-coded sentences (green >=80, yellow >=60, red <60)
+           -> DeepSeek feedback -> companion dialogue -> progress update
 ```
 
 ### C5: Prompted Speaking (命题说话)
@@ -204,17 +211,17 @@ The most complex component — a 3-minute timed free-speaking exercise assessed 
 
 ```
 Step 1: ASR Transcription (iFlytek IST WebSocket)
-  → PCM chunks → real-time segment assembly → raw transcript
+  -> PCM chunks -> real-time segment assembly -> raw transcript
 
 Step 2: Parallel Assessment (Promise.all)
-  ├── ISE Pronunciation (read_chapter, auto-chunked if >90s)
-  └── DeepSeek Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
+  +-- ISE Pronunciation (read_chapter, auto-chunked if >90s)
+  +-- DeepSeek Content Analysis (vocabularyLevel, fluencyLevel, contentRelevance)
 
-Step 3: calculateC5Score() — Official PSC rubric (30 pts → normalized 0-100)
-  ├── Pronunciation (20 pts): error count + dialect detection
-  ├── Vocabulary/Grammar (5 pts): DeepSeek level 1-3
-  ├── Fluency (5 pts): 3-tier ISE/DeepSeek fallback
-  └── Time penalty: -1/sec under 3 minutes
+Step 3: calculateC5Score() - Official PSC rubric (30 pts -> normalized 0-100)
+  +-- Pronunciation (20 pts): error count + dialect detection
+  +-- Vocabulary/Grammar (5 pts): DeepSeek level 1-3
+  +-- Fluency (5 pts): 3-tier ISE/DeepSeek fallback
+  +-- Time penalty: -1/sec under 3 minutes
 ```
 
 ### C6: Cantonese Mistakes Drill (易错字词练习)
@@ -235,7 +242,7 @@ Supplementary MCQ testing polyphonic characters (多音字) — characters with 
 
 ### Mock Exam: Full PSC Simulation
 
-Timed, sequential assessment of all 5 official components:
+Timed, sequential assessment of all 5 official components with AI-generated feedback reports:
 
 | Component | Time Limit | Weight | Method |
 |-----------|-----------|--------|--------|
@@ -244,6 +251,8 @@ Timed, sequential assessment of all 5 official components:
 | C3 Judgment | 3:00 | 10% | Local quiz scoring |
 | C4 Passage | 4:00 | 30% | ISE `read_chapter` |
 | C5 Speaking | 3:00 | 30% | 3-step C5 pipeline |
+
+Results are persisted to `mock_exam_results` with component-level score breakdowns. An AI feedback report analyzes performance, identifies weak components, and suggests targeted drills.
 
 **PSC Grade Mapping:**
 
@@ -267,35 +276,35 @@ A 7-stage story campaign themed after Journey to the West (西游记), where pla
 
 | Stage | Name | Boss | Character Unlock |
 |-------|------|------|-----------------|
-| 1 | Prologue (序章) | Demon King of Turmoil (混乱魔王) | — (Sun Wukong is default) |
+| 1 | Prologue (序章) | Demon King of Turmoil (混乱魔王) | -- (Sun Wukong is default) |
 | 2 | River of Shattered Tone (碎调之河) | Water Spirit (水灵) | Tang Sanzang (三藏) |
 | 3 | Desert of Illusion (幻影沙漠) | Lady of Bleached Bones (白骨夫人) | Sha Wujing (沙悟净) |
-| 4 | Moonlit Mountain (月影山) | Moonfang Wolf Demon (月牙狼魔) | — |
-| 5 | Misty Bamboo Forest (迷雾竹林) | Bull Demon King (牛魔王) | — |
+| 4 | Moonlit Mountain (月影山) | Moonfang Wolf Demon (月牙狼魔) | -- |
+| 5 | Misty Bamboo Forest (迷雾竹林) | Bull Demon King (牛魔王) | -- |
 | 6 | Plains of Fading Echoes (余音平原) | Heavenly Guardian (天庭守护者) | Zhu Bajie (猪八戒) |
-| 7 | Western Palace (西天宫殿) | Twisted Sun Wukong (扭曲悟空) | — |
+| 7 | Western Palace (西天宫殿) | Twisted Sun Wukong (扭曲悟空) | -- |
 
 ### Battle System
 
 ```
-┌─── Turn Structure ─────────────────────────────────────────────┐
-│                                                                 │
-│  PLAYER TURN                                                    │
-│    ├── Menu: Attack / Skip                                      │
-│    ├── Record pronunciation (word group, max 5 per recording)   │
-│    ├── ISE assess → score ≥ 80 = HIT (boss takes damage)       │
-│    └── Score < 80 = MISS (no damage)                            │
-│                                                                 │
-│  ENEMY TURN                                                     │
-│    ├── Boss narration (3 thematic lines per stage, random)      │
-│    ├── MCQ question with countdown timer                        │
-│    │     Stages 1-4: 15 seconds                                 │
-│    │     Stages 5-7: 12 seconds                                 │
-│    ├── Correct = "BLOCKED!" (no damage)                         │
-│    └── Wrong/timeout = player loses 1 HP                        │
-│                                                                 │
-│  Repeat until boss HP = 0 (victory) or player HP = 0 (defeat)  │
-└─────────────────────────────────────────────────────────────────┘
++--- Turn Structure ---------------------------------------------------+
+|                                                                       |
+|  PLAYER TURN                                                          |
+|    +-- Menu: Attack / Skip                                            |
+|    +-- Record pronunciation (word group, max 5 per recording)         |
+|    +-- ISE assess -> score >= 80 = HIT (boss takes damage)           |
+|    +-- Score < 80 = MISS (no damage)                                  |
+|                                                                       |
+|  ENEMY TURN                                                           |
+|    +-- Boss narration (3 thematic lines per stage, random)            |
+|    +-- MCQ question with countdown timer                              |
+|    |     Stages 1-4: 15 seconds                                       |
+|    |     Stages 5-7: 12 seconds                                       |
+|    +-- Correct = "BLOCKED!" (no damage)                               |
+|    +-- Wrong/timeout = player loses 1 HP                              |
+|                                                                       |
+|  Repeat until boss HP = 0 (victory) or player HP = 0 (defeat)        |
++-----------------------------------------------------------------------+
 ```
 
 **Player HP:** Base 3 + 2 per unlocked companion (max 9 with all 3 companions)
@@ -312,18 +321,81 @@ A 7-stage story campaign themed after Journey to the West (西游记), where pla
 
 ---
 
+## Companion Chat
+
+An interactive voice-driven conversation system where users practice Mandarin with Journey to the West character companions in themed scenarios.
+
+### Flow
+
+```
+Select Companion -> Select Scenario -> Chat (voice input + AI reply) -> Summary
+```
+
+### How It Works
+
+1. **Scenario selection** — scenarios tied to quest stage progression (JTTW themes, modern daily life, PSC exam practice)
+2. **Voice input** — user speaks -> iFlytek ASR transcription -> ISE pronunciation/tone/fluency scoring
+3. **AI response** — conversation history + user transcript fed to DeepSeek -> character-personalized reply with TTS voice
+4. **Off-topic detection** — off-topic messages are redirected without DB writes
+5. **Image generation** — AI generates pixel-art scene images based on conversation context (Gemini 2.5 Flash)
+6. **Session end** — summary with average scores, XP earned, affection gained, and generated scene images
+
+### Rewards
+
+- **2-10 XP per turn** (based on pronunciation score)
+- **+3 affection XP per turn** with the active companion
+- **Streak bonus** if session has 5+ exchanges
+- **Chat achievements** — First Words, Chatterbox (50 msgs), Polyglot (all companions), Storyteller (10 sessions)
+
+---
+
+## Personalized Learning Path
+
+An AI-powered adaptive curriculum that assesses proficiency, generates a multi-phase study plan, and guides users through checkpoint assessments toward exam readiness.
+
+### Pipeline
+
+```
+Initial Assessment (C1-C5 quick quizzes)
+  -> AI Curriculum Generation (edge function)
+     -> Multi-phase plan with learning nodes (drills + mock exams)
+        -> Node completion (practice specific focus areas)
+           -> Mid-checkpoint assessment + LLM feedback
+              -> Phase progression
+                 -> Final report with predicted PSC grade
+```
+
+### Key Features
+
+- **AI-generated curriculum** — DeepSeek analyzes initial scores and creates a personalized multi-phase plan
+- **Learning nodes** — drill and mock_exam type nodes targeting specific components and focus areas
+- **Checkpoint assessments** — mid-plan quizzes with score delta tracking and AI-written progress feedback
+- **Predicted grade trajectory** — shows expected PSC grade at each checkpoint
+- **Seeded question banks** — fallback character banks (100 monosyllabic, 50 multisyllabic) if DB questions unavailable
+
+### Achievements
+
+| Key | Name | Tier | Trigger |
+|-----|------|------|---------|
+| `learning_first_step` | First Step (学习启程) | Common | Complete initial assessment |
+| `learning_on_track` | On Track (按部就班) | Uncommon | Complete first mid-checkpoint |
+| `learning_adapting` | Adapting (因材施教) | Rare | Complete all 3 mid-checkpoints |
+| `learning_exam_ready` | Exam Ready (胸有成竹) | Epic | Complete entire learning plan |
+
+---
+
 ## Achievements
 
-31 achievements across 4 tiers, tracked via event-driven checks at 6 trigger points.
+44 achievements across 4 tiers, tracked via event-driven checks at 8 trigger points.
 
 ### Tiers
 
 | Tier | Color | Count | Examples |
 |------|-------|-------|---------|
-| Common | Bronze | 4 | First Steps, Honorable Defeat, Fellow Traveler, Trial by Fire |
-| Uncommon | Silver | 11 | Stage 1-7 Cleared, Character Apprentice (5 sessions) x4 |
-| Rare | Gold | 11 | Stage 1-7 Flawless (no damage), Character Adept (10 sessions) x4 |
-| Epic | Purple | 5 | Journey Complete (all 7 stages), Character Master (20 sessions) x4 |
+| Common | Bronze | 6 | First Steps, Honorable Defeat, Fellow Traveler, Trial by Fire, First Words, First Step |
+| Uncommon | Silver | 12 | Stage 1-7 Cleared, Character Apprentice x4, Chatterbox |
+| Rare | Gold | 12 | Stage 1-7 Flawless, Character Adept x4, Polyglot |
+| Epic | Purple | 8 | Journey Complete, Character Master x4, Last Stand, Storyteller, Exam Ready |
 
 ### Trigger Points
 
@@ -335,10 +407,12 @@ A 7-stage story campaign themed after Journey to the West (西游记), where pla
 | `session_complete` | Progress update API | Character bond milestones (5/10/20 sessions) |
 | `friend_added` | Social respond API | Fellow Traveler |
 | `mock_exam_complete` | Mock exam API | Trial by Fire |
+| `chat_complete` | Chat end API | First Words, Chatterbox, Polyglot, Storyteller |
+| `learning_checkpoint` | Learning APIs | Learning path milestones (first step through exam ready) |
 
 ### Achievement Page
 
-- Completion summary bar: `X / 31 (Y%)`
+- Completion summary bar: `X / 44 (Y%)`
 - Per-tier breakdown with colored badges
 - Filterable grid (All / Common / Uncommon / Rare / Epic)
 - Locked achievements shown dimmed with descriptions still visible
@@ -353,15 +427,15 @@ All pronunciation assessment is powered by **iFlytek ISE** (Intelligent Speech E
 ### WebSocket Protocol
 
 ```
-Client (API Route)                    iFlytek ISE Server
-       │                              wss://ise-api-sg.xf-yun.com/v2/ise
-       │                                       │
-       │ ── HMAC-SHA256 signed URL ──────────► │
-       │ ── SSB: params + UTF-8 BOM text ───► │
-       │ ── AUW: 10KB PCM chunks ────────────► │
-       │    (backpressure: pause if >64KB)      │
-       │ ── AUW final (status: 2) ───────────► │
-       │ ◄── base64 XML result ──────────────── │
+Client (Edge Function)                iFlytek ISE Server
+       |                              wss://ise-api-sg.xf-yun.com/v2/ise
+       |                                       |
+       | -- HMAC-SHA256 signed URL ----------> |
+       | -- SSB: params + UTF-8 BOM text ----> |
+       | -- AUW: 10KB PCM chunks ------------> |
+       |    (backpressure: pause if >64KB)     |
+       | -- AUW final (status: 2) -----------> |
+       | <-- base64 XML result --------------- |
 ```
 
 ### ISE Categories
@@ -390,7 +464,7 @@ All TTS uses **iFlytek's WebSocket API** (`wss://tts-api-sg.xf-yun.com/v2/tts`) 
 | Mode | Function | Use Case |
 |------|----------|----------|
 | **Academic** | `synthesizeAcademic()` | Individual words, passages, sentences |
-| **Companion** | Via `/api/tts/companion` | Character voice lines during dialogue |
+| **Companion** | Via `/api/tts/companion` | Character voice lines during dialogue and chat |
 
 - **15 iFlytek voices** configured (default: `x_xiaoyan`)
 - **Server-side LRU cache**: 500 entries, keyed on `academic:voiceId:text`
@@ -401,26 +475,53 @@ All TTS uses **iFlytek's WebSocket API** (`wss://tts-api-sg.xf-yun.com/v2/tts`) 
 
 ## AI Feedback Pipeline
 
-**DeepSeek v3.2** (via OpenRouter) generates contextual, personality-driven feedback for every practice attempt.
+**DeepSeek v3.2** (via OpenRouter) generates contextual, personality-driven feedback across multiple systems:
+
+### Practice Feedback
 
 ```
 Input:
   characterPrompt + component + questionText + score + isCorrect
-                         │
-                         ▼
+                         |
+                         v
   DeepSeek System Prompt:
     "{personality} helping a PSC student (Component X).
      Chinese+English mix. Under 3 sentences."
-                         │
-                         ▼
+                         |
+                         v
   retryWithBackoff(maxRetries=3, delays: 1s/2s/4s + jitter)
-                         │
-                         ▼
-  Success → personality-driven feedback
-  Exhausted → fallback: "做得好！继续加油！" or "再试一次吧！"
+                         |
+                         v
+  Success -> personality-driven feedback
+  Exhausted -> fallback Chinese/English canned messages
 ```
 
-**C5 Content Analysis:** For prompted speaking, DeepSeek additionally returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
+### C5 Content Analysis
+
+For prompted speaking, DeepSeek returns structured JSON with `vocabularyLevel` (1-3), `fluencyLevel` (1-3), `contentRelevance`, and detailed notes — feeding directly into the official PSC C5 scoring formula.
+
+### AI Insights
+
+`/api/ai/insights` takes a user's full progress data, recent sessions, and quest progress, then generates a structured analysis:
+- **Performance Overview** — hit rates, untouched components, trends
+- **Diagnosis** — root causes, cross-reference patterns, PSC grade impact
+- **Recommended Strategy** — prioritized action plan with specific drills
+
+### Mock Exam Feedback
+
+`/api/ai/mock-exam-feedback` produces a comprehensive report after full exam simulation — analyzing component-by-component performance, identifying the weakest areas, and suggesting targeted improvement strategies.
+
+---
+
+## AI Image Generation
+
+**Gemini 2.5 Flash** (via OpenRouter, `google/gemini-2.5-flash-image:nitro`) generates pixel-art scene images during companion chats.
+
+- **Trigger**: called from `/api/chat/generate-image` at conversation milestones
+- **Input**: companion name + scenario title + conversation summary (max 2000 chars, sanitized)
+- **Output**: 16:9 pixel-art PNG — 16-bit style, muted earth tones, Chinese landscape elements, no text
+- **Storage**: uploaded to `chat-images` bucket in Supabase Storage, URL attached to companion message
+- **Format support**: handles data URLs, inline_data parts, and message.images array responses
 
 ---
 
@@ -433,26 +534,27 @@ Input:
 | Perfect pronunciation | 10 | Score >= 90 |
 | Good pronunciation | 5 | Score 60-89 |
 | Attempted | 2 | Score < 60 |
-| Quiz correct | 10 | — |
-| Quiz wrong | 2 | — |
+| Quiz correct | 10 | -- |
+| Quiz wrong | 2 | -- |
 | Daily login bonus | 25 | First session of the day |
+| Chat turn | 2-10 | Based on pronunciation score |
 
 **Streak Multipliers:** 5+ consecutive days = 1.5x, 10+ = 2.0x
-**Session Cap:** 2,000 XP max per session (server-enforced)
+**Session Cap:** 2,000 XP max per session (server-enforced, 50 XP cap for zero-question sessions)
 
 ### Level Progression
 
 ```
-Lv.1  Beginner           0 XP     ░░░░░░░░░░
-Lv.2  Learner          100 XP     █░░░░░░░░░
-Lv.3  Student          300 XP     ██░░░░░░░░
-Lv.4  Practitioner     600 XP     ███░░░░░░░
-Lv.5  Scholar        1,000 XP     ████░░░░░░
-Lv.6  Expert         1,500 XP     █████░░░░░
-Lv.7  Master         2,500 XP     ██████░░░░
-Lv.8  Grandmaster    4,000 XP     ████████░░
-Lv.9  Legend         6,000 XP     █████████░
-Lv.10 PSC God       10,000 XP     ██████████
+Lv.1  Beginner           0 XP
+Lv.2  Learner          100 XP
+Lv.3  Student          300 XP
+Lv.4  Practitioner     600 XP
+Lv.5  Scholar        1,000 XP
+Lv.6  Expert         1,500 XP
+Lv.7  Master         2,500 XP
+Lv.8  Grandmaster    4,000 XP
+Lv.9  Legend         6,000 XP
+Lv.10 PSC God       10,000 XP
 ```
 
 ### Character Affection
@@ -465,7 +567,7 @@ Lv.10 PSC God       10,000 XP     ██████████
 | 4 | Best Friend | 1,000 |
 | 5 | Soulmate | 2,000 |
 
-Affection grows by practicing with a specific companion. Higher affection unlocks cosmetic skins.
+Affection grows by practicing with a specific companion and through companion chat sessions (+3 XP per chat turn). Higher affection unlocks cosmetic skins.
 
 ---
 
@@ -475,11 +577,11 @@ Affection grows by practicing with a specific companion. Higher affection unlock
 
 ```
 Search by name (/api/social/search)
-  or Friend code lookup (/api/social/lookup) — format: PSC-XXXX
-    └→ Send Request (/api/social/request)
-         └→ Pending notification (badge in navbar)
-              └→ Accept/Reject (/api/social/respond)
-                   └→ Friends list with live stats (/api/social/friends)
+  or Friend code lookup (/api/social/lookup) -- format: PSC-XXXX
+    -> Send Request (/api/social/request)
+         -> Pending notification (badge in navbar)
+              -> Accept/Reject (/api/social/respond)
+                   -> Friends list with live stats (/api/social/friends)
 ```
 
 **Friend Stats:** Per-friend cards show XP comparison (arrow up/down), streak, sessions, average score per component (C1-C7 progress bars), active companion, achievement count.
@@ -512,9 +614,10 @@ Four Journey to the West (西游记) companions, unlocked through quest progress
 Each character has:
 - **Unique personality prompt** for DeepSeek AI feedback personalization
 - **Expression images** (neutral, happy, proud, excited, thinking, encouraging, etc.) with fade transitions
-- **Voice ID** mapped to iFlytek TTS for dialogue voice lines
+- **Voice ID** mapped to iFlytek TTS for dialogue voice lines and companion chat
 - **Affection system** — 5 levels from Acquaintance to Soulmate
 - **Battle sprites** — animated party members in Main Quest battles (Wukong has 3-frame attack animation)
+- **Chat personality** — distinct conversation styles in companion chat scenarios
 
 ---
 
@@ -523,18 +626,18 @@ Each character has:
 ### Three-Layer Auth
 
 ```
-Request → Layer 1: Middleware
+Request -> Layer 1: Middleware (src/proxy.ts)
             Refreshes Supabase session cookie on EVERY request
             Public paths: /login, /api/auth/callback
-            Unauthed + API → 401 JSON
-            Unauthed + page → redirect /login
+            Unauthed + API -> 401 JSON
+            Unauthed + page -> redirect /login
 
-        → Layer 2: Layout Guard — (main)/layout.tsx
+        -> Layer 2: Layout Guard -- (main)/layout.tsx
             getUser() server-side
             Fetches profile + friend request count in Promise.all
             All child pages safely use user!.id
 
-        → Layer 3: API Route Guards
+        -> Layer 3: API Route Guards
             Every API route independently verifies auth
 ```
 
@@ -542,19 +645,49 @@ Request → Layer 1: Middleware
 
 | Method | Flow |
 |--------|------|
-| **Email/Password** | `signInWithPassword()` → redirect to `/dashboard` |
-| **Email Sign-up** | `signUp()` → DB trigger creates profile + default characters |
-| **Google OAuth** | `signInWithOAuth({ provider: "google" })` → callback → session |
+| **Email/Password** | `signInWithPassword()` -> redirect to `/dashboard` |
+| **Email Sign-up** | `signUp()` -> DB trigger creates profile + default characters |
+| **Google OAuth** | `signInWithOAuth({ provider: "google" })` -> callback -> session |
 | **Discord OAuth** | `signInWithOAuth({ provider: "discord" })` + `relationships.read` for friend suggestions |
 
 ### Security Measures
 
 - **Row Level Security (RLS)** on all database tables
 - **Server-side XP clamping** — `MAX_XP_PER_SESSION = 2000`
-- **Zod validation** on all API inputs (`progressUpdateSchema`, `leaderboardQuerySchema`)
+- **Zod validation** on all API inputs (`progressUpdateSchema`, `leaderboardQuerySchema`, `ttsSchema`, etc.)
 - **HMAC-SHA256 auth** for all iFlytek WebSocket connections
 - **Security headers** — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, HSTS
-- **Cascading account deletion** — cleans up all user data across 7 tables + storage
+- **Cascading account deletion** — cleans up all user data across all tables + storage
+- **Input sanitization** — image generation prompts capped at 2,000 chars with injection prevention
+
+---
+
+## Edge Function Architecture
+
+11 long-running API routes are deployed as **Supabase Edge Functions** (Deno runtime, 150s timeout) to bypass Vercel's 10s free-tier limit. Client-side routing is transparent.
+
+### Route Mapping
+
+| Vercel Route | Edge Function | External APIs |
+|---|---|---|
+| `/api/ai/feedback` | `ai-feedback` | OpenRouter LLM |
+| `/api/ai/insights` | `ai-insights` | OpenRouter LLM |
+| `/api/ai/mock-exam-feedback` | `ai-mock-exam-feedback` | OpenRouter LLM |
+| `/api/chat/generate-image` | `chat-generate-image` | OpenRouter Image + Supabase Storage |
+| `/api/chat/start` | `chat-start` | OpenRouter LLM + iFlytek TTS |
+| `/api/chat/respond` | `chat-respond` | iFlytek ASR + ISE + OpenRouter LLM |
+| `/api/learning/generate-plan` | `learning-generate-plan` | OpenRouter LLM + DB |
+| `/api/speech/assess` | `speech-assess` | iFlytek ISE |
+| `/api/speech/c5-assess` | `speech-c5-assess` | iFlytek ASR + ISE + OpenRouter LLM |
+| `/api/tts/speak` | `tts-speak` | iFlytek TTS |
+| `/api/tts/companion` | `tts-companion` | iFlytek TTS |
+
+### How It Works
+
+- **Routing:** `src/lib/edge-routing.ts` maps paths to edge URLs + injects Supabase auth token. `fetchWithRetry` calls `resolveEdgeRoute()` before any request.
+- **Shared code:** `supabase/functions/_shared/` contains 13 Deno modules — AI client, iFlytek (ASR/ISE/TTS/auth), image generation, C5 scoring, chat prompts, player memory, validation, CORS, env, and Supabase client.
+- **Auth:** Edge functions receive `Authorization: Bearer <token>` header, create per-request Supabase client. Deployed with `--no-verify-jwt` (auth handled internally).
+- **Deno specifics:** `npm:` specifiers (not bare imports), `Deno.env.get()`, Web Crypto API, native WebSocket, `Uint8Array` instead of `Buffer`.
 
 ---
 
@@ -563,21 +696,21 @@ Request → Layer 1: Middleware
 A multi-layer resilience stack ensures the app degrades gracefully under poor network conditions:
 
 ```
-Layer 1 — Client: fetchWithRetry (3 retries, exponential backoff with jitter)
+Layer 1 - Client: fetchWithRetry (3 retries, exponential backoff with jitter)
            Retryable: 429, 500, 502, 503  |  Non-retryable: 400, 401, 403, 404
 
-Layer 2 — Server: AI retryWithBackoff (3 retries, 1s/2s/4s + jitter)
+Layer 2 - Server: AI retryWithBackoff (3 retries, 1s/2s/4s + jitter)
 
-Layer 3 — Server: TTS in-memory LRU cache (500 entries)
+Layer 3 - Server: TTS in-memory LRU cache (500 entries)
 
-Layer 4 — Client: Audio ObjectURL cache (Map<word, ObjectURL> per session)
+Layer 4 - Client: Audio ObjectURL cache (Map<word, ObjectURL> per session)
 
-Layer 5 — Client: Browser Web Speech API fallback for TTS failures
+Layer 5 - Client: Browser Web Speech API fallback for TTS failures
 
-Layer 6 — Client: Hardcoded feedback strings when AI is unreachable
+Layer 6 - Client: Hardcoded feedback strings when AI is unreachable
 ```
 
-All 24+ internal API fetch calls across all practice components are covered by `fetchWithRetry`.
+All 24+ internal API fetch calls across all practice components, companion chat, and learning path are covered by `fetchWithRetry` with automatic edge function routing.
 
 ---
 
@@ -585,24 +718,27 @@ All 24+ internal API fetch calls across all practice components are covered by `
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Framework** | Next.js 16 (App Router, Turbopack) | Server/client rendering, API routes |
-| **UI Library** | React 19 | Component architecture |
-| **Language** | TypeScript (strict mode) | Type safety |
-| **Database** | Supabase (PostgreSQL + RLS) | Data persistence, auth, storage |
+| **Framework** | Next.js 16.1.6 (App Router, Turbopack) | Server/client rendering, API routes |
+| **UI Library** | React 19.2.3 | Component architecture |
+| **Language** | TypeScript 5 (strict mode) | Type safety |
+| **Database** | Supabase (PostgreSQL + RLS + Storage) | Data persistence, auth, file storage |
+| **Edge Runtime** | Supabase Edge Functions (Deno) | Long-running AI/speech routes (150s timeout) |
 | **Auth** | Supabase Auth | Email, Google OAuth, Discord OAuth |
-| **AI Feedback** | DeepSeek v3.2 (via OpenRouter) | Contextual feedback, content analysis |
+| **AI Feedback** | DeepSeek v3.2 (via OpenRouter) | Contextual feedback, content analysis, curriculum |
+| **Image Generation** | Gemini 2.5 Flash (via OpenRouter) | Pixel-art scene images in companion chat |
 | **Speech Assessment** | iFlytek ISE (WebSocket) | Pronunciation scoring (zh-CN) |
-| **Speech Recognition** | iFlytek IST (WebSocket) | Speech-to-text for C5 |
+| **Speech Recognition** | iFlytek IST (WebSocket) | Speech-to-text for C5 and companion chat |
 | **Text-to-Speech** | iFlytek TTS (WebSocket) | Native Putonghua audio synthesis |
 | **Styling** | Tailwind CSS 4 | Utility-first CSS |
 | **UI Components** | shadcn/ui (New York) + Radix UI | Accessible component primitives |
+| **Charts** | Recharts | Score trends, radar charts, progress visualization |
 | **Icons** | Lucide React | Consistent icon set |
 | **Notifications** | Sonner | Toast notifications |
 | **Validation** | Zod | Runtime schema validation |
 | **Testing** | Vitest + Testing Library | Unit & component tests |
 | **Analytics** | Vercel Analytics | Usage tracking |
 | **Fonts** | Press Start 2P, VT323, ZCOOL XiaoWei | Pixel headings, retro body, Chinese display |
-| **Deployment** | Vercel | Production hosting |
+| **Deployment** | Vercel + Supabase | Frontend hosting + edge functions |
 
 ---
 
@@ -632,7 +768,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# OpenRouter (DeepSeek v3.2)
+# OpenRouter (DeepSeek v3.2 + Gemini 2.5 Flash)
 OPENROUTER_API_KEY=your_openrouter_api_key
 
 # iFlytek (shared by ISE, TTS, and IST)
@@ -643,7 +779,7 @@ IFLYTEK_API_SECRET=your_api_secret
 
 ### 3. Set Up Database
 
-Apply migrations to your Supabase project. The schema creates 13 tables with RLS policies:
+Apply migrations to your Supabase project. The schema creates tables with RLS policies:
 
 | Table | Purpose |
 |-------|---------|
@@ -657,13 +793,38 @@ Apply migrations to your Supabase project. The schema creates 13 tables with RLS
 | `practice_details` | Per-question results within sessions |
 | `question_banks` | Questions for all 7 components |
 | `friendships` | Friend requests and relationships |
-| `achievements` | Static achievement catalog (31 achievements) |
+| `achievements` | Static achievement catalog (44 achievements) |
 | `user_achievements` | Per-user unlock records with timestamps |
 | `quest_progress` | Quest stage progress, attempts, best scores |
+| `chat_sessions` | Companion chat session metadata |
+| `chat_messages` | Chat message history with scores |
+| `chat_scenarios` | Scenario definitions tied to quest stages |
+| `scenario_backgrounds` | Per-character scenario background images |
+| `learning_plans` | Personalized learning plan metadata |
+| `learning_nodes` | Individual curriculum items per plan |
+| `learning_checkpoints` | Mid-plan assessment results |
+| `mock_exam_results` | Full mock exam results with AI feedback |
 
 Database triggers auto-create a `profiles` row on signup and unlock default characters.
 
-### 4. OAuth Setup (Optional)
+### 4. Deploy Edge Functions
+
+```bash
+# Deploy all 11 edge functions to Supabase
+supabase functions deploy ai-feedback --no-verify-jwt
+supabase functions deploy ai-insights --no-verify-jwt
+supabase functions deploy ai-mock-exam-feedback --no-verify-jwt
+supabase functions deploy chat-generate-image --no-verify-jwt
+supabase functions deploy chat-start --no-verify-jwt
+supabase functions deploy chat-respond --no-verify-jwt
+supabase functions deploy learning-generate-plan --no-verify-jwt
+supabase functions deploy speech-assess --no-verify-jwt
+supabase functions deploy speech-c5-assess --no-verify-jwt
+supabase functions deploy tts-speak --no-verify-jwt
+supabase functions deploy tts-companion --no-verify-jwt
+```
+
+### 5. OAuth Setup (Optional)
 
 **Google:**
 1. Create OAuth 2.0 Client at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
@@ -675,7 +836,7 @@ Database triggers auto-create a `profiles` row on signup and unlock default char
 2. Add same callback URI + enable `relationships.read` scope for friend suggestions
 3. Enable Discord in Supabase Auth Providers
 
-### 5. Run
+### 6. Run
 
 ```bash
 npm run dev
@@ -689,42 +850,81 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```
 src/
-├── app/
-│   ├── page.tsx                          # Auth redirect → /login or /dashboard
-│   ├── layout.tsx                        # Root layout (fonts, theme, Vercel Analytics)
-│   ├── globals.css                       # Pixel-art theme, Chinese motifs, battle animations
-│   ├── (auth)/login/                     # Login/signup + OAuth
-│   ├── (main)/                           # Protected routes (3-layer auth)
-│   │   ├── layout.tsx                    # Auth guard + navbar + achievement toast provider
-│   │   ├── dashboard/                    # Home hub — splash screen + tile menu
-│   │   ├── main-quest/                   # RPG campaign — 7-stage story + battles
-│   │   ├── practice/                     # Quest board — 7 component cards
-│   │   ├── component-[1-7]/             # Practice components (see above)
-│   │   ├── mock-exam/                    # Full exam simulation (ExamRunner)
-│   │   ├── achievements/                 # Achievement showcase + activity feed
-│   │   ├── leaderboard/                  # Global + friends rankings
-│   │   ├── characters/                   # Gallery, quest unlocks, affection
-│   │   ├── profile/                      # Stats, history, danger zone
-│   │   └── social/                       # Friends, requests, search
-│   └── api/                              # 15+ API routes (see API Reference)
-├── components/
-│   ├── ui/                               # shadcn/ui primitives (Button, Card, Dialog, etc.)
-│   ├── shared/                           # Navbar, XPBar, ContentWrapper, AchievementToast
-│   ├── character/                        # CharacterDisplay, DialogueBox
-│   ├── practice/                         # AudioRecorder (WAV PCM encoder)
-│   └── quest/                            # 12 battle/story components
-├── lib/
-│   ├── supabase/                         # Browser + server Supabase clients
-│   ├── iflytek-speech/                   # ISE + IST WebSocket clients
-│   ├── voice/                            # TTS WebSocket client + pinyin lookup data
-│   ├── gemini/                           # DeepSeek AI client (via OpenRouter) with retry logic
-│   ├── quest/                            # Battle logic, stage config, story text
-│   ├── achievements/                     # 31 achievement definitions + event-driven checks
-│   ├── gamification/                     # XP, levels, streaks, affection calculations
-│   ├── scoring/                          # C5 official PSC scoring rubric
-│   └── *.ts                              # Pinyin, audio utils, character images, env, etc.
-├── types/                                # TypeScript interfaces (database, character, practice, gamification)
-└── data/                                 # Question bank source files
++-- app/
+|   +-- page.tsx                          # Auth redirect -> /login or /dashboard
+|   +-- layout.tsx                        # Root layout (fonts, theme, Vercel Analytics)
+|   +-- globals.css                       # Pixel-art theme, Chinese motifs, battle animations
+|   +-- (auth)/login/                     # Login/signup + OAuth
+|   +-- (main)/                           # Protected routes (3-layer auth)
+|   |   +-- layout.tsx                    # Auth guard + navbar + achievement toast provider
+|   |   +-- dashboard/                    # Home hub -- splash screen + tile menu
+|   |   +-- main-quest/                   # RPG campaign -- 7-stage story + battles
+|   |   +-- practice/                     # Quest board -- 7 component cards
+|   |   +-- component-[1-7]/             # Practice components C1-C7
+|   |   +-- mock-exam/                    # Full exam simulation (ExamRunner)
+|   |   +-- companion-chat/               # Voice-driven AI companion conversations
+|   |   +-- learning-path/                # Personalized AI-generated study plans
+|   |   +-- practice-history/             # Session history, trends, AI insights
+|   |   +-- achievements/                 # Achievement showcase + activity feed
+|   |   +-- leaderboard/                  # Global + friends rankings
+|   |   +-- characters/                   # Gallery, quest unlocks, affection
+|   |   +-- profile/                      # Stats, history, danger zone
+|   |   +-- social/                       # Friends, requests, search
+|   +-- api/                              # 39 API routes
+|       +-- ai/                           # feedback, insights, mock-exam-feedback
+|       +-- auth/                         # callback, delete-account
+|       +-- chat/                         # start, respond, end, resume, history, delete, generate-image
+|       +-- learning/                     # plan, report, generate-plan, checkpoint/*, node/*,  reset
+|       +-- mock-exam/                    # save, history
+|       +-- progress/                     # update
+|       +-- quest/                        # progress
+|       +-- social/                       # search, lookup, request, requests, request-count,
+|       |                                   respond, friends, remove, discord-suggestions
+|       +-- speech/                       # assess, c5-assess
+|       +-- tts/                          # speak, companion
+|       +-- leaderboard/                  # global + friends rankings
+|       +-- achievements/                 # feed, mock-exam
++-- components/
+|   +-- ui/                               # shadcn/ui primitives (Button, Card, Dialog, etc.)
+|   +-- shared/                           # Navbar, XPBar, ContentWrapper, AchievementToast,
+|   |                                       AudioSettings, BGMProvider, SettingsDialog
+|   +-- character/                        # CharacterDisplay, DialogueBox
+|   +-- practice/                         # AudioRecorder (WAV PCM encoder)
+|   +-- quest/                            # 12 battle/story RPG components
++-- lib/
+|   +-- supabase/                         # Browser + server Supabase clients
+|   +-- iflytek-speech/                   # ISE + IST WebSocket clients
+|   +-- voice/                            # TTS WebSocket client + pinyin lookup data
+|   +-- gemini/                           # DeepSeek AI client (via OpenRouter) with retry logic
+|   +-- image-gen/                        # Gemini 2.5 Flash image generation client
+|   +-- quest/                            # Battle logic, stage config, story text
+|   +-- chat/                             # Companion chat prompt building, helpers
+|   +-- achievements/                     # 44 achievement definitions + event-driven checks
+|   +-- gamification/                     # XP, levels, streaks, affection calculations
+|   +-- scoring/                          # C5 official PSC scoring rubric
+|   +-- edge-routing.ts                   # Dynamic edge function URL resolution
+|   +-- *.ts                              # Pinyin, audio utils, character images, env, validation
++-- types/                                # TypeScript interfaces (database, character, practice, gamification)
++-- data/                                 # Question bank source files
+
+supabase/
++-- functions/                            # 11 Deno edge functions
+|   +-- _shared/                          # 13 shared Deno modules (AI, iFlytek, scoring, etc.)
+|   +-- ai-feedback/                      # Practice session AI feedback
+|   +-- ai-insights/                      # Progress analysis and study strategy
+|   +-- ai-mock-exam-feedback/            # Mock exam performance report
+|   +-- chat-generate-image/              # Pixel-art scene image generation
+|   +-- chat-start/                       # Companion chat session initialization
+|   +-- chat-respond/                     # Voice input -> ASR -> ISE -> LLM reply
+|   +-- learning-generate-plan/           # AI curriculum generation
+|   +-- speech-assess/                    # Generic speech assessment (C1-C4, C6)
+|   +-- speech-c5-assess/                 # Specialized C5 prompted speaking evaluation
+|   +-- tts-speak/                        # Text-to-speech for practice
+|   +-- tts-companion/                    # Text-to-speech for companion voice
++-- migrations/                           # SQL schema + seed data
+
+docs/plans/                               # 17 design & implementation documents
+public/img/                               # Sprites, backgrounds, boss art
 ```
 
 ---
@@ -745,22 +945,56 @@ src/
 | Method | Endpoint | Input | Output |
 |--------|----------|-------|--------|
 | POST | `/api/ai/feedback` | JSON: character prompt, component, question, score, isCorrect | Personality-driven feedback |
+| POST | `/api/ai/insights` | JSON: progress data, sessions, quest progress | Structured performance analysis |
+| POST | `/api/ai/mock-exam-feedback` | JSON: exam results, component scores | Comprehensive exam feedback report |
+
+### Companion Chat
+
+| Method | Endpoint | Input | Output |
+|--------|----------|-------|--------|
+| POST | `/api/chat/start` | JSON: characterId, scenarioId | Session + opening message + TTS audio |
+| POST | `/api/chat/respond` | FormData: audio, sessionId | Transcript, scores, AI reply, TTS |
+| POST | `/api/chat/end` | JSON: sessionId | Summary + avg scores + achievements |
+| POST | `/api/chat/resume` | JSON: sessionId | Session + message history |
+| GET | `/api/chat/history` | Query: `?sessionId=` (optional) | All sessions or specific session messages |
+| POST | `/api/chat/delete` | JSON: sessionId | Confirmation |
+| POST | `/api/chat/generate-image` | JSON: sessionId, context | Image URL (Supabase Storage) |
+
+### Learning Path
+
+| Method | Endpoint | Input | Output |
+|--------|----------|-------|--------|
+| GET | `/api/learning/plan` | -- | User's current learning plan |
+| POST | `/api/learning/generate-plan` | JSON: initial assessment scores | AI-generated curriculum |
+| POST | `/api/learning/plan/reset` | -- | Reset current plan |
+| POST | `/api/learning/node/start` | JSON: nodeId | Node activation |
+| POST | `/api/learning/node/complete` | JSON: nodeId, score | Node completion + XP |
+| POST | `/api/learning/checkpoint/complete` | JSON: checkpoint data | Checkpoint assessment + LLM feedback |
+| GET | `/api/learning/report` | -- | Final learning plan report |
 
 ### Progress & Quest
 
 | Method | Endpoint | Input | Output |
 |--------|----------|-------|--------|
 | POST | `/api/progress/update` | Session stats, XP, component, character | Updated XP, level, affection, newAchievements |
-| GET | `/api/quest/progress` | — | All quest stage progress |
+| GET | `/api/quest/progress` | -- | All quest stage progress |
 | POST | `/api/quest/progress` | Stage, score, HP, results | Updated stage progress + character unlocks |
 | GET | `/api/leaderboard` | Query: `?type=global\|friends` | Ranked user stats |
+
+### Mock Exam
+
+| Method | Endpoint | Input | Output |
+|--------|----------|-------|--------|
+| POST | `/api/mock-exam/save` | JSON: component scores, total score, grade | Saved exam result |
+| PATCH | `/api/mock-exam/save` | JSON: examId, AI feedback | Updated exam with feedback |
+| GET | `/api/mock-exam/history` | -- | Past exam results (limit 50) |
 
 ### Achievements
 
 | Method | Endpoint | Input | Output |
 |--------|----------|-------|--------|
-| GET | `/api/achievements/feed` | — | Last 20 achievement events (user + friends) |
-| POST | `/api/achievements/mock-exam` | — | Mock exam achievement check |
+| GET | `/api/achievements/feed` | -- | Last 20 achievement events (user + friends) |
+| POST | `/api/achievements/mock-exam` | -- | Mock exam achievement check |
 
 ### Social
 
@@ -789,52 +1023,81 @@ src/
 
 ```sql
 profiles               user_progress          practice_sessions
-┌────────────────┐     ┌──────────────────┐   ┌────────────────────┐
-│ id (uuid, PK)  │     │ id               │   │ id                 │
-│ username        │     │ user_id (FK)     │   │ user_id (FK)       │
-│ display_name    │     │ component (1-7)  │   │ character_id (FK)  │
-│ avatar_url      │     │ questions_done   │   │ component (1-7)    │
-│ total_xp        │     │ questions_correct│   │ score              │
-│ current_level   │     │ best_streak      │   │ xp_earned          │
-│ login_streak    │     │ total_time_secs  │   │ duration_seconds   │
-│ last_login_date │     │ last_practiced   │   │ created_at         │
-│ discord_id      │     └──────────────────┘   └────────────────────┘
-│ friend_code     │
-└────────────────┘     practice_details       friendships
-                       ┌──────────────────┐   ┌──────────────────┐
-characters             │ id               │   │ id               │
-┌────────────────┐     │ session_id (FK)  │   │ requester_id(FK) │
-│ id             │     │ question_text    │   │ addressee_id(FK) │
-│ name           │     │ user_answer      │   │ status           │
-│ personality_*  │     │ is_correct       │   │ created_at       │
-│ voice_id       │     │ pron_score       │   │ updated_at       │
-│ image_url      │     │ feedback         │   └──────────────────┘
-│ unlock_stage   │     └──────────────────┘
-│ is_default     │                            achievements
-└────────────────┘     quest_progress         ┌──────────────────┐
-                       ┌──────────────────┐   │ id               │
-character_expressions  │ id               │   │ key (unique)     │
-┌──────────────────┐   │ user_id (FK)     │   │ name             │
-│ character_id(FK) │   │ stage (1-7)      │   │ description      │
-│ expression_name  │   │ is_cleared       │   │ emoji            │
-│ image_url        │   │ attempts         │   │ tier             │
-└──────────────────┘   │ best_score       │   │ sort_order       │
-                       │ cleared_at       │   └──────────────────┘
-character_skins        └──────────────────┘
-┌──────────────────┐                          user_achievements
-│ character_id(FK) │   user_characters        ┌──────────────────┐
-│ skin_name        │   ┌──────────────────┐   │ user_id (FK)     │
-│ image_url        │   │ user_id (FK)     │   │ achievement_id   │
-│ required_affection│  │ character_id(FK) │   │ unlocked_at      │
-└──────────────────┘   │ affection_xp     │   └──────────────────┘
-                       │ affection_level  │
-question_banks         │ active_skin_id   │
-┌──────────────────┐   │ is_selected      │
-│ component (1-7)  │   └──────────────────┘
-│ content          │
-│ pinyin           │
-│ metadata (JSONB) │
-└──────────────────┘
++----------------+     +------------------+   +--------------------+
+| id (uuid, PK)  |     | id               |   | id                 |
+| username        |     | user_id (FK)     |   | user_id (FK)       |
+| display_name    |     | component (1-7)  |   | character_id (FK)  |
+| avatar_url      |     | questions_done   |   | component (1-7)    |
+| total_xp        |     | questions_correct|   | score              |
+| current_level   |     | best_streak      |   | xp_earned          |
+| login_streak    |     | total_time_secs  |   | duration_seconds   |
+| last_login_date |     | last_practiced   |   | created_at         |
+| discord_id      |     +------------------+   +--------------------+
+| friend_code     |
++----------------+     practice_details       friendships
+                       +------------------+   +------------------+
+characters             | id               |   | id               |
++----------------+     | session_id (FK)  |   | requester_id(FK) |
+| id             |     | question_text    |   | addressee_id(FK) |
+| name           |     | user_answer      |   | status           |
+| personality_*  |     | is_correct       |   | created_at       |
+| voice_id       |     | pron_score       |   | updated_at       |
+| image_url      |     | feedback         |   +------------------+
+| unlock_stage   |     +------------------+
+| is_default     |                            achievements
++----------------+     quest_progress         +------------------+
+                       +------------------+   | id               |
+character_expressions  | id               |   | key (unique)     |
++------------------+   | user_id (FK)     |   | name             |
+| character_id(FK) |   | stage (1-7)      |   | description      |
+| expression_name  |   | is_cleared       |   | emoji            |
+| image_url        |   | attempts         |   | tier             |
++------------------+   | best_score       |   | sort_order       |
+                       | cleared_at       |   +------------------+
+character_skins        +------------------+
++------------------+                          user_achievements
+| character_id(FK) |   user_characters        +------------------+
+| skin_name        |   +------------------+   | user_id (FK)     |
+| image_url        |   | user_id (FK)     |   | achievement_id   |
+| required_affection|  | character_id(FK) |   | unlocked_at      |
++------------------+   | affection_xp     |   +------------------+
+                       | affection_level  |
+question_banks         | active_skin_id   |   mock_exam_results
++------------------+   | is_selected      |   +------------------+
+| component (1-7)  |   +------------------+   | id               |
+| content          |                          | user_id (FK)     |
+| pinyin           |   chat_sessions          | total_score      |
+| metadata (JSONB) |   +------------------+   | grade            |
++------------------+   | id               |   | component_scores |
+                       | user_id (FK)     |   | ai_feedback      |
+learning_plans         | character_id(FK) |   | duration_seconds |
++------------------+   | scenario_id(FK)  |   | total_xp         |
+| id               |   | message_count    |   +------------------+
+| user_id (FK)     |   | avg_score        |
+| exam_date        |   | xp_earned        |   chat_messages
+| initial_scores   |   | affection_earned |   +------------------+
+| current_phase    |   | ended_at         |   | id               |
+| status           |   +------------------+   | session_id (FK)  |
+| ai_analysis      |                          | role             |
++------------------+   chat_scenarios         | content          |
+                       +------------------+   | transcript       |
+learning_nodes         | id               |   | pron_score       |
++------------------+   | stage_number     |   | tone_score       |
+| id               |   | title            |   | fluency_score    |
+| plan_id (FK)     |   | description      |   | image_url        |
+| phase            |   | system_prompt    |   +------------------+
+| component        |   | category         |
+| node_type        |   +------------------+   scenario_backgrounds
+| focus_area       |                          +------------------+
+| question_ids     |   learning_checkpoints   | scenario_id (FK) |
+| score            |   +------------------+   | character_id(FK) |
+| status           |   | plan_id (FK)     |   | background_url   |
++------------------+   | checkpoint_num   |   +------------------+
+                       | scores           |
+                       | score_deltas     |
+                       | llm_feedback     |
+                       | predicted_grade  |
+                       +------------------+
 ```
 
 All tables have **Row Level Security** enabled — users can only access their own data.
@@ -844,11 +1107,12 @@ All tables have **Row Level Security** enabled — users can only access their o
 ## Scripts
 
 ```bash
-npm run dev       # Dev server at localhost:3000 (Turbopack)
-npm run build     # Production build
-npm run start     # Production server
-npm run lint      # ESLint
-npm run test      # Vitest unit tests
+npm run dev        # Dev server at localhost:3000 (Turbopack)
+npm run build      # Production build
+npm run start      # Production server
+npm run lint       # ESLint
+npm run test       # Vitest unit tests
+npm run test:watch # Vitest watch mode
 ```
 
 ---
@@ -880,6 +1144,9 @@ A pixel-art retro aesthetic with Chinese-ink influences:
 | Main Quest RPG | `docs/plans/2026-02-20-main-quest-rpg.md` |
 | Battle Screen Redesign | `docs/plans/2026-02-20-battle-screen-redesign.md` |
 | Achievements | `docs/plans/2026-02-21-achievements-design.md` |
+| Companion Chat | `docs/plans/2026-03-03-companion-chat-design.md` |
+| Personalized Learning | `docs/plans/2026-03-03-personalized-learning-design.md` |
+| Edge Function Migration | `docs/plans/2026-03-06-edge-function-migration.md` |
 | PSC Reference Guide | `doc/PSC_comprehensive_guide.md` |
 | Game Narrative | `public/storyline/story.md` |
 
