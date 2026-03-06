@@ -85,7 +85,7 @@ export function BattleScreen({
   // Duck BGM during active play phases (recording + MCQ)
   const { setLearningActive } = useBGM();
   useEffect(() => {
-    const active = battleState.phase === "player_attack" || battleState.phase === "boss_attack";
+    const active = battleState.phase === "player_attack";
     setLearningActive(active);
     return () => setLearningActive(false);
   }, [battleState.phase, setLearningActive]);
@@ -198,6 +198,7 @@ export function BattleScreen({
   // Preload animation frames
   useEffect(() => {
     const frames = [
+      ...(wukong.attackFrames ?? []),
       ...bossAttackFrames,
       bossHitFrame,
       config.bossProjectile,
@@ -208,7 +209,7 @@ export function BattleScreen({
       const img = new Image();
       img.src = src;
     });
-  }, [bossAttackFrames, bossHitFrame, wukong.defendFrame, wukong.gotHitFrame]);
+  }, [wukong.attackFrames, bossAttackFrames, bossHitFrame, wukong.defendFrame, wukong.gotHitFrame]);
 
   const sectionLabel = `Section ${battleState.currentRecordingIndex + 1}/${battleState.totalRecordings}`;
 
