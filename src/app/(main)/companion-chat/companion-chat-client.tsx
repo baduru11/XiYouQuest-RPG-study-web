@@ -22,6 +22,7 @@ import { AudioRecorder } from "@/components/practice/audio-recorder";
 import { Button } from "@/components/ui/button";
 import { fetchWithRetry } from "@/lib/fetch-retry";
 import { useAudioSettings } from "@/components/shared/audio-settings";
+import { useBGM } from "@/components/shared/bgm-provider";
 import { useAchievementToast } from "@/components/shared/achievement-toast";
 import { getAffectionLevel } from "@/lib/gamification/xp";
 
@@ -132,6 +133,7 @@ export default function CompanionChatClient({
 
   // Audio
   const { effectiveTtsVolume } = useAudioSettings();
+  const { setLearningActive } = useBGM();
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsCacheRef = useRef<Map<string, string>>(new Map());
 
@@ -146,6 +148,13 @@ export default function CompanionChatClient({
 
   // Achievement toast
   const { showAchievementToasts } = useAchievementToast();
+
+  // ── Mute BGM during chatting phase ──
+  useEffect(() => {
+    if (phase !== "chatting") return;
+    setLearningActive(true);
+    return () => setLearningActive(false);
+  }, [phase, setLearningActive]);
 
   // ── Background overlay setup (C4 pattern) ──
   useEffect(() => {
