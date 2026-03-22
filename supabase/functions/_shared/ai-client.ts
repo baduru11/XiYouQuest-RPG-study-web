@@ -329,9 +329,9 @@ export interface ChatResponseEnvelope {
 }
 
 export function parseChatResponse(text: string): ChatResponseEnvelope {
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
       const parsed = JSON.parse(jsonMatch[0]);
       if (
         (parsed.type === "reply" || parsed.type === "redirect") &&
@@ -339,9 +339,23 @@ export function parseChatResponse(text: string): ChatResponseEnvelope {
       ) {
         return { type: parsed.type, content: parsed.content };
       }
+    } catch {
+      // JSON.parse failed — likely unescaped quotes in content value.
+      // Extract content manually by anchoring to the known envelope structure.
+      const raw = jsonMatch[0];
+      const marker = '"content"';
+      const markerIdx = raw.indexOf(marker);
+      if (markerIdx !== -1) {
+        const openQuote = raw.indexOf('"', markerIdx + marker.length);
+        const closeQuote = raw.lastIndexOf('"}');
+        if (openQuote !== -1 && closeQuote > openQuote) {
+          const content = raw.substring(openQuote + 1, closeQuote);
+          const typeMatch = raw.match(/"type"\s*:\s*"(reply|redirect)"/);
+          const type = (typeMatch?.[1] as "reply" | "redirect") ?? "reply";
+          return { type, content };
+        }
+      }
     }
-  } catch {
-    // JSON parse failed — treat as plain text
   }
   return { type: "reply", content: text };
 }
