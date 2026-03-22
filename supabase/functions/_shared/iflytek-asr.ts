@@ -149,8 +149,16 @@ export async function transcribeAudio(
             .join("");
 
           if (pgs === "rpl") {
+            // Replace: clear segments in the replace range, then set new
+            const rg = result.rg as [number, number] | undefined;
+            if (rg) {
+              for (let i = rg[0]; i <= rg[1]; i++) {
+                segments.delete(i);
+              }
+            }
             segments.set(sn, text);
           } else {
+            // Append (confirmed segment)
             segments.set(sn, text);
           }
         }

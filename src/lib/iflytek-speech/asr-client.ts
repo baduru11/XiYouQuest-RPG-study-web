@@ -159,10 +159,16 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<AsrTranscrip
           const text = ws_data.map((item) => item.cw.map((cw) => cw.w).join("")).join("");
 
           if (pgs === "rpl") {
-            // Replace: update the segment at this sequence number
+            // Replace: clear segments in the replace range, then set new
+            const rg = result.rg as [number, number] | undefined;
+            if (rg) {
+              for (let i = rg[0]; i <= rg[1]; i++) {
+                segments.delete(i);
+              }
+            }
             segments.set(sn, text);
           } else {
-            // Append (default)
+            // Append (confirmed segment)
             segments.set(sn, text);
           }
         }
