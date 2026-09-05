@@ -18,36 +18,9 @@ import {
 } from "../_shared/ai-client.ts";
 import { buildChatSystemPrompt } from "../_shared/chat-prompt.ts";
 import { isValidUUID } from "../_shared/validations.ts";
+import { getAffectionLevel } from "../_shared/affection-levels.ts";
 
 const AFFECTION_PER_TURN = 3;
-
-// Inline getAffectionLevel to avoid importing from src/
-const AFFECTION_LEVELS: Record<
-  number,
-  { name: string; xpRequired: number }
-> = {
-  1: { name: "Acquaintance", xpRequired: 0 },
-  2: { name: "Friend", xpRequired: 200 },
-  3: { name: "Close Friend", xpRequired: 500 },
-  4: { name: "Best Friend", xpRequired: 1000 },
-  5: { name: "Soulmate", xpRequired: 2000 },
-};
-
-function getAffectionLevel(
-  affectionXP: number,
-): { level: number; name: string } {
-  let currentLevel = 1;
-  let currentName = AFFECTION_LEVELS[1].name;
-
-  for (const [level, config] of Object.entries(AFFECTION_LEVELS)) {
-    if (affectionXP >= config.xpRequired) {
-      currentLevel = Number(level);
-      currentName = config.name;
-    }
-  }
-
-  return { level: currentLevel, name: currentName };
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return corsResponse();
