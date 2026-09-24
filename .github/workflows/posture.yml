@@ -1,0 +1,50 @@
+# The "Loop" of docs/security/README.md: a bounded, read-only production
+# posture check (catalog grants/RLS, auth settings, anonymous refusal probes,
+# response headers, TLS). Weekly plus on demand; each run writes a diary entry
+# to the job summary and keeps it as an artifact for 90 days.
+#
+# Secrets (repository settings -> Secrets and variables -> Actions):
+#   SUPABASE_ACCESS_TOKEN  Management API token (read use only)
+#   SUPABASE_ANON_KEY      public anon key
+# Missing secrets turn the affected checks into SKIP rather than failing.
+
+name: Security posture
+
+on:
+  schedule:
+    - cron: "17 1 * * 1" # Mondays 01:17 UTC (09:17 HKT)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-posture
+  cancel-in-progress: false
+
+jobs:
+  posture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Run posture check
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/security/posture-check.mjs --diary posture-diary-entry.md
+
+      - name: Keep diary entry
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: posture-diary-${{ github.run_id }}
+          path: posture-diary-entry.md
+          retention-days: 90
