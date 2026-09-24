@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { isValidUUID } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
@@ -8,6 +9,9 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(user.id, "social-search");
+  if (limited) return limited;
 
   const q = request.nextUrl.searchParams.get("q");
   if (!q || q.trim().length < 2) {

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import {
   assessPronunciation,
   type IseCategory,
   type PronunciationAssessmentResult,
 } from "@/lib/iflytek-speech/client";
+
+// Audio cap (10MB) plus multipart overhead.
+const MAX_REQUEST_BYTES = 11 * 1024 * 1024;
+const MAX_REFERENCE_TEXT_CHARS = 2000;
 
 const VALID_CATEGORIES = new Set<IseCategory>([
   "read_syllable",
@@ -119,7 +124,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const limited = await enforceRateLimit(user.id, "speech");
+  if (limited) return limited;
+
   try {
+    // Reject oversized bodies before parsing them into memory.
+    if (Number(request.headers.get("content-length") ?? 0) > MAX_REQUEST_BYTES) {
+      return NextResponse.json({ error: "Request too large" }, { status: 413 });
+    }
     const formData = await request.formData();
     const audio = formData.get("audio") as File;
     const referenceText = formData.get("referenceText") as string;
@@ -128,10 +140,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing audio or referenceText" }, { status: 400 });
     }
 
-    // Validate file size (25MB max)
-    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (referenceText.length > MAX_REFERENCE_TEXT_CHARS) {
+      return NextResponse.json({ error: "referenceText too long" }, { status: 400 });
+    }
+
+    // Validate file size: 10MB is ~5 min of the 16kHz mono WAV the client records;
+    // the longest timed PSC section is 240s.
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (audio.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "Audio file too large (max 25MB)" }, { status: 400 });
+      return NextResponse.json({ error: "Audio file too large (max 10MB)" }, { status: 400 });
     }
 
     // Validate MIME type

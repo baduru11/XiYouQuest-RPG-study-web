@@ -1,6 +1,16 @@
 import { OPENROUTER_API_KEY } from "@/lib/env";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// Student data (speech transcripts, scores, chat) must not be retained for
+// training or processed by providers in mainland China (HKUST ITSO cloud-provider
+// guideline: identify processing locations, restrict secondary use). OpenRouter
+// then routes only among the remaining providers; if none qualify the request
+// fails and the caller's fallback model is used.
+const OPENROUTER_PROVIDER_POLICY = {
+  data_collection: "deny",
+  ignore: ["streamlake", "siliconflow", "alibaba", "baidu"],
+} as const;
 const IMAGE_MODEL = "google/gemini-2.5-flash-image:nitro";
 
 /**
@@ -29,6 +39,7 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
       },
       body: JSON.stringify({
         model: IMAGE_MODEL,
+        provider: OPENROUTER_PROVIDER_POLICY,
         messages: [
           { role: "user", content: prompt },
         ],

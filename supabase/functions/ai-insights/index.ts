@@ -4,6 +4,7 @@ import {
   errorResponse,
 } from "../_shared/cors.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { quickCompletion } from "../_shared/ai-client.ts";
 import { aiInsightsSchema } from "../_shared/validations.ts";
 
@@ -12,6 +13,9 @@ Deno.serve(async (req: Request) => {
 
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
 
   try {
     const body = await req.json();

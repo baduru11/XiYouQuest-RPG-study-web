@@ -263,9 +263,19 @@ export const auth = betterAuth({
   },
 
   user: {
-    // Used by the delete-account route: removes the better_auth user row and
-    // cascades sessions/accounts after the route has cleaned up app tables.
-    deleteUser: { enabled: true },
+    // Off: Better Auth's own POST /api/auth/delete-user would drop only the
+    // identity and orphan every app row (profiles has no FK to it). Account
+    // erasure goes through /api/auth/delete-account, which removes app data
+    // first and then calls deleteAuthUser() directly.
+    deleteUser: { enabled: false },
+  },
+
+  account: {
+    // Entra tokens are only needed during the sign-in exchange (getUserInfo
+    // reads the fresh id_token, never the stored one). Encrypt anything Better
+    // Auth persists (AES-256-GCM with BETTER_AUTH_SECRET) so a database read
+    // does not yield usable HKUST credentials.
+    encryptOAuthTokens: true,
   },
 
   plugins: [

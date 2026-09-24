@@ -5,6 +5,7 @@ import {
 } from "../_shared/cors.ts";
 import { createRequestClient } from "../_shared/supabase.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { transcribeAudio } from "../_shared/iflytek-asr.ts";
 import {
   COMPANION_MAX_PCM_BYTES,
@@ -27,6 +28,9 @@ Deno.serve(async (req: Request) => {
 
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
   const supabase = createRequestClient(user);
 
   try {

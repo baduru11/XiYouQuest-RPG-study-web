@@ -4,11 +4,16 @@ import {
   errorResponse,
 } from "../_shared/cors.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import {
   assessPronunciation,
   type IseCategory,
   type PronunciationAssessmentResult,
 } from "../_shared/iflytek-ise.ts";
+
+// Audio cap (10MB) plus multipart overhead.
+const MAX_REQUEST_BYTES = 11 * 1024 * 1024;
+const MAX_REFERENCE_TEXT_CHARS = 2000;
 
 const VALID_CATEGORIES = new Set<IseCategory>([
   "read_syllable",
@@ -129,7 +134,14 @@ Deno.serve(async (req: Request) => {
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
 
+  const limited = await enforceRateLimit(user.id, "speech");
+  if (limited) return limited;
+
   try {
+    // Reject oversized bodies before parsing them into memory.
+    if (Number(req.headers.get("content-length") ?? 0) > MAX_REQUEST_BYTES) {
+      return errorResponse("Request too large", 413);
+    }
     const formData = await req.formData();
     const audio = formData.get("audio") as File | null;
     const referenceText = formData.get("referenceText") as string | null;
@@ -138,10 +150,15 @@ Deno.serve(async (req: Request) => {
       return errorResponse("Missing audio or referenceText", 400);
     }
 
-    // Validate file size (25MB max)
-    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (referenceText.length > MAX_REFERENCE_TEXT_CHARS) {
+      return errorResponse("referenceText too long", 400);
+    }
+
+    // Validate file size: 10MB is ~5 min of the 16kHz mono WAV the client records;
+    // the longest timed PSC section is 240s.
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
     if (audio.size > MAX_FILE_SIZE) {
-      return errorResponse("Audio file too large (max 25MB)", 400);
+      return errorResponse("Audio file too large (max 10MB)", 400);
     }
 
     // Validate MIME type
