@@ -12,8 +12,8 @@ import { getPcmWavDurationSeconds } from "@/lib/audio-utils";
 import { OFFICIAL_PSC_SPEAKING_TOPICS } from "@/lib/psc/official-speaking-topics";
 import { questionBankHasContent } from "@/lib/question-bank";
 
-// Audio cap (10MB) plus multipart overhead.
-const MAX_REQUEST_BYTES = 11 * 1024 * 1024;
+// Audio cap (16MB) plus multipart overhead.
+const MAX_REQUEST_BYTES = 17 * 1024 * 1024;
 
 // ISE read_chapter max audio duration. 120s fails; 82s works. Use 90s with margin.
 // PCM 16kHz 16-bit mono = 32000 bytes/s.
@@ -149,11 +149,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing audio or topic" }, { status: 400 });
     }
 
-    // Validate file size: 10MB is ~5 min of the 16kHz mono WAV the client records;
-    // the longest timed PSC section is 240s.
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    // Validate file size: 16MB is ~8.7 min of the 16kHz mono WAV the client
+    // records. Untimed C4 practice has no recorder limit, so leave slow-reader headroom.
+    const MAX_FILE_SIZE = 16 * 1024 * 1024;
     if (audio.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "Audio file too large (max 10MB)" }, { status: 400 });
+      return NextResponse.json({ error: "Audio file too large (max 16MB)" }, { status: 400 });
     }
 
     const buffer = Buffer.from(await audio.arrayBuffer());

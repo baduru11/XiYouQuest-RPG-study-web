@@ -1,18 +1,20 @@
+# Patterns are root-anchored (leading /): unanchored names also match nested
+# folders such as src/lib/supabase and public/img.
 # Keep CLI deployments to the minimum needed to build the app (HKUST ITSO:
 # no credentials or High-Risk evidence outside controlled storage).
 .env*
 !.env.example
-.omo
-.claude
-.codegraph
-.github
-docs
-doc
-prompt
-img
-scripts
-supabase
-coverage
+/.omo
+/.claude
+/.codegraph
+/.github
+/docs
+/doc
+/prompt
+/img
+/scripts
+/supabase
+/coverage
 *.pem
 *.log
-tsconfig.tsbuildinfo
+/tsconfig.tsbuildinfo
