@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -12,6 +13,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const planId = searchParams.get("planId");
     const checkpointId = searchParams.get("checkpointId");
+    if ((planId && !isValidUUID(planId)) || (checkpointId && !isValidUUID(checkpointId))) {
+      return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    }
 
     // Single checkpoint lookup
     if (checkpointId) {

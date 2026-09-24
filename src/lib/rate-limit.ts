@@ -20,6 +20,16 @@ export const RATE_LIMITS = {
   "ai-image": { windows: [3600, 86400], limits: [20, 60] },
   tts: { windows: [3600, 86400], limits: [600, 3000] },
   "social-search": { windows: [60, 3600], limits: [30, 300] },
+  // Per-user ceilings on ordinary writes (progress, quests, learning, chat
+  // housekeeping, settings) — far above a heavy study day, low enough to stop
+  // scripted XP farming and leaderboard manipulation.
+  write: { windows: [3600, 86400], limits: [600, 3000] },
+  // Friend requests / responses / removals: blocks request spam.
+  "social-write": { windows: [3600, 86400], limits: [60, 300] },
+  // Avatar uploads.
+  upload: { windows: [3600, 86400], limits: [20, 60] },
+  // Personal-data export (DPP6 access requests).
+  export: { windows: [3600, 86400], limits: [5, 20] },
 } as const satisfies Record<string, { windows: readonly number[]; limits: readonly number[] }>;
 
 export type RateLimitBucket = keyof typeof RATE_LIMITS;

@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.76";
 import {
   corsResponse,
   jsonResponse,
@@ -22,7 +22,7 @@ const schema = z.object({
         wordScores: z
           .array(
             z.object({
-              word: z.string(),
+              word: z.string().max(32),
               score: z.number().nullable(),
             }),
           )
@@ -30,7 +30,7 @@ const schema = z.object({
         quizResults: z
           .array(
             z.object({
-              question: z.string(),
+              question: z.string().max(500),
               isCorrect: z.boolean(),
             }),
           )
@@ -38,7 +38,7 @@ const schema = z.object({
         sentenceScores: z
           .array(
             z.object({
-              sentence: z.string(),
+              sentence: z.string().max(2000),
               score: z.number(),
             }),
           )
@@ -48,13 +48,13 @@ const schema = z.object({
             totalScore: z.number(),
             pronunciation: z.object({
               score: z.number(),
-              notes: z.string(),
+              notes: z.string().max(2000),
             }),
             vocabGrammar: z.object({
               score: z.number(),
-              notes: z.string(),
+              notes: z.string().max(2000),
             }),
-            fluency: z.object({ score: z.number(), notes: z.string() }),
+            fluency: z.object({ score: z.number(), notes: z.string().max(2000) }),
           })
           .strict()
           .optional(),

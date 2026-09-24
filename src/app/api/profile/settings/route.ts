@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { profileSettingsSchema } from "@/lib/validations";
 
 /**
@@ -12,6 +13,8 @@ export async function PATCH(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "write");
+  if (limited) return limited;
 
   let body: unknown;
   try {

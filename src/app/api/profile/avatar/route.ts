@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "upload");
+  if (limited) return limited;
 
   let formData: FormData;
   try {

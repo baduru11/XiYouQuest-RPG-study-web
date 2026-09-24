@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,6 +44,23 @@ describe("dual-runtime security constants stay identical", () => {
     const literals = files.map((f) => objectLiteral(read(f), "OPENROUTER_PROVIDER_POLICY"));
     expect(new Set(literals).size).toBe(1);
     expect(literals[0]).toContain('data_collection:"deny"');
+    expect(literals[0]).toContain("zdr:true");
+  });
+
+  it("pins every edge npm: import to the exact version the Node tests run against", () => {
+    const found = execSync("git grep -hoE '\"npm:[^\"]+\"' -- supabase/functions", { encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean)
+      .map((s) => s.slice(5, -1));
+    expect(found.length).toBeGreaterThan(0);
+    for (const spec of new Set(found)) {
+      const at = spec.lastIndexOf("@");
+      expect(at, `${spec} carries a version`).toBeGreaterThan(0);
+      const [name, version] = [spec.slice(0, at), spec.slice(at + 1)];
+      expect(version, spec).toMatch(/^\d+\.\d+\.\d+$/);
+      const installed = JSON.parse(read(`node_modules/${name}/package.json`)).version;
+      expect(version, `${name} matches node_modules`).toBe(installed);
+    }
   });
 
   it("every OpenRouter request body carries the provider policy", () => {

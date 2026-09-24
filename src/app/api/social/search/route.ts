@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
   const limited = await enforceRateLimit(user.id, "social-search");
   if (limited) return limited;
 
-  const q = request.nextUrl.searchParams.get("q");
+  // PostgREST treats `*` as an alias of `%` in like/ilike patterns, so a query
+  // of "**" would match every name. Remove it before the LIKE escaping below.
+  const q = request.nextUrl.searchParams.get("q")?.replace(/\*/g, "") ?? null;
   if (!q || q.trim().length < 2) {
     return NextResponse.json(
       { error: "Query must be at least 2 characters" },

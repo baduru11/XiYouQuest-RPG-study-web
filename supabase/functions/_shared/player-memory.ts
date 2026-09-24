@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.95.3";
 import { AFFECTION_LEVELS } from "./affection-levels.ts";
 
 const COMPONENT_NAMES: Record<number, string> = {

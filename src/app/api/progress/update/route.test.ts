@@ -7,6 +7,8 @@ const { createClient, getSessionUser } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient, getSessionUser }));
+// Rate limiting is covered by src/lib/rate-limit.test.ts; here it always allows.
+vi.mock("@/lib/rate-limit", () => ({ enforceRateLimit: vi.fn(async () => null) }));
 
 vi.mock("@/lib/achievements/check", () => ({
   checkAndUnlockAchievements: vi.fn(),

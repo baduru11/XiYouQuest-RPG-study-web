@@ -1,4 +1,4 @@
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.76";
 import {
   corsResponse,
   errorResponse,
@@ -8,7 +8,8 @@ import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { synthesizeAcademic } from "../_shared/iflytek-tts.ts";
 
 const schema = z.object({
-  voiceId: z.string().min(1),
+  // Same bound as src/lib/validations.ts ttsCompanionSchema (parity-tested).
+  voiceId: z.string().min(1).max(50).regex(/^[a-z0-9_]+$/i),
   text: z.string().min(1).max(500),
 });
 

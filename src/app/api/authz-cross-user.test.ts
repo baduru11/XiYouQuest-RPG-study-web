@@ -7,6 +7,8 @@ const { createClient, getSessionUser } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient, getSessionUser }));
+// Rate limiting is covered by src/lib/rate-limit.test.ts; here it always allows.
+vi.mock("@/lib/rate-limit", () => ({ enforceRateLimit: vi.fn(async () => null) }));
 
 vi.mock("@/lib/achievements/check", () => ({
   checkAndUnlockAchievements: vi.fn().mockResolvedValue([]),
@@ -284,7 +286,8 @@ describe("social/remove: friendship ownership", () => {
     expect(response.status).toBe(404);
     const orCall = friendships.calls.find((c) => c.method === "or");
     expect(orCall?.args[0]).toBe(
-      `requester_id.eq.${SESSION_USER.id},addressee_id.eq.${SESSION_USER.id}`,
+      // A requester cannot delete a rejected request (it would let them re-send it).
+      `and(requester_id.eq.${SESSION_USER.id},status.neq.rejected),addressee_id.eq.${SESSION_USER.id}`,
     );
   });
 });

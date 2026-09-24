@@ -35,12 +35,18 @@ export const progressUpdateSchema = z.object({
   attemptId: uuid.optional(),
   component: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]),
   score: z.number().min(0).max(100),
-  xpEarned: z.number().min(0),
-  durationSeconds: z.number().min(0).optional().default(0),
-  questionsAttempted: z.number().int().min(0).optional().default(0),
-  questionsCorrect: z.number().int().min(0).optional().default(0),
-  bestStreak: z.number().int().min(0).optional().default(0),
-}).strict();
+  // The route caps awarded XP at MAX_XP_PER_SESSION; this only rejects absurd input.
+  xpEarned: z.number().min(0).max(10_000),
+  durationSeconds: z.number().min(0).max(86_400).optional().default(0),
+  questionsAttempted: z.number().int().min(0).max(500).optional().default(0),
+  questionsCorrect: z.number().int().min(0).max(500).optional().default(0),
+  bestStreak: z.number().int().min(0).max(500).optional().default(0),
+}).strict().transform((progress) => ({
+  ...progress,
+  // Accuracy is shown on the leaderboard under the student's real name, so a
+  // session can never record more correct answers than it attempted.
+  questionsCorrect: Math.min(progress.questionsCorrect, progress.questionsAttempted),
+}));
 
 // --- AI API Schemas ---
 
@@ -55,24 +61,62 @@ export const aiFeedbackSchema = z.object({
 
 // --- AI Insights Schema ---
 
+// BEGIN aiInsightsSchema (mirrored in both runtimes; parity-tested)
+// Only the fields the analysis needs reach the LLM prompt. Unknown keys (row
+// ids, the student's user_id, joined objects such as characters(name)) are
+// stripped, and every string and array is bounded so a request cannot inflate
+// the prompt that is sent to the model provider.
+const insightTimestamp = z.string().max(40);
+const insightCount = z.number().min(0).max(10_000_000);
+
 export const aiInsightsSchema = z.object({
-  progress: z.union([
-    z.record(z.string().max(20), z.number().min(0).max(100)),
-    z.array(z.object({
-      component: z.number().int().min(1).max(7),
-    }).passthrough()).max(7),
-  ]).optional(),
-  recentSessions: z.array(z.object({
-    component: z.number().int().min(1).max(7),
-    score: z.number().min(0).max(100),
-    created_at: z.string(),
-  }).passthrough()).max(20).optional(),
-  questProgress: z.array(z.object({
-    stage: z.number().int().min(1).max(7),
-    is_cleared: z.boolean(),
-    best_score: z.number().min(0).max(500),
-  }).passthrough()).max(7).optional(),
+  progress: z
+    .union([
+      z
+        .record(z.string().max(20), z.number().min(0).max(100))
+        .refine((scores) => Object.keys(scores).length <= 16, {
+          message: "Too many progress entries",
+        }),
+      z
+        .array(
+          z.object({
+            component: z.number().int().min(1).max(7),
+            questions_attempted: insightCount.optional(),
+            questions_correct: insightCount.optional(),
+            best_streak: insightCount.optional(),
+            total_practice_time_seconds: insightCount.optional(),
+            last_practiced_at: insightTimestamp.nullable().optional(),
+          }),
+        )
+        .max(7),
+    ])
+    .optional(),
+  recentSessions: z
+    .array(
+      z.object({
+        component: z.number().int().min(1).max(7),
+        score: z.number().min(0).max(100),
+        created_at: insightTimestamp,
+        xp_earned: insightCount.nullable().optional(),
+        duration_seconds: insightCount.nullable().optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
+  questProgress: z
+    .array(
+      z.object({
+        stage: z.number().int().min(1).max(7),
+        is_cleared: z.boolean(),
+        best_score: z.number().min(0).max(500),
+        attempts: insightCount.nullable().optional(),
+        cleared_at: insightTimestamp.nullable().optional(),
+      }),
+    )
+    .max(7)
+    .optional(),
 });
+// END aiInsightsSchema
 
 // --- Learning API Schemas ---
 

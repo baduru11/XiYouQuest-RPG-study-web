@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from "npm:jose";
+import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.2.3";
 
 /**
  * Better Auth issues ES256 JWTs signed with keys published at its JWKS

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 
 export async function POST() {
@@ -8,6 +9,8 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "write");
+  if (limited) return limited;
 
   try {
     // Verify user actually completed all 5 exam components within the last 30 minutes

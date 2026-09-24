@@ -115,6 +115,16 @@ export async function DELETE() {
         .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
     );
     failIfError(
+      "delete mock_exam_results",
+      await supabase.from("mock_exam_results").delete().eq("user_id", userId),
+    );
+    // Rate-limit counters record when and how often each feature was used and
+    // have no foreign key, so nothing else would ever remove them.
+    failIfError(
+      "delete rate_limit_counters",
+      await supabase.from("rate_limit_counters").delete().eq("user_id", userId),
+    );
+    failIfError(
       "delete profiles",
       await supabase.from("profiles").delete().eq("id", userId),
     );

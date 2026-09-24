@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { isValidUUID } from "@/lib/validations";
+import { chatHistoryQuerySchema, isValidUUID } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -44,8 +44,14 @@ export async function GET(request: NextRequest) {
   }
 
   // Otherwise, return session list (including active sessions)
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 50);
-  const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+  const paging = chatHistoryQuerySchema.safeParse({
+    limit: searchParams.get("limit") ?? undefined,
+    offset: searchParams.get("offset") ?? undefined,
+  });
+  if (!paging.success) {
+    return NextResponse.json({ error: "Invalid paging parameters" }, { status: 400 });
+  }
+  const { limit, offset } = paging.data;
 
   const { data: sessions, error, count } = await supabase
     .from("chat_sessions")

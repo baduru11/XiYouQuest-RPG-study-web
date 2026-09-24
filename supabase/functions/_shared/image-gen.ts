@@ -9,6 +9,11 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // fails and the caller's fallback model is used.
 const OPENROUTER_PROVIDER_POLICY = {
   data_collection: "deny",
+  // Zero-data-retention endpoints only: prompts are not stored by the host.
+  // Verified 2026-09-25 against openrouter.ai/api/v1/endpoints/zdr: nine
+  // non-PRC ZDR hosts serve deepseek-v4-flash and Google Vertex serves both
+  // Gemini fallbacks, so the policy never leaves a model without a host.
+  zdr: true,
   ignore: ["streamlake", "siliconflow", "alibaba", "baidu"],
 } as const;
 const IMAGE_MODEL = "google/gemini-2.5-flash-image:nitro";
