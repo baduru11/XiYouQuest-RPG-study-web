@@ -20,7 +20,8 @@ import {
  *
  * Instead, the server verifies the Better Auth session itself and then uses
  * the service-role key for data access. Requests without a session get an
- * anon-key client, so RLS still guards every unauthenticated path. Because the
+ * anon-key client, which holds no privileges on the public schema since
+ * 20260924090000_lockdown_client_roles.sql, so it can read nothing. Because the
  * service-role client bypasses RLS, callers MUST keep scoping queries by the
  * verified session user id (never by client-supplied ids).
  */

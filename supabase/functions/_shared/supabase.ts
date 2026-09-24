@@ -11,8 +11,9 @@ import { requireEnv, SUPABASE_SERVICE_ROLE_KEY } from "./env.ts";
  * Authorization header on an anon-key client) therefore made every
  * user-scoped query fail with 401. Instead, a verified request gets the
  * service-role client; callers MUST keep scoping every query by the verified
- * user id. Unverified requests get an anon client, which RLS restricts to
- * public reference data.
+ * user id. Unverified requests get an anon client, which holds no privileges
+ * on the public schema (20260924090000_lockdown_client_roles.sql), so it can
+ * read nothing.
  */
 export function createRequestClient(
   user: { id: string } | null,
