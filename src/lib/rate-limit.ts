@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL } from "@/lib/env";
+import { logSecurityEvent } from "@/lib/security-events";
 
 /**
  * Per-user rate limits for paid providers and abuse-prone reads.
@@ -64,6 +65,11 @@ export async function enforceRateLimit(
   const retryAfter = typeof data === "number" ? data : 0;
   if (retryAfter <= 0) return null;
 
+  await logSecurityEvent({
+    type: "rate_limit.exceeded",
+    userId,
+    detail: { bucket, retryAfter, runtime: "next" },
+  });
   return NextResponse.json(
     { error: "Too many requests. Please wait before trying again." },
     { status: 429, headers: { "Retry-After": String(retryAfter) } },

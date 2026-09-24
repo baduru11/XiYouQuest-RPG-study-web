@@ -23,7 +23,9 @@ import { Pool } from "pg";
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
 import { buildAuthPoolConnection } from "@/lib/db-tls";
+import { logSecurityEvent } from "@/lib/security-events";
 import { withoutProviderTokens } from "@/lib/oauth-token-hygiene";
+import { COOKIE_ATTRIBUTES, SESSION_POLICY } from "@/lib/session-policy";
 import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/env";
 
 // The localhost fallback is a convenience for local dev ONLY. In production a
@@ -80,6 +82,37 @@ if (process.env.NODE_ENV === "production" && !process.env.BETTER_AUTH_SECRET) {
  */
 export async function deleteAuthUser(userId: string): Promise<void> {
   await pool.query('DELETE FROM better_auth."user" WHERE id = $1', [userId]);
+}
+
+/**
+ * Identity records for the self-service data export (PDPO DPP6). Session
+ * tokens and provider tokens are never selected.
+ */
+export async function exportAuthRecords(userId: string) {
+  const [user, sessions, accounts] = await Promise.all([
+    pool.query(
+      `SELECT id, name, email, "emailVerified", image, "createdAt", "updatedAt"
+       FROM better_auth."user" WHERE id = $1`,
+      [userId],
+    ),
+    pool.query(
+      `SELECT "createdAt", "updatedAt", "expiresAt", "ipAddress", "userAgent"
+       FROM better_auth.session WHERE "userId" = $1 ORDER BY "createdAt"`,
+      [userId],
+    ),
+    pool.query(
+      `SELECT "providerId", "accountId", scope, "createdAt", "updatedAt"
+       FROM better_auth.account WHERE "userId" = $1`,
+      [userId],
+    ),
+  ]);
+  return { user: user.rows[0] ?? null, sessions: sessions.rows, accounts: accounts.rows };
+}
+
+/** Records why a sign-in was refused, then refuses it (getUserInfo -> null). */
+async function denySignIn(reason: string, detail: Record<string, string> = {}): Promise<null> {
+  await logSecurityEvent({ type: "auth.sign_in_denied", detail: { reason, ...detail } });
+  return null;
 }
 
 const ALLOWED_EMAIL_DOMAINS = ["ust.hk", "connect.ust.hk"];
@@ -173,7 +206,7 @@ const hkustProviders = [
     // and domain gate below are enforced on every authentication, not just at
     // account creation.
     getUserInfo: async (tokens: { idToken?: string }) => {
-      if (!tokens.idToken) return null;
+      if (!tokens.idToken) return denySignIn("no_id_token");
 
       // Step 1: peek the (still-unverified) `tid` ONLY to select which tenant's
       // JWKS to verify against. decodeJwt throws (JWTInvalid) on a malformed
@@ -183,12 +216,13 @@ const hkustProviders = [
       try {
         unverifiedTid = decodeJwt(tokens.idToken).tid as string | undefined;
       } catch {
-        return null;
+        return denySignIn("malformed_id_token");
       }
       // Reject any token not minted by an HKUST tenant. This is the tenant pin
       // that replaces the disabled RFC 9207 issuer check.
-      if (!unverifiedTid || !(unverifiedTid in HKUST_TENANT_ISSUERS)) {
-        return null;
+      // Own keys only: `in` would also accept prototype keys such as "constructor".
+      if (!unverifiedTid || !Object.hasOwn(HKUST_TENANT_ISSUERS, unverifiedTid)) {
+        return denySignIn("tenant_not_allowed", { tid: String(unverifiedTid ?? "missing").slice(0, 64) });
       }
 
       // Step 2: verify the id_token signature against that tenant's published
@@ -209,12 +243,15 @@ const hkustProviders = [
           },
         );
         claims = payload;
-      } catch {
+      } catch (error) {
         // Bad signature / issuer / audience / expiry — reject.
-        return null;
+        const code = (error as { code?: unknown })?.code;
+        return denySignIn("id_token_verification_failed", {
+          error: typeof code === "string" ? code.slice(0, 64) : "unknown",
+        });
       }
 
-      if (!claims.sub) return null;
+      if (!claims.sub) return denySignIn("missing_subject");
       // With the tenant verified, `preferred_username` is an HKUST-issued UPN,
       // so gating the domain on it (when `email` is absent) is safe.
       const email = String(
@@ -224,7 +261,11 @@ const hkustProviders = [
       ).toLowerCase();
       // Per-sign-in domain enforcement: blocks any account whose verified
       // address is outside the allow-list, for new AND returning users.
-      if (!isAllowedEmail(email)) return null;
+      if (!isAllowedEmail(email)) {
+        return denySignIn("email_domain_not_allowed", {
+          domain: (email.split("@")[1] ?? "none").slice(0, 100),
+        });
+      }
 
       return {
         id: String(claims.sub),
@@ -256,7 +297,11 @@ export const auth = betterAuth({
 
   emailAndPassword: { enabled: false },
 
+  // 8-hour inactivity timeout; see src/lib/session-policy.ts.
+  session: SESSION_POLICY,
+
   advanced: {
+    defaultCookieAttributes: COOKIE_ATTRIBUTES,
     database: {
       // UUIDs keep `profiles.id uuid` and all `auth.uid() = user_id` RLS
       // policies valid — auth.uid() casts the JWT `sub` to uuid.
@@ -305,6 +350,21 @@ export const auth = betterAuth({
       // See src/lib/oauth-token-hygiene.ts: no provider token is persisted.
       create: { before: async (account) => ({ data: withoutProviderTokens(account) }) },
       update: { before: async (account) => ({ data: withoutProviderTokens(account) }) },
+    },
+    session: {
+      create: {
+        // Every successful sign-in, with the address and agent Better Auth
+        // captured for the session (forensic record; see security-events.ts).
+        after: async (session) => {
+          await logSecurityEvent({
+            type: "auth.sign_in",
+            userId: session.userId,
+            ip: session.ipAddress ?? null,
+            userAgent: session.userAgent ?? null,
+            detail: { provider: "hkust" },
+          });
+        },
+      },
     },
     user: {
       create: {

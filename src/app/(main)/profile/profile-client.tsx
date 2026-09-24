@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +23,7 @@ import {
   Heart,
   Trash2,
   Loader2,
+  Download,
 } from "lucide-react";
 
 interface Profile {
@@ -496,7 +498,37 @@ export default function ProfileClient({
         )}
       </div>
 
-      {/* Section 5: Danger Zone */}
+      {/* Section 5: Your Data (PDPO data access; see /privacy) */}
+      <div>
+        <h2 className="font-pixel text-sm text-foreground mb-3">Your Data</h2>
+        <Card>
+          <CardContent className="px-4 py-3 space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-retro text-lg text-foreground">Download My Data</p>
+                <p className="text-sm text-muted-foreground">
+                  A copy of everything XiYouQuest holds about you, as a JSON file.
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm" className="font-pixel text-sm self-start sm:self-auto">
+                <a href="/api/profile/export" download>
+                  <Download className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                  Download
+                </a>
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              What we collect, who can see it, and where it is processed:{" "}
+              <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                privacy notice
+              </Link>
+              .
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Section 6: Danger Zone */}
       <div>
         <h2 className="font-pixel text-sm text-destructive mb-3">Danger Zone</h2>
         <Card className="border-destructive/30">

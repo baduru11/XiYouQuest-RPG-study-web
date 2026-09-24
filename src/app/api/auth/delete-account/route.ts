@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { deleteAuthUser } from "@/lib/auth";
+import { logSecurityEvent, requestContext } from "@/lib/security-events";
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -168,6 +169,11 @@ export async function DELETE() {
     // Better Auth identity (cascades sessions + OAuth accounts).
     await deleteAuthUser(userId);
 
+    await logSecurityEvent({
+      type: "account.delete",
+      userId,
+      ...requestContext(request.headers),
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     // Abort with the auth identity intact so the user can retry a full delete.

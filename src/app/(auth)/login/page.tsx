@@ -1,5 +1,6 @@
 import { LoginForm } from "./login-form";
 import Image from "next/image";
+import Link from "next/link";
 
 // Rendered per request so the proxy's CSP nonce reaches the page's inline
 // scripts; a statically cached copy would carry stale, mismatched nonces and
@@ -23,6 +24,11 @@ export default function LoginPage() {
           className="w-full h-auto drop-shadow-lg"
         />
         <LoginForm />
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+            Privacy notice
+          </Link>
+        </p>
       </div>
     </main>
   );

@@ -1,5 +1,6 @@
 import { corsHeaders } from "./cors.ts";
 import { createAdminClient } from "./supabase.ts";
+import { logSecurityEvent } from "./security-events.ts";
 
 /**
  * Edge twin of src/lib/rate-limit.ts. Both call the same Postgres function
@@ -52,6 +53,11 @@ export async function enforceRateLimit(
   const retryAfter = typeof data === "number" ? data : 0;
   if (retryAfter <= 0) return null;
 
+  await logSecurityEvent({
+    type: "rate_limit.exceeded",
+    userId,
+    detail: { bucket, retryAfter, runtime: "edge" },
+  });
   return new Response(
     JSON.stringify({ error: "Too many requests. Please wait before trying again." }),
     {

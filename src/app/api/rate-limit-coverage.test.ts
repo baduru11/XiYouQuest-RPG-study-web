@@ -18,7 +18,7 @@ const EXEMPT: Record<string, string> = {
 };
 
 // GET handlers that are metered because they allow directory enumeration.
-const METERED_READS = ["social/lookup", "social/search"];
+const METERED_READS = ["profile/export", "social/lookup", "social/search"];
 
 function routeFiles(dir: string, prefix = ""): string[] {
   return readdirSync(dir).flatMap((name) => {
