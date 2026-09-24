@@ -5,12 +5,43 @@ import { auth } from "@/lib/auth";
 // Public paths that must be reachable without a session. `/api/auth/*` covers
 // the Better Auth handler (sign-in, OAuth callback, JWKS, token) and MUST stay
 // public so the OIDC flow and third-party JWKS fetch work.
-const PUBLIC_PAGE_PATHS = ["/login"];
+const PUBLIC_PAGE_PATHS = ["/login", "/privacy"];
 
 function isPublic(pathname: string): boolean {
   if (pathname === "/") return true;
   if (pathname.startsWith("/api/auth/")) return true;
-  return PUBLIC_PAGE_PATHS.some((p) => pathname.startsWith(p));
+  // Exact page or a sub-path, never a mere prefix ("/login-anything").
+  return PUBLIC_PAGE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Cross-site request guard for the app's own API routes.
+ *
+ * Session cookies are SameSite=Lax, which stops most cross-site writes, but
+ * any *.hkust.edu.hk page counts as same-site, and a text/plain POST needs no
+ * CORS preflight while route handlers still parse its body as JSON. So a
+ * state-changing API request must come from this origin: the browser's
+ * Sec-Fetch-Site says so directly, and Origin is the fallback for clients that
+ * omit it. Requests with neither header (non-browser clients) cannot carry a
+ * victim's cookies in a CSRF attack and still need a valid session.
+ *
+ * Better Auth's own endpoints under /api/auth/ run their own origin check;
+ * the app's delete-account route lives under that prefix but is ours, so it
+ * is guarded here.
+ */
+export function isCrossSiteWrite(request: NextRequest): boolean {
+  if (!MUTATING_METHODS.has(request.method)) return false;
+  const { pathname, origin: appOrigin } = request.nextUrl;
+  if (!pathname.startsWith("/api/")) return false;
+  if (pathname.startsWith("/api/auth/") && pathname !== "/api/auth/delete-account") {
+    return false;
+  }
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite) return fetchSite !== "same-origin";
+  const origin = request.headers.get("origin");
+  return origin !== null && origin !== appOrigin;
 }
 
 /**
@@ -48,6 +79,10 @@ function buildCsp(nonce: string): string {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isCrossSiteWrite(request)) {
+    return NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
+  }
 
   const session = await auth.api.getSession({ headers: request.headers });
   const isAuthed = Boolean(session?.user);
