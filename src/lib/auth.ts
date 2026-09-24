@@ -22,6 +22,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Pool } from "pg";
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
+import { buildAuthPoolConnection } from "@/lib/db-tls";
+import { withoutProviderTokens } from "@/lib/oauth-token-hygiene";
 import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/env";
 
 // The localhost fallback is a convenience for local dev ONLY. In production a
@@ -36,23 +38,22 @@ if (
   );
 }
 
-// Force the Supabase TRANSACTION pooler port (6543). The session pooler
-// (5432) caps at 15 clients and gets exhausted under serverless concurrency
-// ("EMAXCONNSESSION"). Normalizing here means the fix holds regardless of
-// which port the env var carries. No-op for non-Supabase / already-6543 URLs.
-const databaseUrl = (
+// buildAuthPoolConnection forces the Supabase TRANSACTION pooler port (6543;
+// the session pooler caps at 15 clients and is exhausted under serverless
+// concurrency) and pins TLS: the chain must verify against Supabase's root CA
+// with hostname checking on. Identity, session and OAuth rows cross the public
+// internet between Vercel and the database, so plaintext or unverified TLS is
+// not acceptable for this High-risk data (HKUST ITSO MSS, secure transport).
+// The transaction pooler still honors the `search_path` startup option, so the
+// better_auth schema resolves. Keep `max` small so each Vercel instance holds
+// few connections.
+const { connectionString, ssl } = buildAuthPoolConnection(
   process.env.BETTER_AUTH_DATABASE_URL ??
-  "postgresql://postgres:postgres@localhost:54322/postgres"
-).replace(/:5432\/(?=[^/]*$)/, ":6543/");
-
-// Use the Supabase TRANSACTION pooler (port 6543). The session pooler
-// (5432) caps at 15 clients and gets exhausted under serverless concurrency
-// ("EMAXCONNSESSION: max clients reached in session mode"); the transaction
-// pooler multiplexes and scales for serverless. Verified empirically that it
-// still honors the `search_path` startup option, so the better_auth schema
-// resolves. Keep `max` small so each Vercel instance holds few connections.
+    "postgresql://postgres:postgres@localhost:54322/postgres",
+);
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString,
+  ssl,
   options: "-c search_path=better_auth,public",
   max: 3,
   idleTimeoutMillis: 20_000,
@@ -230,11 +231,12 @@ const hkustProviders = [
         email,
         // Institutional SSO account — treated as verified.
         emailVerified: true,
-        name: String(
-          (claims.name as string) ??
-            (claims.preferred_username as string) ??
-            "Learner",
-        ),
+        // Never fall back to preferred_username: it is the UPN (an email
+        // address), and this name becomes the leaderboard / search display name.
+        name:
+          typeof claims.name === "string" && claims.name.trim()
+            ? claims.name.trim().slice(0, 50)
+            : "Learner",
         image:
           typeof claims.picture === "string"
             ? (claims.picture as string)
@@ -272,9 +274,10 @@ export const auth = betterAuth({
 
   account: {
     // Entra tokens are only needed during the sign-in exchange (getUserInfo
-    // reads the fresh id_token, never the stored one). Encrypt anything Better
-    // Auth persists (AES-256-GCM with BETTER_AUTH_SECRET) so a database read
-    // does not yield usable HKUST credentials.
+    // reads the fresh id_token, never the stored one). The account hooks below
+    // store no provider token at all; encryption stays on as a second layer in
+    // case a future plugin writes tokens outside those hooks. Note that Better
+    // Auth 1.6 encrypts access/refresh tokens only, never the id_token.
     encryptOAuthTokens: true,
   },
 
@@ -298,6 +301,11 @@ export const auth = betterAuth({
   ],
 
   databaseHooks: {
+    account: {
+      // See src/lib/oauth-token-hygiene.ts: no provider token is persisted.
+      create: { before: async (account) => ({ data: withoutProviderTokens(account) }) },
+      update: { before: async (account) => ({ data: withoutProviderTokens(account) }) },
+    },
     user: {
       create: {
         // Domain gate — throwing here aborts the user row create in the same
@@ -322,7 +330,7 @@ export const auth = betterAuth({
               `INSERT INTO public.profiles (id, display_name)
                VALUES ($1, $2)
                ON CONFLICT (id) DO NOTHING`,
-              [user.id, user.name ?? user.email.split("@")[0]],
+              [user.id, (user.name || "Learner").slice(0, 50)],
             );
           } catch (error) {
             try {
