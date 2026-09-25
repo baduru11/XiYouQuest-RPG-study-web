@@ -71,14 +71,27 @@ describe("anonymous PostgREST probes", () => {
   });
 
   it("distinguishes a privilege refusal from an RLS-filtered empty read", () => {
-    expect(classifyAnonRead({ status: 401, body: null }).status).toBe(STATUS.PASS);
+    expect(classifyAnonRead({ status: 401, body: { code: "42501" } }).status).toBe(STATUS.PASS);
+    expect(classifyAnonRead({ status: 403, body: { code: "42501" } }).status).toBe(STATUS.PASS);
     expect(classifyAnonRead({ status: 200, body: [] }).status).toBe(STATUS.WARN);
     expect(classifyAnonRead({ status: 200, body: [{ id: 1 }] }).status).toBe(STATUS.FAIL);
+  });
+
+  // Negative control: a key the gateway rejects (disabled legacy key, typo)
+  // never reaches the database, so a 401 alone proves nothing about grants.
+  it("does not pass a read the gateway refused before the database", () => {
+    expect(classifyAnonRead({ status: 401, body: { message: "Invalid API key" } }).status).toBe(STATUS.WARN);
+    expect(classifyAnonRead({ status: 401, body: null }).status).toBe(STATUS.WARN);
   });
 
   it("fails an anonymous storage listing that returns objects", () => {
     expect(classifyAnonList({ status: 200, body: [] }).status).toBe(STATUS.PASS);
     expect(classifyAnonList({ status: 200, body: [{ name: "a.png" }] }).status).toBe(STATUS.FAIL);
+  });
+
+  it("does not pass a storage listing refused before it ran", () => {
+    expect(classifyAnonList({ status: 401, body: { message: "Invalid Compact JWS" } }).status).toBe(STATUS.WARN);
+    expect(classifyAnonList({ status: 403, body: null }).status).toBe(STATUS.WARN);
   });
 });
 

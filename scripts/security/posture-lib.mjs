@@ -86,7 +86,14 @@ export function classifyAnonRpc(response) {
  * @param {{ status: number, body: unknown }} response
  */
 export function classifyAnonRead(response) {
-  if (response.status === 401 || response.status === 403) return result(STATUS.PASS, `HTTP ${response.status}`);
+  const code = response.body && typeof response.body === "object" ? response.body.code : undefined;
+  if ((response.status === 401 || response.status === 403) && code === "42501") {
+    return result(STATUS.PASS, `permission denied (HTTP ${response.status}, 42501)`);
+  }
+  // A key the gateway rejects never reaches the database: no grant was tested.
+  if (response.status === 401 || response.status === 403) {
+    return result(STATUS.WARN, `refused before the database (HTTP ${response.status}); check the probe key`);
+  }
   if (response.status >= 200 && response.status < 300) {
     if (Array.isArray(response.body) && response.body.length === 0) {
       return result(STATUS.WARN, "readable but empty: filtered by RLS, not refused by privilege");
@@ -106,8 +113,9 @@ export function classifyAnonList(response) {
       ? result(STATUS.FAIL, `anonymous listing returned ${response.body.length} object(s)`)
       : result(STATUS.PASS, "anonymous listing returned nothing");
   }
-  if ([400, 401, 403, 404].includes(response.status)) return result(STATUS.PASS, `refused (HTTP ${response.status})`);
-  return result(STATUS.WARN, `unexpected HTTP ${response.status}`);
+  // A refusal here happens before any storage policy runs (for example a key
+  // the gateway rejects), so it proves nothing about the bucket.
+  return result(STATUS.WARN, `listing refused before it ran (HTTP ${response.status}); check the probe key`);
 }
 
 /**
