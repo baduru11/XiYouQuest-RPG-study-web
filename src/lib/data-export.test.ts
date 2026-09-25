@@ -7,8 +7,16 @@ type Row = Record<string, unknown>;
 const ME = "00000000-0000-4000-8000-0000000000aa";
 const OTHER = "00000000-0000-4000-8000-0000000000bb";
 
-/** In-memory PostgREST double that honours eq / in / or and range paging. */
-function fakeSupabase(tables: Record<string, Row[]>, rpcError = false) {
+/**
+ * In-memory PostgREST double that honours eq / in / or and range paging.
+ * `files` maps "bucket:folder" to entry names; its list() pages like
+ * storage-js, 100 entries per call by default.
+ */
+function fakeSupabase(
+  tables: Record<string, Row[]>,
+  rpcError = false,
+  files: Record<string, string[]> = {},
+) {
   const queries: Array<{ table: string; filters: string[] }> = [];
   const client = {
     from(table: string) {
@@ -44,7 +52,15 @@ function fakeSupabase(tables: Record<string, Row[]>, rpcError = false) {
       return query;
     },
     rpc: async () => (rpcError ? { data: null, error: { message: "missing" } } : { data: [], error: null }),
-    storage: { from: () => ({ list: async () => ({ data: [], error: null }) }) },
+    storage: {
+      from: (bucket: string) => ({
+        list: async (folder: string, options?: { limit?: number; offset?: number }) => {
+          const offset = options?.offset ?? 0;
+          const names = (files[`${bucket}:${folder}`] ?? []).slice(offset, offset + (options?.limit ?? 100));
+          return { data: names.map((name) => ({ name })), error: null };
+        },
+      }),
+    },
   };
   return { client: client as unknown as SupabaseClient, queries };
 }
@@ -54,6 +70,16 @@ const mine = (n: number, extra: (i: number) => Row = () => ({})) =>
 const theirs = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `t${i}`, user_id: OTHER }));
 
 describe("collectUserData", () => {
+  it("lists every stored image past storage's 100-entry page", async () => {
+    const folders = Array.from({ length: 150 }, (_, i) => `chat-${i}`);
+    const files: Record<string, string[]> = { [`chat-images:${ME}`]: folders };
+    for (const folder of folders) files[`chat-images:${ME}/${folder}`] = ["scene.png"];
+    const { client } = fakeSupabase({}, false, files);
+    const data = await collectUserData(client, ME);
+    expect(data.files.chatImages).toHaveLength(150);
+    expect(data.files.chatImages[149]).toBe(`chat-images/${ME}/chat-149/scene.png`);
+  });
+
   it("pages past PostgREST's 1,000-row cap instead of truncating", async () => {
     const sessions = mine(3);
     const details = Array.from({ length: 2 * EXPORT_PAGE_SIZE + 345 }, (_, i) => ({

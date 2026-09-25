@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { listAllEntries } from "@/lib/storage-list";
+
 /**
  * Self-service personal-data export (PDPO DPP6 data access; CSP checklist item
  * "end-users' access rights"). Every query is scoped to the session user's id
@@ -141,17 +143,14 @@ async function listUserFiles(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ avatars: string[]; chatImages: string[] }> {
-  const { data: avatars } = await supabase.storage.from("avatars").list(userId);
+  const avatars = await listAllEntries(supabase, "avatars", userId);
   const chatImages: string[] = [];
-  const { data: folders } = await supabase.storage.from("chat-images").list(userId);
-  for (const folder of folders ?? []) {
-    const { data: files } = await supabase.storage
-      .from("chat-images")
-      .list(`${userId}/${folder.name}`);
-    for (const file of files ?? []) chatImages.push(`chat-images/${userId}/${folder.name}/${file.name}`);
+  for (const folder of await listAllEntries(supabase, "chat-images", userId)) {
+    const files = await listAllEntries(supabase, "chat-images", `${userId}/${folder.name}`);
+    for (const file of files) chatImages.push(`chat-images/${userId}/${folder.name}/${file.name}`);
   }
   return {
-    avatars: (avatars ?? []).map((file) => `avatars/${userId}/${file.name}`),
+    avatars: avatars.map((file) => `avatars/${userId}/${file.name}`),
     chatImages,
   };
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { listAllEntries, removePaths } from "@/lib/storage-list";
 import { chatEndSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
@@ -49,12 +50,12 @@ export async function POST(request: NextRequest) {
     // failure, as account deletion does.
     try {
       const folder = `${user.id}/${sessionId}`;
-      const { data: images } = await supabase.storage.from("chat-images").list(folder);
-      if (images && images.length > 0) {
-        await supabase.storage
-          .from("chat-images")
-          .remove(images.map((image) => `${folder}/${image.name}`));
-      }
+      const images = await listAllEntries(supabase, "chat-images", folder);
+      await removePaths(
+        supabase,
+        "chat-images",
+        images.map((image) => `${folder}/${image.name}`),
+      );
     } catch (storageError) {
       console.error("[Chat] Delete: image cleanup failed:", storageError);
     }
