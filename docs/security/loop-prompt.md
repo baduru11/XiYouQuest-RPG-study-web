@@ -1,7 +1,8 @@
 # Local posture Loop: scheduled task prompt
 
 This is the exact prompt of the local scheduled task
-`xyq-security-posture-loop` (daily 09:17 HKT, 2026-09-25 to 2026-10-09). It is
+`xyq-security-posture-loop` (daily 09:17 HKT plus scheduler jitter, 2026-09-25
+to 2026-10-09). It is
 kept here so the Loop can be reviewed, re-created or moved to another machine.
 It contains no secrets: credentials are read at run time from the macOS
 keychain and never printed.

@@ -92,7 +92,8 @@ CodeQL and Gitleaks run on every push and PR (`.github/workflows/security.yml`).
 ## Local session Loop (hardening period)
 
 A local scheduled task (`xyq-security-posture-loop`) runs daily at 09:17 HKT
-while the Claude desktop app is open, from 2026-09-25 to 2026-10-09. Its full,
+(the scheduler adds up to about 13 minutes of jitter) while the Claude desktop
+app is open, or at the next launch if it was closed, from 2026-09-25 to 2026-10-09. Its full,
 self-contained prompt is in [loop-prompt.md](loop-prompt.md). Each run is
 read-only apart from its diary file: it runs the posture check, compares it with
 the previous run, checks the hardening PR and the production deployment, and
