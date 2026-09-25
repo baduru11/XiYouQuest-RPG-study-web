@@ -5,7 +5,8 @@ This is the exact prompt of the local scheduled task
 to 2026-10-09). It is
 kept here so the Loop can be reviewed, re-created or moved to another machine.
 It contains no secrets: credentials are read at run time from the macOS
-keychain and never printed.
+keychain and never printed. The only difference from the scheduled copy is
+that the local clone's absolute path is written here as `<repo>`.
 
 ---
 
@@ -24,7 +25,7 @@ to the diary if it is not already there, report that, and stop.
 
 **Steps.**
 
-1. Repository: `/Users/blueock/Documents/GitHub/XiYouQuest-RPG-study-web`.
+1. Repository: `<repo>`, the absolute path of the local clone.
    Run `git -C <repo> fetch origin --quiet` (ignore failures). Choose the source
    ref: `origin/main` if `git cat-file -e origin/main:scripts/security/posture-lib.mjs`
    succeeds (the hardening has merged), otherwise the local branch
