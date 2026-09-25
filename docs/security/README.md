@@ -52,7 +52,7 @@ signature did not match); v2 returns SKIP or WARN when a probe proves nothing.
 | ANON-4 | Anonymous bucket listing empty | No objects returned |
 | EDGE-1 | Every edge function boots and refuses anonymous calls | HTTP 401 from all functions |
 | WEB-0, HDR-1 to HDR-6 | App reachable; CSP nonce, framing, HSTS, nosniff, referrer, permissions headers | Headers present on `/login` |
-| DEPLOY-1 | Hardened release live | `/.well-known/security.txt` served (WARN until OA-6) |
+| DEPLOY-1 | Hardened release live | `/.well-known/security.txt` served (WARN if production is rolled back before the 2026-09-25 release) |
 | CSRF-1 | Cross-site API write refused | HTTP 403 before authentication |
 | TLS-1 | TLS 1.0/1.1 refused | The server's protocol-version alert to a real TLS 1.1 offer |
 | TLS-2 | Modern TLS with a valid certificate | Completed TLS 1.2+ handshake |

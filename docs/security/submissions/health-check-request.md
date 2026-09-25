@@ -30,5 +30,5 @@ Kind regards,
 [Name]
 [Responsible unit]
 
-Attachments: source zip of the release commit (prepare from the merged main
-branch after OA-6, excluding `.env*` files).
+Attachments: source zip of the release commit (prepare from `main` at
+`6ba5ef7`, the release of 2026-09-25, excluding `.env*` files).

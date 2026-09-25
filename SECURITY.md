@@ -11,7 +11,7 @@ This file is the summary. The evidence lives in `docs/security/`:
 | Document | What it holds |
 |---|---|
 | [itso-requirement-register.md](docs/security/itso-requirement-register.md) | Every applicable ITSO requirement (101 rows): status, evidence, open item |
-| [owner-actions.md](docs/security/owner-actions.md) | The 16 gaps only an owner or HKUST can close, with steps and due dates |
+| [owner-actions.md](docs/security/owner-actions.md) | The 16 owner actions: steps, due dates and completion state |
 | [README.md](docs/security/README.md) | The weekly posture check (Loop) and how to run it |
 | [posture-diary.md](docs/security/posture-diary.md) | Append-only results of every posture check |
 | [data-register.md](docs/security/data-register.md) | Personal data inventory, processors, visibility, retention |
@@ -23,17 +23,19 @@ This file is the summary. The evidence lives in `docs/security/`:
 
 ## What is live and what is not (2026-09-25)
 
-- **Production web app:** upstream `main` 66d4824 (deployed 2026-09-05). It
-  does not yet contain this hardening (owner action OA-6).
-- **Production edge functions:** the hardened release from branch
-  `security/hkust-hardening`, deployed 2026-09-25. All AI, speech and
-  text-to-speech traffic goes through them, so their rate limits, input
-  bounds and model-routing policy are live.
+- **Production web app:** upstream `main` 6ba5ef7, the hardening release
+  (pull request #9), deployed 2026-09-25 06:08 UTC. Every control in this
+  file is live.
+- **Production edge functions:** the hardened release, deployed 2026-09-25.
+  All AI, speech and text-to-speech traffic goes through them, so their rate
+  limits, input bounds and model-routing policy are live.
 - **Production database:** client-role lockdown and storage write lockdown
-  applied 2026-09-24. The security event log and the chat-images type
-  restriction were applied on 2026-09-25 (OA-5).
-- **Latest posture check (2026-09-25):** 25 PASS, 0 FAIL, 5 WARN (each an
-  owner action), 2 SKIP.
+  applied 2026-09-24. The security event log, the chat-images type
+  restriction and the rate-limit purge were applied 2026-09-25 (OA-5); SSL
+  is enforced on incoming connections (OA-4); Supabase Auth sign-up and its
+  providers are closed (OA-2).
+- **Latest posture check (2026-09-25 06:30 UTC):** 29 PASS, 0 FAIL, 2 WARN
+  (OA-1 and OA-3), 1 SKIP (TLS-3 needs an external scanner).
 
 ## Trust boundaries
 
@@ -41,17 +43,15 @@ This file is the summary. The evidence lives in `docs/security/`:
   instance (`src/lib/auth.ts`). The id_token's signature is verified against
   the issuing tenant's keys with issuer, audience and algorithm pinned, the
   tenant must be one of HKUST's two tenants, and the email domain must be
-  `ust.hk` or `connect.ust.hk`, on every sign-in. No local passwords. From
-  the hardening release (OA-6), no provider token is stored
-  (`src/lib/oauth-token-hygiene.ts`).
-- **Sessions.** Better Auth session cookie: HttpOnly, SameSite=Lax, Secure.
-  From the hardening release (OA-6), an 8-hour inactivity timeout replaces the
-  7-day default (`src/lib/session-policy.ts`).
+  `ust.hk` or `connect.ust.hk`, on every sign-in. No local passwords. No
+  provider token is stored (`src/lib/oauth-token-hygiene.ts`).
+- **Sessions.** Better Auth session cookie: HttpOnly, SameSite=Lax, Secure,
+  with an 8-hour inactivity timeout (`src/lib/session-policy.ts`).
 - **Request gate.** `src/proxy.ts` sends every non-public request without a
-  session to sign-in (API: 401) and sets a per-request nonce Content Security
-  Policy; from the hardening release (OA-6) it also refuses cross-site
-  state-changing API requests. Every API
-  route authenticates again itself (`src/app/api/authz-matrix.test.ts`).
+  session to sign-in (API: 401), sets a per-request nonce Content Security
+  Policy, and refuses cross-site state-changing API requests and cross-site
+  navigations to the data export. Every API route authenticates again itself
+  (`src/app/api/authz-matrix.test.ts`).
 - **Data.** Server code uses Supabase's service role, which bypasses row-level
   security, so every query is scoped to the signed-in user in code
   (`src/app/api/authz-cross-user.test.ts`). The roles a browser could use
@@ -64,8 +64,8 @@ This file is the summary. The evidence lives in `docs/security/`:
   these tokens itself; the functions do.
 - **Database transport.** The Better Auth pool verifies the database's
   certificate chain against Supabase's published root CA with hostname
-  checking (`src/lib/db-tls.ts`, posture DBTLS-1). Live after OA-6; enforced
-  database-side by OA-4.
+  checking (`src/lib/db-tls.ts`, posture DBTLS-1). Since 2026-09-25 the
+  database also refuses plaintext connections (OA-4, posture PLAT-1).
 
 ## Controls added by the 2026-09 hardening
 

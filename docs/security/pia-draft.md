@@ -48,7 +48,7 @@ population: which courses or cohorts will be invited?]**
 
 | Processor | Data | Safeguards |
 |---|---|---|
-| Supabase (database, storage, edge functions) | All stored data | DPA with 48-hour breach notice and deletion after termination; encryption at rest; database roles reachable by clients hold no privilege; TLS verified with a pinned CA (after OA-6) |
+| Supabase (database, storage, edge functions) | All stored data | DPA with 48-hour breach notice and deletion after termination; encryption at rest; database roles reachable by clients hold no privilege; TLS verified with a pinned CA and enforced by the database since 2026-09-25 |
 | Vercel (web hosting) | All requests | TLS 1.2+; security headers; SOC 2 Type 2 available on request |
 | iFLYTEK Open Platform (SYNLAN Technology, Singapore) | Voice recordings and practice text | Transient processing; credentials held server-side; no DPA (OA-13) |
 | OpenRouter and selected model hosts | Practice results, chat messages and transcripts needed for feedback | Zero data retention, no training, no hosts in mainland China; student ids stripped from prompts |

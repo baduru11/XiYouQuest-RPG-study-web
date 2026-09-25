@@ -20,11 +20,11 @@ Roles used below:
 | ID | Action | Owner | Due | Verified by |
 |---|---|---|---|---|
 | OA-1 | Retire the legacy JWT secret and legacy API keys | Supabase org owner + Vercel XYQ member | 2026-09-26 | AUTH-2 |
-| OA-2 | Close Supabase Auth sign-up and providers | Supabase org owner | 2026-09-26 | AUTH-1 |
+| OA-2 | Close Supabase Auth sign-up and providers | Supabase org owner | Done 2026-09-25 | AUTH-1 |
 | OA-3 | Arrange database backups (plan decision) | Responsible unit + Supabase org owner | 2026-10-09 | PLAT-2 |
-| OA-4 | Enforce TLS on database connections | Supabase org owner | Same day as OA-6 | PLAT-1 |
+| OA-4 | Enforce TLS on database connections | Supabase org owner | Done 2026-09-25 | PLAT-1 |
 | OA-5 | Apply the two pending migrations | Supabase org owner or maintainer with approval | Done 2026-09-25 | DB-7, DB-8 |
-| OA-6 | Review, merge and deploy the hardening PR | Repository owner + Vercel XYQ member | 2026-10-02 | DEPLOY-1, CSRF-1 |
+| OA-6 | Review, merge and deploy the hardening PR | Repository owner + Vercel XYQ member | Done 2026-09-25 | DEPLOY-1, CSRF-1 |
 | OA-7 | Protect CI secrets and repository settings | Repository owner | 2026-10-02 | Workflow run |
 | OA-8 | ITSO submissions (PIA, CSP checklists, CITARS, health check) | Responsible unit + maintainer | See below | Register rows |
 | OA-9 | Privileged-account inventory and MFA | All account owners | 2026-10-02 | submissions/privileged-accounts.md |
@@ -90,9 +90,14 @@ but sign-up is open with Email, Google and Discord enabled, no CAPTCHA and a
 6-character minimum password. A self-registered account currently holds no
 privilege (posture DB-2, DB-3), so this is a residual risk, not an open door.
 
-Supabase dashboard: Authentication, Sign In / Providers. Turn off "Allow new
-users to sign up", then disable the Email, Google and Discord providers.
-Posture AUTH-1 must report PASS.
+**Done 2026-09-25.** The maintainer, an organisation Administrator since that
+day, set `disable_signup` and turned the Email, Google and Discord providers
+off through the Management API's auth configuration, and read the four flags
+back. Posture AUTH-1 reports PASS (closed).
+
+For another environment: Supabase dashboard, Authentication, Sign In /
+Providers. Turn off "Allow new users to sign up", then disable the Email,
+Google and Discord providers. Posture AUTH-1 must report PASS.
 
 ## OA-3: Arrange database backups
 
@@ -116,13 +121,17 @@ Posture PLAT-2 must report PASS once backups exist.
 
 ## OA-4: Enforce TLS on database connections
 
-Supabase currently accepts unencrypted database connections. The hardening
-branch makes the Better Auth pool verify Supabase's CA (posture DBTLS-1), so
-enforcement is safe only after that release is live (OA-6). On the same day:
+**Done 2026-09-25**, after the release went live. Before enforcing, the
+database's only plaintext connections were Supabase's own services (pooler,
+Storage, metrics exporter), which the setting does not govern; the app's pool
+already verified the pinned CA. The maintainer enforced it through the
+Management API; `/api/auth/jwks`, which the app serves from the database
+through that pool, still answered, and posture PLAT-1 reports PASS (enforced).
+To roll back, turn the setting off in Database, Settings, SSL Configuration.
 
-Supabase dashboard: Database, Settings, SSL Configuration. Turn on "Enforce SSL
-on incoming connections". Sign in once to confirm, then run the posture check;
-PLAT-1 must report PASS. To roll back, turn the setting off.
+Background: until then Supabase accepted unencrypted database connections.
+The hardening release makes the Better Auth pool verify Supabase's CA (posture
+DBTLS-1), which is what made enforcement safe.
 
 ## OA-5: Apply the two pending migrations
 
@@ -162,11 +171,19 @@ security log records nothing until the first one is applied.
 
 ## OA-6: Review, merge and deploy the hardening PR
 
-Production still serves upstream `main` from 2026-09-05, so most web-app fixes
-are not live. The edge functions were deployed from the branch on 2026-09-25.
-After the merge and Vercel deployment, posture DEPLOY-1 and CSRF-1 must report
-PASS. Vercel asks a team member to approve each commit of a fork PR before it
-builds a preview; the approval is not needed to merge.
+**Done 2026-09-25.** Pull request #9 was merged as `6ba5ef7` at 06:08Z, after
+the repository owner made the maintainer a collaborator, and Vercel deployed
+it from `main` within the minute. Before merging, a Vercel preview build of
+the final head was made from the command line and passed; the preview build
+of 2026-09-24 had failed because `.vercelignore` excluded directories that
+the type check imports (fixed in the last commit, with a test). After the
+deployment: `/privacy` 200, `/.well-known/security.txt` served, the
+cross-site guards answer 403, `/api/auth/jwks` answers from the database, and
+posture DEPLOY-1 and CSRF-1 report PASS.
+
+Background: production had served upstream `main` from 2026-09-05. Vercel
+asks a team member to approve each commit of a fork PR before it builds a
+preview; the approval is not needed to merge.
 
 ## OA-7: Protect CI secrets and repository settings
 

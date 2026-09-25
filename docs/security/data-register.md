@@ -5,7 +5,8 @@ and staff) with **Sensitive (high protection)** assessment-related data. See
 [itso-requirement-register.md](itso-requirement-register.md), section 1.
 Supports the PIA ([pia-draft.md](pia-draft.md)) and the privacy notice
 (`/privacy`). Last verified against code and the live project on 2026-09-25;
-"branch" marks items that arrive with the hardening release (OA-6).
+The hardening release went live on 2026-09-25, so every item below is in
+force.
 
 ## 1. Data subjects
 
@@ -20,7 +21,7 @@ the unused Supabase Auth system (OA-14).
 |---|---|---|---|
 | `better_auth.user` | name, email, email-verified flag, image URL | Identity | HKUST SSO claims at sign-in (`src/lib/auth.ts`) |
 | `better_auth.session` | session token, IP address, user agent, timestamps | Identity / technical | Better Auth at sign-in |
-| `better_auth.account` | provider and account id; provider tokens are no longer stored (branch) | Identity | OIDC exchange |
+| `better_auth.account` | provider and account id; provider tokens are not stored | Identity | OIDC exchange |
 | `public.profiles` | display name, username, friend code, XP, level, streak, last login, avatar URL, audio settings | Identity and usage | Sign-in and gameplay |
 | `public.practice_sessions`, `practice_details` | Practice attempts, scores, timing | Sensitive (high protection) | Gameplay |
 | `public.mock_exam_results` | Mock PSC results and AI feedback | Sensitive (high protection) | Gameplay and AI |
@@ -53,7 +54,7 @@ decision (OA-10).
 ## 4. Data flows
 
 ```
-HKUST Entra ID --OIDC--> Better Auth on Vercel (US) --TLS, pinned CA (branch)--> Supabase (Mumbai)
+HKUST Entra ID --OIDC--> Better Auth on Vercel (US) --TLS, pinned CA, enforced--> Supabase (Mumbai)
 Browser --JWT--> Supabase Edge Functions --> iFLYTEK (Singapore): audio, practice text
                                         \--> OpenRouter (US) --> zero-data-retention model host
 ```
@@ -79,14 +80,14 @@ Details per checklist item: [csp-checklists.md](csp-checklists.md).
   then avatar and chat images (best effort), then the identity with its
   sessions and accounts. It stops before touching the identity if any record
   delete fails. Security log entries remain until they expire (180 days).
-- **Deleting a chat** also removes its scene images (branch).
-- **Sessions** expire after 8 hours without use (branch; 7 days before).
+- **Deleting a chat** also removes its scene images.
+- **Sessions** expire after 8 hours without use (7 days before 2026-09-25).
 - **Backups:** none customer-accessible (Free plan, OA-3).
 - **Proposed schedule:** [submissions/retention-schedule-proposal.md](submissions/retention-schedule-proposal.md) (OA-14).
 
 ## 7. Data subject rights
 
-- **Access:** `GET /api/profile/export` (branch) returns all of the above for
+- **Access:** `GET /api/profile/export` returns all of the above for
   the signed-in user as JSON, never tokens; Profile, Your Data, Download.
 - **Correction:** display name on the Profile page; other records are
   system-generated; other corrections through the DPO.

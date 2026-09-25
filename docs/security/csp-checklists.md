@@ -39,7 +39,7 @@ Region: `ap-south-1` (Mumbai, India). Plan: Free ("baduru11's Org").
 | 8 | ? | Expected in the SOC 2 report |
 | 9 | Y | [Security page](https://supabase.com/security): AES-256 at rest, TLS in transit |
 | 10 | P | SOC 2 Type 2 and ISO 27001 held; the report is available to Team and Enterprise customers only, so not on the Free plan (OA-3, OA-13) |
-| 11 | Y | Project hardening: client roles hold no privilege; TLS verified to the database (branch) |
+| 11 | Y | Project hardening: client roles hold no privilege; TLS verified to the database and enforced by the database since 2026-09-25 |
 | 12 | N | No SLA on the Free plan |
 | 13 | Y | DPA incorporates the EU Standard Contractual Clauses |
 

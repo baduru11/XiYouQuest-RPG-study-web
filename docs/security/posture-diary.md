@@ -133,3 +133,27 @@ production `consume_rate_limit` body matched the repository's 2026-09-24
 version byte for byte, and the counter table was empty. After: the function
 carries the bounded purge, EXECUTE stays with `service_role` only, and the
 `window_start` index exists. No posture row covers this function.
+
+## 2026-09-25T06:30:45Z posture check v2, after the release, OA-2 and OA-4
+
+Target: https://cle-xyq.hkust.edu.hk, project yfoifmqjhavxidomgids.
+PASS 29 · FAIL 0 · WARN 2 · SKIP 1
+
+Three changes since 04:42:51Z, in order:
+
+1. **Release (OA-6).** Pull request #9 merged as `6ba5ef7` at 06:08Z; Vercel
+   deployed it from `main` within the minute. A run at 06:28:02Z showed
+   DEPLOY-1 PASS (`/.well-known/security.txt` served) and CSRF-1 PASS (HTTP
+   403 to a cross-site write): 27 PASS, 4 WARN, 1 SKIP.
+2. **OA-2.** Supabase Auth sign-up closed and the Email, Google and Discord
+   providers turned off: AUTH-1 PASS (closed).
+3. **OA-4.** SSL enforcement on incoming database connections turned on:
+   PLAT-1 PASS (enforced). Negative control from outside: a plaintext
+   connection is refused with `SSL connection is required`; a TLS connection
+   trusting only the system CAs fails on the certificate chain; the pinned-CA
+   handshake still completes (DBTLS-1 PASS), and the live app still serves
+   `/api/auth/jwks` from the database.
+
+Remaining: AUTH-2 WARN (legacy HS256 secret, OA-1), PLAT-2 WARN (no backups,
+OA-3), TLS-3 SKIP (external scanner). CI and Security workflows ran on the
+merge commit upstream and passed.

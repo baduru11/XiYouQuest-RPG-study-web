@@ -6,14 +6,16 @@ paraphrased and anchored to the row identifiers of the source documents
 (linked in section 2), which remain the authority.
 
 - **Status date:** 2026-09-25.
-- **Code:** branch `security/hkust-hardening`. "Branch" in the Evidence column
-  means the control is in this branch and not yet in production.
-- **Production:** web app = upstream `main` 66d4824 (deployed 2026-09-05,
-  before this hardening). Edge functions = the hardened release from this
-  branch, deployed 2026-09-25 (versions in `scripts/security/edge-manifest.json`).
-  Database migrations of this branch applied 2026-09-25 (OA-5).
-- **Live posture (2026-09-25 04:42Z):** 25 PASS, 0 FAIL, 5 WARN, 2 SKIP; every
-  WARN maps to an owner action. Details: [posture-diary.md](posture-diary.md).
+- **Code:** upstream `main` 6ba5ef7 (pull request #9 from branch
+  `security/hkust-hardening`, merged 2026-09-25). "Branch" in the Evidence
+  column marks a control that arrived with that release.
+- **Production:** web app = `main` 6ba5ef7, deployed 2026-09-25 06:08Z. Edge
+  functions = the hardened release, deployed 2026-09-25 (versions in
+  `scripts/security/edge-manifest.json`). Database: the release's three
+  migrations applied (OA-5), SSL enforced (OA-4) and Supabase Auth sign-up
+  closed (OA-2), all on 2026-09-25.
+- **Live posture (2026-09-25 06:30Z):** 29 PASS, 0 FAIL, 2 WARN, 1 SKIP; the
+  WARNs are OA-1 and OA-3. Details: [posture-diary.md](posture-diary.md).
 
 ## 1. Classification
 
@@ -58,7 +60,8 @@ on privacy impact assessments, which ITSO's documents cite.
 ## 3. Status legend
 
 - **Met**: the control exists and the evidence column proves it.
-- **Met (branch)**: implemented and tested in this branch, live after OA-6.
+- **Met (branch)**: was used until the release of 2026-09-25 for a control
+  tested on the branch; every such row is now Met.
 - **Partial**: some of the requirement is met; the rest is named.
 - **Gap**: not met; an owner action closes it.
 - **Deviation**: deliberately different from the letter of the guideline, with
@@ -72,13 +75,13 @@ on privacy impact assessments, which ITSO's documents cite.
 | ID | Requirement | Status | Evidence | Open item |
 |---|---|---|---|---|
 | MSS-APP-1 | Keep an up-to-date IT resource record (CITARS) | Gap | None registered | OA-8 (CITARS) |
-| MSS-APP-2 | Apply security fixes within 28 days, or configure protection | Partial | `npm audit --omit=dev` shows 0 high/critical; CI audit and weekly Dependabot (`.github/workflows/ci.yml`, `.github/dependabot.yml`); edge imports pinned to the tested versions and enforced by `src/lib/rate-limit.test.ts` | CI does not run upstream until OA-6/OA-7 |
+| MSS-APP-2 | Apply security fixes within 28 days, or configure protection | Partial | `npm audit --omit=dev` shows 0 high/critical; CI audit and weekly Dependabot (`.github/workflows/ci.yml`, `.github/dependabot.yml`); edge imports pinned to the tested versions and enforced by `src/lib/rate-limit.test.ts` | CI ran on the release commit upstream (2026-09-25); protected secrets and branch protection, OA-7 |
 | MSS-APP-3 | HTTPS for logon pages and high-risk data | Met | HSTS 2 years with preload; TLS 1.0/1.1 refused by the server (posture TLS-1, genuine server alert); TLS 1.3 negotiated (TLS-2) | Database leg: see WASG-3.3 |
 | MSS-APP-4 | Ongoing security fixes available for third-party software | Met | Next.js 16.3.6 (current), React 19, Better Auth 1.6, supabase-js 2.95, Node 22 LTS; managed platforms patched by providers | |
 | MSS-APP-5 | Regular backup of data | Gap | Supabase Free plan: 0 backups, PITR off (posture PLAT-2) | OA-3 |
 | MSS-APP-6 | Development follows the Application Development Guidelines | Partial | Sections 9 and 10 below | Items listed there |
-| MSS-APP-7 | Vulnerability scan before deployment and regularly after | Partial | Weekly read-only posture check v2 (privileges, TLS, headers, edge gates, storage); CodeQL on push and PR (branch) | No DAST yet: ITSO Acunetix health check, OA-8 |
-| MSS-APP-8 | Source code scanning before deployment and after major changes | Met (branch) | CodeQL `security-extended` and Gitleaks on every push and PR (`.github/workflows/security.yml`); two independent adversarial code reviews of this branch | Runs upstream after OA-6; ITSO Coverity scan requested in OA-8 |
+| MSS-APP-7 | Vulnerability scan before deployment and regularly after | Partial | Weekly read-only posture check v2 (privileges, TLS, headers, edge gates, storage); CodeQL on every push and PR, running upstream since 2026-09-25 | No DAST yet: ITSO Acunetix health check, OA-8 |
+| MSS-APP-8 | Source code scanning before deployment and after major changes | Met | CodeQL `security-extended` and Gitleaks on every push and PR (`.github/workflows/security.yml`); three independent adversarial code reviews of the release | Ran upstream on the release commit (2026-09-25); ITSO Coverity scan requested in OA-8 |
 | MSS-APP-9 | Security designed in from the initial phase | Partial | This register, the posture check, the PIA draft and the threat review were produced after launch | Retroactive; recorded as such in the PIA |
 
 ## 5. Minimum Security Standard: SaaS on Cloud (High column)
@@ -91,8 +94,8 @@ processors (iFLYTEK, OpenRouter and its model hosts). Per-provider detail is in
 |---|---|---|---|---|
 | MSS-SAAS-1 | Select providers following "Choosing Cloud Service Provider" | Partial | Assessment drafted per provider in csp-checklists.md | Endorsement and submission, OA-8 |
 | MSS-SAAS-2 | Keep an up-to-date IT resource record | Gap | Not in CITARS | OA-8 |
-| MSS-SAAS-3 | Integrate with ITSO SSO; review admin accounts regularly; ITSO password rules otherwise | Partial | Users sign in only through HKUST Microsoft Entra ID (OIDC), tenant-pinned and signature-verified (`src/lib/auth.ts`); email/password disabled | Admin account review OA-9; Supabase Auth's unused password sign-up OA-2 |
-| MSS-SAAS-4 | TLS transport encryption | Met (branch for DB) | Browser to Vercel and Supabase: TLS 1.2+ (TLS-1, TLS-2). Vercel to database: pinned-CA verification in `src/lib/db-tls.ts`, verified live (DBTLS-1) | Live with OA-6; enforce with OA-4 |
+| MSS-SAAS-3 | Integrate with ITSO SSO; review admin accounts regularly; ITSO password rules otherwise | Partial | Users sign in only through HKUST Microsoft Entra ID (OIDC), tenant-pinned and signature-verified (`src/lib/auth.ts`); email/password disabled; Supabase Auth's unused sign-up and providers closed 2026-09-25 | Admin account review OA-9 |
+| MSS-SAAS-4 | TLS transport encryption | Met | Browser to Vercel and Supabase: TLS 1.2+ (TLS-1, TLS-2). Vercel to database: pinned-CA verification in `src/lib/db-tls.ts`, verified live (DBTLS-1); the database refuses plaintext connections since 2026-09-25 (PLAT-1) | |
 | MSS-SAAS-5 | Enable MFA where the vendor provides it | Partial | Student and staff sign-in inherits HKUST Entra MFA policy | Administrator consoles unverified, OA-9 |
 | MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Partial | `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention; the service key can only append and cannot read or alter it, but the auth pool's database-owner credential can until OA-16 (`supabase/migrations/20260925090000_security_events.sql`, PGlite tests) | Table live in production since 2026-09-25 (OA-5 done); web-app events start with the release (OA-6); least-privilege auth pool role (OA-16); platform logs keep only 1 hour to 1 day (OA-3) |
 | MSS-SAAS-7 | Contract that HKUST data is purged when the agreement ends | Partial | Supabase DPA: deletion within 30 days of termination | Vercel DPA covers Enterprise terms only; OpenRouter DPA not reviewed; iFLYTEK has none. OA-13 |
@@ -116,7 +119,7 @@ controls are the providers', evidenced through their attestations.
 | MSS-SRV-8 | Trained system administrator assigned | Gap | No named administrator | OA-14 |
 | MSS-SRV-9 | Regular OS vulnerability scans (October exercise) | N-A for OS | No OS under our control; the exposed surface is covered by posture v2 | |
 | MSS-SRV-10 | Encrypted backup | Gap | No backups | OA-3 |
-| MSS-SRV-11 | Forward logs to a remote log server | Partial | Security events stored in the database (branch) | No log drain on current plans; OA-3 |
+| MSS-SRV-11 | Forward logs to a remote log server | Partial | Security events stored in the database since 2026-09-25 | No log drain on current plans; OA-3 |
 | MSS-SRV-12 | Destroy disk content on disposal | Provider | | |
 
 ## 7. Minimum Security Standard: Endpoints (High column)
@@ -153,15 +156,15 @@ firewall re-checked on 2026-09-25.
 | ID | Requirement | Status | Evidence | Open item |
 |---|---|---|---|---|
 | ADG-1 | Access control on sensitive locations and functions | Met | Proxy gate on every non-public path (`src/proxy.ts`); every route authenticates (`src/app/api/authz-matrix.test.ts`, 40 routes); ownership filters bound to the session user (`authz-cross-user.test.ts`); second review found no unscoped client-supplied id | Implicit account linking risk, OA-11 |
-| ADG-2 | Encrypt sensitive data on public networks | Met (branch for DB) | See MSS-SAAS-4 | OA-4, OA-6 |
-| ADG-3 | Validate input: type, syntax, length, characters, range | Met (branch) | zod schemas for every body and query (`src/lib/validations.ts` and the edge twin, parity-tested); bounds added for AI prompt inputs, progress counters, paging and report ids | |
-| ADG-4 | Fix critical flaws found by security testing | Met (branch) | All confirmed review findings fixed or dispositioned (section 15) | Health-check findings once run, OA-8 |
-| ADG-5 | Remove unused services and functions | Partial | Unreferenced content files removed from the web root | Unused GraphQL schema OA-15; Supabase Auth providers OA-2 |
+| ADG-2 | Encrypt sensitive data on public networks | Met | See MSS-SAAS-4; database leg enforced 2026-09-25 | |
+| ADG-3 | Validate input: type, syntax, length, characters, range | Met | zod schemas for every body and query (`src/lib/validations.ts` and the edge twin, parity-tested); bounds added for AI prompt inputs, progress counters, paging and report ids | |
+| ADG-4 | Fix critical flaws found by security testing | Met | All confirmed review findings fixed or dispositioned (section 15) | Health-check findings once run, OA-8 |
+| ADG-5 | Remove unused services and functions | Partial | Unreferenced content files removed from the web root; Supabase Auth providers off since 2026-09-25 | Unused GraphQL schema OA-15 |
 | ADG-6 | Remove test data and accounts before production | Partial | All 28 application accounts are HKUST-domain users; the preview project holds no learner rows | Two dormant Supabase Auth accounts, OA-14 |
 | ADG-7 | Design against the OWASP Top 10 | Partial | Section 10, Appendix A mapping | |
 | ADG-8 | TLS; SSLv2/v3 disabled | Met | TLS-1 | |
 | ADG-9 | Mitigate the common vulnerabilities from the KPMG audit | Unverified | Document requires HKUST staff login | OA-8 |
-| ADG-10 | Anti-CSRF protection | Met (branch) | SameSite=Lax session cookies, plus refusal of cross-site API writes (`src/proxy.ts`, `src/proxy.csrf.test.ts`, posture CSRF-1), plus Better Auth's own origin checks | |
+| ADG-10 | Anti-CSRF protection | Met | SameSite=Lax session cookies, plus refusal of cross-site API writes (`src/proxy.ts`, `src/proxy.csrf.test.ts`, posture CSRF-1), plus Better Auth's own origin checks | |
 | ADG-11 | Submit the PIA to `seccomp@ust.hk` before publishing | Gap | App published without it | OA-8 (draft ready) |
 
 ## 10. Guidelines on Web Application Security v2.1
@@ -176,18 +179,18 @@ Grouped by section; every bullet of the guideline is covered by a row.
 | WASG-2.2a | Do not trust or echo HTTP headers or hidden parameters; keep session values on the server | Met | Headers only ever refuse (Sec-Fetch-Site, Origin); user identity comes from the verified session, never the request body | |
 | WASG-2.2b | Use POST only to send requests | Deviation | REST semantics: GET for idempotent reads, POST/PATCH/DELETE for changes | ITSO acceptance, OA-8 |
 | WASG-2.2c | Protect session IDs; one per connection; sensitive pages not cached | Met | Dynamic pages send `Cache-Control: private, no-cache, no-store` (checked live); export sends `no-store` | |
-| WASG-2.2d | No data, temporary or backup files in web directories | Met (branch) | Campaign source documents moved out of `public/` | |
+| WASG-2.2d | No data, temporary or backup files in web directories | Met | Campaign source documents moved out of `public/` | |
 | WASG-2.2e | Use Java or .NET server-side | Deviation | TypeScript on Next.js and Deno | ITSO acceptance, OA-8 |
 | WASG-3.1 | Secure design; secure the weakest link | Partial | This register and two adversarial reviews | Retroactive (MSS-APP-9) |
-| WASG-3.2 | Least-privilege processes and accounts; unused services off; SSL for all client-server data | Partial | Client database roles hold nothing; only the server holds the service key | OA-2, OA-15 |
-| WASG-3.3 | Encrypt sensitive data in storage and transit; mask in display and testing | Partial | At rest: AES-256 by Supabase (provider). In transit: TLS everywhere, database leg pinned on the branch (DBTLS-1) and to be enforced (OA-4). Tests use synthetic data | No application-level encryption of chat transcripts: accepted risk, recorded in the PIA |
+| WASG-3.2 | Least-privilege processes and accounts; unused services off; SSL for all client-server data | Partial | Client database roles hold nothing; only the server holds the service key; Supabase Auth sign-up closed; the database refuses plaintext connections (PLAT-1) | OA-15 |
+| WASG-3.3 | Encrypt sensitive data in storage and transit; mask in display and testing | Partial | At rest: AES-256 by Supabase (provider). In transit: TLS everywhere, database leg pinned (DBTLS-1) and enforced by the database since 2026-09-25 (PLAT-1). Tests use synthetic data | No application-level encryption of chat transcripts: accepted risk, recorded in the PIA |
 | WASG-3.4 | Web services: authorise clients, validate, encode output, encrypt, virus-scan attachments, limit message size | Partial | Edge functions verify a signed JWT (ES256, issuer and audience pinned) before any work; request and audio size caps | Uploaded avatars are not antivirus-scanned (see WASG-4.8) |
 | WASG-3.5 | Secure deployment review | Met | This register; posture check | |
 | WASG-4.1 | Input validation: lengths, ranges, central validation, charset, SQL-injection defences, secure parsing, strong typing, content types | Partial | zod everywhere; parameterised queries only; LIKE wildcards (including PostgREST's `*`) neutralised | Content-Type is not enforced per route (cross-site text/plain is blocked by the proxy guard); validation failures are not logged centrally |
 | WASG-4.2 | Output encoding; correct Content-Type; CSP | Met | React escaping; JSON serialiser; per-request nonce CSP with `strict-dynamic` (HDR-1) | The only raw-HTML use injects static chart styles (`src/components/ui/chart.tsx`) |
-| WASG-4.3 | Password policy, lockout, reset, secure storage | N-A | No passwords: HKUST SSO only | Supabase Auth password sign-up disabled by OA-2 |
-| WASG-4.4 | Session management: server-created, >128-bit random, inactivity timeout, invalidated at logout, SSL, regenerated on sign-in | Met (branch) | Better Auth sessions; 8-hour inactivity timeout (`src/lib/session-policy.ts`, was 7 days); sign-out deletes the session server-side; edge JWTs live 15 minutes | |
-| WASG-4.5 | Authorisation: anti-farming, method allowlists, protected privileged actions, CSRF tokens, contextual (IDOR) checks, no credentials in URLs | Met (branch) | Per-user rate limits on 28 handlers (`src/app/api/rate-limit-coverage.test.ts`); route handlers export explicit methods; ownership checks per request | Anti-CSRF uses Fetch Metadata and SameSite instead of tokens (OWASP-accepted alternative) |
+| WASG-4.3 | Password policy, lockout, reset, secure storage | N-A | No passwords: HKUST SSO only; Supabase Auth password sign-up disabled 2026-09-25 | |
+| WASG-4.4 | Session management: server-created, >128-bit random, inactivity timeout, invalidated at logout, SSL, regenerated on sign-in | Met | Better Auth sessions; 8-hour inactivity timeout (`src/lib/session-policy.ts`, was 7 days); sign-out deletes the session server-side; edge JWTs live 15 minutes | |
+| WASG-4.5 | Authorisation: anti-farming, method allowlists, protected privileged actions, CSRF tokens, contextual (IDOR) checks, no credentials in URLs | Met | Per-user rate limits on 28 handlers (`src/app/api/rate-limit-coverage.test.ts`); route handlers export explicit methods; ownership checks per request | Anti-CSRF uses Fetch Metadata and SameSite instead of tokens (OWASP-accepted alternative) |
 | WASG-4.6 | Access control centralised, enforced on every request, least privilege for database accounts | Partial | Central session gate and helpers; per-route ownership checks proven by tests | The server uses the service role, which bypasses row-level security by design; client roles hold nothing |
 | WASG-4.7 | CSRF tokens; clickjacking protection | Met | See WASG-4.5; `X-Frame-Options: DENY` and `frame-ancestors 'none'` (HDR-2) | |
 | WASG-4.8 | File uploads: type and size limits, server-chosen names, separate domain, correct content type, image rewriting, malware scanning | Partial | Avatar: 4-type allowlist, magic-byte check, 2 MB limit, server-generated path, served from the Supabase domain; chat images restricted to raster types (bucket allowlist, applied 2026-09-25) | No antivirus scan and no image re-encoding: recorded as accepted risk (raster-only content, served as images from a separate origin) |
@@ -195,13 +198,13 @@ Grouped by section; every bullet of the guideline is covered by a row.
 | WASG-4.10 | Hidden parameters and environment variables are not trusted | Met | | |
 | WASG-4.11 | Error handling and logging: generic messages, custom error page, no sensitive data in errors or logs, restricted log access | Partial | Generic messages; `not-found` page and route error pages; security events | No global error page (Next's default shows no details in production); log retention short, OA-3 |
 | WASG-4.12 | Restrict upload types; scan for viruses | Partial | See WASG-4.8 | |
-| WASG-5 | Security testing: valid and invalid data, authorisation on every page, no production data in tests, crucial operations logged | Met (branch) | 500+ unit and route tests, including cross-user and route-coverage tests; PGlite migration tests | |
-| WASG-6 | Change control: approved requests, approval before change, testing | Met | Pull requests reviewed and merged only by the repository owner; CI on every PR (after OA-6/OA-7) | |
+| WASG-5 | Security testing: valid and invalid data, authorisation on every page, no production data in tests, crucial operations logged | Met | 500+ unit and route tests, including cross-user and route-coverage tests; PGlite migration tests | |
+| WASG-6 | Change control: approved requests, approval before change, testing | Met | Changes land through pull requests merged by the repository owner or a collaborator the owner appointed (the hardening release was merged by the maintainer on the owner's grant); three independent reviews before the release; CI on every push and pull request, running upstream since 2026-09-25 | Branch protection, OA-7 |
 
 **Appendix A (OWASP Top 10 2021).** A01 Broken access control: Met (ADG-1).
 A02 Cryptographic failures: Partial (WASG-3.3). A03 Injection: Met (WASG-4.1).
 A04 Insecure design: Partial (MSS-APP-9). A05 Security misconfiguration: Partial
-(OA-2, OA-4, OA-15). A06 Vulnerable components: Met (MSS-APP-2). A07
+(OA-15; OA-2 and OA-4 closed 2026-09-25). A06 Vulnerable components: Met (MSS-APP-2). A07
 Identification and authentication failures: Met (WASG-4.4). A08 Software and
 data integrity: Partial (actions pinned to commit SHAs, edge imports pinned; no
 Deno lockfile). A09 Logging and monitoring: Partial (MSS-SAAS-6). A10 SSRF: Met
@@ -223,12 +226,12 @@ Deno lockfile). A09 Logging and monitoring: Partial (MSS-SAAS-6). A10 SSRF: Met
 | PAM-2 | Strong admin passwords, MFA, 90-day change without MFA, no sharing, log admin sign-ins and failures | Unverified | Provider consoles | OA-9 |
 | INC-1 | Report incidents promptly to ITSO; personal-data incidents also to the DPO | Met (process) | [incident-runbook.md](incident-runbook.md) | |
 | INC-2 | Contain, assess impact at ITSO's four levels, eradicate, review | Met (process) | Runbook uses ITSO's Extensive / Significant / Moderate / Minor levels | |
-| INC-3 | Preserve logs; forensically sound handling for Extensive incidents | Partial | Security events kept 180 days (branch) | Platform logs 1 hour to 1 day, OA-3 |
+| INC-3 | Preserve logs; forensically sound handling for Extensive incidents | Partial | Security events kept 180 days, live since 2026-09-25 | Platform logs 1 hour to 1 day, OA-3 |
 | DD-1 | Cloud data destruction handled through provider selection | Partial | Supabase DPA deletion clause | OA-13 |
 | DD-2 | Wipe or degauss devices before disposal | Owner attestation | | OA-12 |
 | DC-1 | Sensitive (high protection) data accessible only after authentication | Met | Every non-public path is gated (ADG-1) | |
 | DC-2 | Sensitive (high protection) data not disclosed even within a workgroup | Gap | Other students see names, levels and the top-20 accuracy ranking; friends see per-component average scores | OA-10 |
-| DC-3 | Encrypt in transmission; encrypt storage on non-central equipment | Met (branch for DB) | Provider AES-256 at rest; TLS in transit | |
+| DC-3 | Encrypt in transmission; encrypt storage on non-central equipment | Met | Provider AES-256 at rest; TLS in transit, enforced on the database leg since 2026-09-25 | |
 | GAI-1 | Avoid entering personal or sensitive data into generative AI tools unless desensitised | Partial | Prompts carry only what the feature needs (student ids and joined objects stripped before the insights prompt); OpenRouter routing: zero data retention, no data collection, no providers in mainland China (`src/lib/gemini/client.ts`, parity-tested); disclosed in the privacy notice | Learner content (chat, transcripts) still reaches the model: DPO decision in the PIA, OA-8 and OA-10 |
 | GAI-2 | Fact-check and label AI output | Met | Prompts forbid official PSC claims; feedback is labelled as practice feedback | |
 | GOV-1 | Risk assessment and classification of the IT resource | Met | Section 1 | |
@@ -251,7 +254,7 @@ Counted from the tables in sections 4 to 12 (101 rows):
 
 | Status | Rows |
 |---|---|
-| Met or Met (branch) | 37 |
+| Met | 37 |
 | Partial | 29 |
 | Gap | 17 |
 | Deviation | 3 |
