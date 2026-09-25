@@ -94,7 +94,7 @@ processors (iFLYTEK, OpenRouter and its model hosts). Per-provider detail is in
 | MSS-SAAS-3 | Integrate with ITSO SSO; review admin accounts regularly; ITSO password rules otherwise | Partial | Users sign in only through HKUST Microsoft Entra ID (OIDC), tenant-pinned and signature-verified (`src/lib/auth.ts`); email/password disabled | Admin account review OA-9; Supabase Auth's unused password sign-up OA-2 |
 | MSS-SAAS-4 | TLS transport encryption | Met (branch for DB) | Browser to Vercel and Supabase: TLS 1.2+ (TLS-1, TLS-2). Vercel to database: pinned-CA verification in `src/lib/db-tls.ts`, verified live (DBTLS-1) | Live with OA-6; enforce with OA-4 |
 | MSS-SAAS-5 | Enable MFA where the vendor provides it | Partial | Student and staff sign-in inherits HKUST Entra MFA policy | Administrator consoles unverified, OA-9 |
-| MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Met (branch) | `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention; the service key can only append and cannot read or alter it, but the auth pool's database-owner credential can until OA-16 (`supabase/migrations/20260925090000_security_events.sql`, PGlite tests) | Table live in production since 2026-09-25 (OA-5 done); web-app events start with the release (OA-6); least-privilege auth pool role (OA-16); platform logs keep only 1 hour to 1 day (OA-3) |
+| MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Partial | `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention; the service key can only append and cannot read or alter it, but the auth pool's database-owner credential can until OA-16 (`supabase/migrations/20260925090000_security_events.sql`, PGlite tests) | Table live in production since 2026-09-25 (OA-5 done); web-app events start with the release (OA-6); least-privilege auth pool role (OA-16); platform logs keep only 1 hour to 1 day (OA-3) |
 | MSS-SAAS-7 | Contract that HKUST data is purged when the agreement ends | Partial | Supabase DPA: deletion within 30 days of termination | Vercel DPA covers Enterprise terms only; OpenRouter DPA not reviewed; iFLYTEK has none. OA-13 |
 | MSS-SAAS-8 | Submit the CSP checklist and the provider's SOC 2 Type 2 report to ITSO before deployment | Gap | Deployed without it; checklists drafted | OA-8, OA-13; Supabase's report needs the Team plan (OA-3) |
 
@@ -251,8 +251,8 @@ Counted from the tables in sections 4 to 12 (101 rows):
 
 | Status | Rows |
 |---|---|
-| Met or Met (branch) | 38 |
-| Partial | 28 |
+| Met or Met (branch) | 37 |
+| Partial | 29 |
 | Gap | 17 |
 | Deviation | 3 |
 | Unverified | 2 |

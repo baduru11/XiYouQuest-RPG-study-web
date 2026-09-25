@@ -124,3 +124,12 @@ The SKIP rows are CSRF-1 (release not live) and TLS-3 (needs an external
 scanner). The maintainer's Supabase account is a Developer, so AUTH-1, AUTH-2,
 PLAT-1 and the Data API setting (OA-15) need the organisation Owner or an
 Administrator.
+
+## 2026-09-25 rate-limit purge migration applied
+
+`20260925100000_rate_limit_global_purge.sql` was applied to production after the
+pre-merge security review and recorded in the migration ledger. Before: the
+production `consume_rate_limit` body matched the repository's 2026-09-24
+version byte for byte, and the counter table was empty. After: the function
+carries the bounded purge, EXECUTE stays with `service_role` only, and the
+`window_start` index exists. No posture row covers this function.
