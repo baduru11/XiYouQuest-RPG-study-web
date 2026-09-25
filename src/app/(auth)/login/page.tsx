@@ -24,8 +24,13 @@ export default function LoginPage() {
           className="w-full h-auto drop-shadow-lg"
         />
         <LoginForm />
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+        {/* Solid backing: the page background is a photograph, so text
+            directly on it cannot guarantee WCAG AA contrast. */}
+        <p className="mt-4 text-center text-sm">
+          <Link
+            href="/privacy"
+            className="inline-block bg-card/95 px-2 py-1 text-foreground underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
             Privacy notice
           </Link>
         </p>
