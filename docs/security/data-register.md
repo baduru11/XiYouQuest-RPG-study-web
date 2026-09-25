@@ -29,7 +29,7 @@ the unused Supabase Auth system (OA-14).
 | `public.chat_sessions`, `chat_messages` | Companion chat text, speech transcripts, pronunciation scores | Sensitive (high protection) | Chat and speech features |
 | `public.friendships` | Requester, addressee, status | Social | Social features |
 | `public.rate_limit_counters` | User id, feature bucket, window, count | Technical (usage pattern) | Rate limiting |
-| `public.security_events` (branch; OA-5) | Event type, user id, IP address, user agent, small detail | Technical (security) | Sign-ins, refusals, exports, deletions, uploads, rate limits |
+| `public.security_events` (since 2026-09-25) | Event type, user id, IP address, user agent, small detail | Technical (security) | Sign-ins, refusals, exports, deletions, uploads, rate limits |
 | Storage `avatars` | Uploaded avatar images (2 MB limit, PNG/JPEG/GIF/WebP) | Identity (image) | User upload |
 | Storage `chat-images` | Generated scene images (82 objects, all PNG, 2026-09-25) | Content | Image generation |
 

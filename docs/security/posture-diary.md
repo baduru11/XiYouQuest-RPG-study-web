@@ -94,3 +94,33 @@ check v1 probes that could not fail (see
 [evidence/2026-09-25-deep-pass.md](evidence/2026-09-25-deep-pass.md)). Treat
 those two rows as unverified. Entries from posture check v2 onward are based on
 evidence-backed verdicts.
+
+## 2026-09-25T04:42:51Z posture check v2, after OA-5
+
+Target: https://cle-xyq.hkust.edu.hk, project yfoifmqjhavxidomgids.
+PASS 25 · FAIL 0 · WARN 5 · SKIP 2
+
+The two migrations (OA-5) were applied shortly before this run and recorded in the migration
+ledger:
+
+- DB-7 changed from WARN to PASS: `security_events` has RLS on and no app-role
+  table privileges; both functions are SECURITY DEFINER with a pinned
+  `search_path`, executable only by `service_role`.
+- DB-8 changed from WARN to PASS: `chat-images` accepts PNG, JPEG, GIF and WebP
+  only.
+
+Every other row is unchanged from 02:47:49Z. The WARN rows and the owner actions
+they wait on:
+
+| Row | Owner action |
+|---|---|
+| AUTH-1 | OA-2 |
+| AUTH-2 | OA-1 |
+| PLAT-1 | OA-4 |
+| PLAT-2 | OA-3 |
+| DEPLOY-1 | OA-6 |
+
+The SKIP rows are CSRF-1 (release not live) and TLS-3 (needs an external
+scanner). The maintainer's Supabase account is a Developer, so AUTH-1, AUTH-2,
+PLAT-1 and the Data API setting (OA-15) need the organisation Owner or an
+Administrator.

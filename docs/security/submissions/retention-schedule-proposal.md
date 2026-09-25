@@ -11,7 +11,7 @@ the DPO to approve or amend. Only the rows marked "in force" are implemented.
 | Inactive accounts | Notify after 18 months without sign-in; delete 30 days later | Purpose lapses when the student stops using the service | Proposed (needs a scheduled job) |
 | Leavers (graduated or departed) | Deleted with the inactive-account rule; HKUST SSO blocks sign-in after departure | As above | Proposed |
 | Sign-in sessions (IP, browser) | Session row expires 8 hours after last use; expired rows purged | Security | Expiry in force; purge job proposed |
-| Security event log | 180 days | Forensic investigation (MSS for SaaS, logging) | In force once OA-5 applies the migration |
+| Security event log | 180 days | Forensic investigation (MSS for SaaS, logging) | In force since 2026-09-25; purged in batches as new events arrive |
 | Rate-limit counters | Expired windows removed after 1 day on the user's next request; erased on account deletion | Abuse prevention | In force |
 | Voice recordings | Not stored by the application; iFLYTEK retains per its policy | Scoring only | In force; processor term open (OA-13) |
 | AI prompts | Zero-data-retention hosts only | Feedback generation | In force |

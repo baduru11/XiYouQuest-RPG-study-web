@@ -16,7 +16,7 @@ Officer.
 | Source | Catches | Where |
 |---|---|---|
 | Posture check v2 (weekly in CI, daily session Loop, ad hoc) | Privilege or RLS regressions (DB-1 to DB-5), stored plaintext tokens (DB-6), security-log tampering rights (DB-7), non-image objects in public buckets (DB-9), Auth settings (AUTH-1, AUTH-2), SSL enforcement and backups (PLAT-1, PLAT-2), edge rollbacks and boot failures (PLAT-3, EDGE-1), anonymous access (ANON-1 to ANON-4), headers, CSRF guard, TLS and database TLS | [posture-diary.md](posture-diary.md); CI job summary |
-| Security event log (`public.security_events`, after OA-5) | Bursts of refused sign-ins, rate-limit refusals, unexpected exports or deletions | SQL editor as the database owner |
+| Security event log (`public.security_events`, since 2026-09-25) | Bursts of refused sign-ins, rate-limit refusals, unexpected exports or deletions | SQL editor as the database owner |
 | CodeQL, Gitleaks, `npm audit` | Code vulnerabilities, committed secrets, vulnerable dependencies | GitHub Actions |
 | Tests in CI | Regressions in route authentication, ownership scoping, rate-limit coverage, headers, CSRF guard | GitHub Actions |
 | Supabase and Vercel dashboards | Traffic anomalies, error spikes, configuration changes | Provider consoles (logs kept 1 hour to 1 day on current plans) |

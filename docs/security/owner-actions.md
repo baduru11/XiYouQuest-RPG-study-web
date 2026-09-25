@@ -23,7 +23,7 @@ Roles used below:
 | OA-2 | Close Supabase Auth sign-up and providers | Supabase org owner | 2026-09-26 | AUTH-1 |
 | OA-3 | Arrange database backups (plan decision) | Responsible unit + Supabase org owner | 2026-10-09 | PLAT-2 |
 | OA-4 | Enforce TLS on database connections | Supabase org owner | Same day as OA-6 | PLAT-1 |
-| OA-5 | Apply the two pending migrations | Supabase org owner or maintainer with approval | With OA-6 | DB-7, DB-8 |
+| OA-5 | Apply the two pending migrations | Supabase org owner or maintainer with approval | Done 2026-09-25 | DB-7, DB-8 |
 | OA-6 | Review, merge and deploy the hardening PR | Repository owner + Vercel XYQ member | 2026-10-02 | DEPLOY-1, CSRF-1 |
 | OA-7 | Protect CI secrets and repository settings | Repository owner | 2026-10-02 | Workflow run |
 | OA-8 | ITSO submissions (PIA, CSP checklists, CITARS, health check) | Responsible unit + maintainer | See below | Register rows |
@@ -124,6 +124,21 @@ on incoming connections". Sign in once to confirm, then run the posture check;
 PLAT-1 must report PASS. To roll back, turn the setting off.
 
 ## OA-5: Apply the two pending migrations
+
+**Done 2026-09-25.** The maintainer applied both files unchanged through the
+Management API, with the owner's approval. Checks before applying: neither
+object existed, and all 82 chat images were PNG.
+
+Checks after applying:
+
+- `security_events` has RLS on and no table privilege for any app role;
+- both functions are SECURITY DEFINER with a pinned `search_path`, and only
+  `service_role` may execute them;
+- `chat-images` accepts only PNG, JPEG, GIF and WebP.
+
+The ledger rows below were then recorded. The posture check at
+2026-09-25T04:42:51Z reports DB-7 and DB-8 PASS. The steps are kept for
+rebuilding another environment.
 
 - `supabase/migrations/20260925090000_security_events.sql`: the append-only
   security event log.

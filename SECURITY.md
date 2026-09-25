@@ -30,9 +30,10 @@ This file is the summary. The evidence lives in `docs/security/`:
   text-to-speech traffic goes through them, so their rate limits, input
   bounds and model-routing policy are live.
 - **Production database:** client-role lockdown and storage write lockdown
-  applied 2026-09-24. Two new migrations wait for the owner (OA-5).
-- **Latest posture check:** 23 PASS, 0 FAIL, 7 WARN (each an owner action),
-  2 SKIP.
+  applied 2026-09-24. The security event log and the chat-images type
+  restriction were applied on 2026-09-25 (OA-5).
+- **Latest posture check (2026-09-25):** 25 PASS, 0 FAIL, 5 WARN (each an
+  owner action), 2 SKIP.
 
 ## Trust boundaries
 
