@@ -24,9 +24,14 @@ describe("Supabase key selection (legacy-key retirement, OA-1)", () => {
     expect(SUPABASE_ANON_KEY()).toBe("sb_publishable_new");
   });
 
-  it("gives the edge runtime the same opt-in", () => {
+  // The edge twin's behaviour, including the platform-injected new keys, is
+  // exercised directly in src/lib/edge-env.test.ts; this only pins that it
+  // still falls back to the same legacy variable names as the Node helper.
+  it("gives the edge runtime the same opt-in and legacy fallback names", () => {
     const edge = readFileSync("supabase/functions/_shared/env.ts", "utf8");
-    expect(edge).toContain('Deno.env.get("XYQ_SUPABASE_SECRET_KEY") || requireEnv("SUPABASE_SERVICE_ROLE_KEY")');
-    expect(edge).toContain('Deno.env.get("XYQ_SUPABASE_PUBLISHABLE_KEY") || requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")');
+    expect(edge).toContain('Deno.env.get("XYQ_SUPABASE_SECRET_KEY")');
+    expect(edge).toContain('requireEnv("SUPABASE_SERVICE_ROLE_KEY")');
+    expect(edge).toContain('Deno.env.get("XYQ_SUPABASE_PUBLISHABLE_KEY")');
+    expect(edge).toContain('requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")');
   });
 });
