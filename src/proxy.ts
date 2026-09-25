@@ -45,6 +45,27 @@ export function isCrossSiteWrite(request: NextRequest): boolean {
 }
 
 /**
+ * GET routes that must not start from another site. SameSite=Lax cookies are
+ * still sent on a cross-site top-level navigation, so a page elsewhere could
+ * otherwise run the data export in a student's browser: saving their data to
+ * a shared computer, spending their export quota and forging export events.
+ */
+const SENSITIVE_READ_PATHS = new Set(["/api/profile/export"]);
+
+/**
+ * Refuses a sensitive read that a browser marks as coming from another site.
+ * "same-origin" is the app's own link and "none" is a typed or bookmarked
+ * URL; without fetch metadata the request is left to the session check, as
+ * no Origin header accompanies a navigation.
+ */
+export function isCrossSiteSensitiveRead(request: NextRequest): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (!SENSITIVE_READ_PATHS.has(request.nextUrl.pathname)) return false;
+  const fetchSite = request.headers.get("sec-fetch-site");
+  return fetchSite !== null && fetchSite !== "same-origin" && fetchSite !== "none";
+}
+
+/**
  * Content Security Policy. In production, scripts are allowed only via a
  * per-request nonce plus 'strict-dynamic' (no unsafe-inline / unsafe-eval);
  * Next.js reads the nonce from the request's Content-Security-Policy header
@@ -80,7 +101,7 @@ function buildCsp(nonce: string): string {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isCrossSiteWrite(request)) {
+  if (isCrossSiteWrite(request) || isCrossSiteSensitiveRead(request)) {
     return NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
   }
 

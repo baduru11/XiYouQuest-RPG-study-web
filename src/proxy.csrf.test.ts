@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 const getSessionMock = vi.hoisted(() => vi.fn(async () => ({ user: { id: "verified-user" } })));
 vi.mock("@/lib/auth", () => ({ auth: { api: { getSession: getSessionMock } } }));
 
-import { isCrossSiteWrite, proxy } from "./proxy";
+import { isCrossSiteSensitiveRead, isCrossSiteWrite, proxy } from "./proxy";
 
 const APP = "https://cle-xyq.hkust.edu.hk";
 
@@ -44,6 +44,41 @@ describe("cross-site write guard", () => {
     expect(isCrossSiteWrite(request("/api/leaderboard?tab=xp&scope=global", "GET", crossSite))).toBe(false);
     expect(isCrossSiteWrite(request("/dashboard", "POST", crossSite))).toBe(false);
     expect(isCrossSiteWrite(request("/api/auth/oauth2/callback/hkust", "POST", crossSite))).toBe(false);
+  });
+});
+
+// The data export is a GET, and SameSite=Lax cookies still ride a cross-site
+// top-level navigation, so another site could otherwise start a download of
+// the student's data, spend their export quota and forge export events.
+describe("cross-site sensitive read guard", () => {
+  it.each(["cross-site", "same-site"])(
+    "refuses a %s navigation to the data export",
+    async (site) => {
+      const response = await proxy(
+        request("/api/profile/export", "GET", { "sec-fetch-site": site }),
+      );
+      expect(response.status).toBe(403);
+    },
+  );
+
+  it("allows the profile page's own download link and a typed or bookmarked URL", () => {
+    for (const site of ["same-origin", "none"]) {
+      expect(
+        isCrossSiteSensitiveRead(request("/api/profile/export", "GET", { "sec-fetch-site": site })),
+      ).toBe(false);
+    }
+  });
+
+  it("allows browsers that send no fetch metadata", () => {
+    expect(isCrossSiteSensitiveRead(request("/api/profile/export", "GET"))).toBe(false);
+  });
+
+  it("leaves every other read alone", () => {
+    expect(
+      isCrossSiteSensitiveRead(
+        request("/api/leaderboard?tab=xp&scope=global", "GET", { "sec-fetch-site": "cross-site" }),
+      ),
+    ).toBe(false);
   });
 });
 
