@@ -121,13 +121,14 @@ controls are the providers', evidenced through their attestations.
 ## 7. Minimum Security Standard: Endpoints (High column)
 
 Applies to every computer that stores production credentials or high-risk data
-or reaches the admin consoles. Assessed on the maintainer Mac on 2026-09-24.
+or reaches the admin consoles. Assessed on the maintainer Mac on 2026-09-24;
+firewall re-checked on 2026-09-25.
 
 | ID | Requirement | Status | Evidence | Open item |
 |---|---|---|---|---|
 | MSS-END-1 | Department inventory | Gap | | OA-12 |
 | MSS-END-2 | Enrolled in Microsoft Intune | Gap | Not MDM-enrolled | OA-12 (decision with ITSO) |
-| MSS-END-3 | Host firewall on | Gap | Application firewall off | OA-12 (one command) |
+| MSS-END-3 | Host firewall on | Met | Application firewall on since 2026-09-25 (`socketfilterfw --getglobalstate`: State = 1) | |
 | MSS-END-4 | OS fixes within 7 days | Met | Automatic install on; no pending updates | |
 | MSS-END-5 | Antivirus with real-time protection | Partial | macOS XProtect, Gatekeeper, SIP on; no Defender for Endpoint | OA-12 |
 | MSS-END-6 | Vendor-supported OS | Met | macOS 27.0 | |
@@ -249,9 +250,9 @@ Counted from the tables in sections 4 to 12 (101 rows):
 
 | Status | Rows |
 |---|---|
-| Met or Met (branch) | 37 |
+| Met or Met (branch) | 38 |
 | Partial | 28 |
-| Gap | 18 |
+| Gap | 17 |
 | Deviation | 3 |
 | Unverified | 2 |
 | Provider, N-A, process or owner attestation | 13 |

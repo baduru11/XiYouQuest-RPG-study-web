@@ -212,8 +212,10 @@ locked out.
 A computer that holds production credentials or accesses the admin consoles is
 a High-risk endpoint under the MSS. The maintainer Mac inspected on
 2026-09-24 had FileVault, automatic updates, immediate screen lock and SIP
-on, but the application firewall off and no endpoint protection. Turn the
-firewall on:
+on, but no endpoint protection. Its application firewall was off; it was
+turned on on 2026-09-25 and verified with `socketfilterfw --getglobalstate`.
+Every other maintainer computer needs the same check. To turn the firewall on,
+use System Settings, Network, Firewall, or:
 
 ```bash
 sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
