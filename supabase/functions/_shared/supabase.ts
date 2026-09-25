@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.95.3";
-import { requireEnv, SUPABASE_SERVICE_ROLE_KEY } from "./env.ts";
+import { requireEnv, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SERVICE_ROLE_KEY } from "./env.ts";
 
 /**
  * DB client for a request whose Better Auth user has already been verified
@@ -21,7 +21,7 @@ export function createRequestClient(
   if (!user) {
     return createClient(
       requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-      requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+      SUPABASE_PUBLISHABLE_KEY(),
     );
   }
   return createAdminClient();

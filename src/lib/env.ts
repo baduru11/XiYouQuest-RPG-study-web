@@ -34,8 +34,12 @@ export function OPENROUTER_API_KEY() {
 }
 
 // --- Supabase (service role — server-side only) ---
+// Prefers Supabase's new secret API key (sb_secret_...) when SUPABASE_SECRET_KEY
+// is set. The legacy service_role key is a JWT signed by the legacy HS256
+// secret; switching to the new key is what allows that secret to be revoked
+// (docs/security/owner-actions.md, OA-1). Unset, behaviour is unchanged.
 export function SUPABASE_SERVICE_ROLE_KEY() {
-  return requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  return process.env.SUPABASE_SECRET_KEY || requireEnv("SUPABASE_SERVICE_ROLE_KEY");
 }
 
 // --- Supabase (public project URL + anon key) ---
@@ -46,5 +50,9 @@ export function SUPABASE_URL() {
   return requireEnv("NEXT_PUBLIC_SUPABASE_URL");
 }
 export function SUPABASE_ANON_KEY() {
-  return requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  // New publishable key (sb_publishable_...) when set; see SUPABASE_SERVICE_ROLE_KEY.
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  );
 }
