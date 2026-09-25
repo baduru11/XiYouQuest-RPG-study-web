@@ -1,0 +1,16 @@
+{
+  "$comment": "Minimum deployed version per edge function. A lower version means a rollback to code without the hardened controls. Raise after every edge deploy.",
+  "minimumVersions": {
+    "ai-feedback": 14,
+    "ai-insights": 16,
+    "ai-mock-exam-feedback": 16,
+    "chat-generate-image": 14,
+    "chat-respond": 16,
+    "chat-start": 14,
+    "learning-generate-plan": 14,
+    "speech-assess": 15,
+    "speech-c5-assess": 18,
+    "tts-companion": 15,
+    "tts-speak": 15
+  }
+}

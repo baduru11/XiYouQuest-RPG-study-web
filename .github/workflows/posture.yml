@@ -4,7 +4,7 @@
 # to the job summary and keeps it as an artifact for 90 days.
 #
 # Secrets (repository settings -> Secrets and variables -> Actions):
-#   SUPABASE_ACCESS_TOKEN  Management API token (read use only)
+#   SUPABASE_ACCESS_TOKEN  Management API token (SQL-capable: keep in the environment)
 #   SUPABASE_ANON_KEY      public anon key
 # Missing secrets turn the affected checks into SKIP rather than failing.
 
@@ -25,7 +25,13 @@ concurrency:
 jobs:
   posture:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    # The Management API token can run SQL against production, so it lives in
+    # a protected GitHub Environment (owner action OA-7): restrict it to the
+    # default branch and require a reviewer, so a pushed branch or edited
+    # workflow cannot run with it. Without the secrets the run still covers the
+    # anonymous, edge, header and TLS rows; the rest report SKIP, never PASS.
+    environment: security-posture
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
