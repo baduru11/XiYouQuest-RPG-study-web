@@ -11,7 +11,8 @@ paraphrased and anchored to the row identifiers of the source documents
 - **Production:** web app = upstream `main` 66d4824 (deployed 2026-09-05,
   before this hardening). Edge functions = the hardened release from this
   branch, deployed 2026-09-25 (versions in `scripts/security/edge-manifest.json`).
-- **Live posture (2026-09-25 02:29Z):** 23 PASS, 0 FAIL, 7 WARN, 2 SKIP; every
+  Database migrations of this branch applied 2026-09-25 (OA-5).
+- **Live posture (2026-09-25 04:42Z):** 25 PASS, 0 FAIL, 5 WARN, 2 SKIP; every
   WARN maps to an owner action. Details: [posture-diary.md](posture-diary.md).
 
 ## 1. Classification
@@ -93,7 +94,7 @@ processors (iFLYTEK, OpenRouter and its model hosts). Per-provider detail is in
 | MSS-SAAS-3 | Integrate with ITSO SSO; review admin accounts regularly; ITSO password rules otherwise | Partial | Users sign in only through HKUST Microsoft Entra ID (OIDC), tenant-pinned and signature-verified (`src/lib/auth.ts`); email/password disabled | Admin account review OA-9; Supabase Auth's unused password sign-up OA-2 |
 | MSS-SAAS-4 | TLS transport encryption | Met (branch for DB) | Browser to Vercel and Supabase: TLS 1.2+ (TLS-1, TLS-2). Vercel to database: pinned-CA verification in `src/lib/db-tls.ts`, verified live (DBTLS-1) | Live with OA-6; enforce with OA-4 |
 | MSS-SAAS-5 | Enable MFA where the vendor provides it | Partial | Student and staff sign-in inherits HKUST Entra MFA policy | Administrator consoles unverified, OA-9 |
-| MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Met (branch) | Append-only `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention, app cannot read or alter it (`supabase/migrations/20260925090000_security_events.sql`, PGlite tests) | Table live in production since 2026-09-25 (OA-5 done); web-app events start with the release (OA-6); platform logs keep only 1 hour to 1 day (OA-3) |
+| MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Met (branch) | `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention; the service key can only append and cannot read or alter it, but the auth pool's database-owner credential can until OA-16 (`supabase/migrations/20260925090000_security_events.sql`, PGlite tests) | Table live in production since 2026-09-25 (OA-5 done); web-app events start with the release (OA-6); least-privilege auth pool role (OA-16); platform logs keep only 1 hour to 1 day (OA-3) |
 | MSS-SAAS-7 | Contract that HKUST data is purged when the agreement ends | Partial | Supabase DPA: deletion within 30 days of termination | Vercel DPA covers Enterprise terms only; OpenRouter DPA not reviewed; iFLYTEK has none. OA-13 |
 | MSS-SAAS-8 | Submit the CSP checklist and the provider's SOC 2 Type 2 report to ITSO before deployment | Gap | Deployed without it; checklists drafted | OA-8, OA-13; Supabase's report needs the Team plan (OA-3) |
 
@@ -264,7 +265,9 @@ plan, or an ITSO submission, and each is in [owner-actions.md](owner-actions.md)
 ## 15. Review findings and their dispositions
 
 Two independent adversarial reviews (2026-09-24, 2026-09-25) examined this
-branch. Every finding below was reproduced before it was acted on.
+branch, and a third, pre-merge security review examined the whole pull request
+on 2026-09-25 (the last seven rows). Every finding below was reproduced before
+it was acted on.
 
 | Finding | Disposition |
 |---|---|
@@ -288,3 +291,9 @@ branch. Every finding below was reproduced before it was acted on.
 | Posture token in CI can run SQL | Protected environment added; OA-7 |
 | Evidence note overstated an anonymous write path (the function's own guard refused it) | Corrected in the evidence record |
 | SECURITY.md claimed Supabase verifies Better Auth tokens | Corrected |
+| Security log called append-only for the app, but the auth pool connects as the database owner (`postgres`, the only customer login role) | Claim corrected in every document; least-privilege pool role is OA-16 |
+| Data export (a GET) could be started by another site's navigation | Fixed: fetch-metadata guard in the proxy, tested |
+| Storage listings stopped at 100 entries (export, chat deletion, account erasure) | Fixed: paged listing and batched removal, tested |
+| Counters re-created by a still-valid edge token after erasure were never purged | Fixed: every call purges any user's windows a day after they end (migration applied 2026-09-25); the token's 15-minute lifetime remains |
+| A `host` query parameter could make a remote database URL count as local and skip TLS | Fixed: the host is read with pg's own parser, tested |
+| Implicit email-based account linking (seen again) | Unchanged by this branch; OA-11 |

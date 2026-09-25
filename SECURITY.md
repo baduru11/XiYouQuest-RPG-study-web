@@ -11,7 +11,7 @@ This file is the summary. The evidence lives in `docs/security/`:
 | Document | What it holds |
 |---|---|
 | [itso-requirement-register.md](docs/security/itso-requirement-register.md) | Every applicable ITSO requirement (101 rows): status, evidence, open item |
-| [owner-actions.md](docs/security/owner-actions.md) | The 15 gaps only an owner or HKUST can close, with steps and due dates |
+| [owner-actions.md](docs/security/owner-actions.md) | The 16 gaps only an owner or HKUST can close, with steps and due dates |
 | [README.md](docs/security/README.md) | The weekly posture check (Loop) and how to run it |
 | [posture-diary.md](docs/security/posture-diary.md) | Append-only results of every posture check |
 | [data-register.md](docs/security/data-register.md) | Personal data inventory, processors, visibility, retention |
@@ -74,7 +74,7 @@ This file is the summary. The evidence lives in `docs/security/`:
 | Abuse and cost | Per-user limits on all 28 handlers that write data or call a paid provider, shared by both runtimes | `src/lib/rate-limit.ts`, `supabase/functions/_shared/rate-limit.ts`, `src/app/api/rate-limit-coverage.test.ts` |
 | AI data handling | Zero-data-retention, no-collection routing; hosts in mainland China excluded; student ids stripped from prompts; prompt inputs bounded | `src/lib/gemini/client.ts` and twins; `src/lib/validations.ts` |
 | CSRF | Cross-site API writes refused | `src/proxy.ts` |
-| Logging | Append-only security event log (sign-ins, refusals, exports, deletions, uploads, rate limits), 180 days | `supabase/migrations/20260925090000_security_events.sql` |
+| Logging | Security event log (sign-ins, refusals, exports, deletions, uploads, rate limits), 180 days; append-only for the service key, not yet for the auth pool's owner credential (OA-16) | `supabase/migrations/20260925090000_security_events.sql` |
 | Data subject rights | Self-service export and complete erasure | `src/app/api/profile/export`, `src/app/api/auth/delete-account` |
 | Transparency | Draft privacy notice at `/privacy`; `/.well-known/security.txt` | `src/app/(auth)/privacy/page.tsx` |
 | Monitoring | Weekly read-only posture check with evidence-based verdicts | `scripts/security/posture-check.mjs` |
@@ -86,12 +86,14 @@ The most important open items, all in [owner-actions.md](docs/security/owner-act
 
 1. **OA-1.** The legacy database JWT signing secret is still accepted and must be
    retired (details held privately for the owner).
-2. **OA-3.** No database backups exist (Supabase Free plan).
-3. **OA-8.** The PIA, cloud provider checklists and CITARS registration have not
+2. **OA-16.** The web app's auth pool connects as the database owner, so its
+   connection string in the Vercel environment grants full database control.
+3. **OA-3.** No database backups exist (Supabase Free plan).
+4. **OA-8.** The PIA, cloud provider checklists and CITARS registration have not
    been submitted to ITSO, although the application is in use.
-4. **OA-10.** Other students can see names, levels, the top-20 accuracy ranking,
+5. **OA-10.** Other students can see names, levels, the top-20 accuracy ranking,
    and (friends) per-component average scores.
-5. **OA-13.** The speech provider (iFLYTEK) has no data processing agreement.
+6. **OA-13.** The speech provider (iFLYTEK) has no data processing agreement.
 
 ## Corrections to earlier versions of this file
 

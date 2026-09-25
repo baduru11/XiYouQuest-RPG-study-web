@@ -94,7 +94,7 @@ disclosed in the privacy notice.
 | Question | Answer |
 |---|---|
 | Who has access, and why? | Students: their own data. Other students: the fields listed under DPP3. Maintainers: database and platform consoles for operation (inventory OA-9). |
-| Safeguards | HKUST SSO with tenant and signature pinning; every route authenticates and scopes queries to the signed-in user (tested); client database roles hold no privilege; per-user rate limits; strict content security policy; TLS 1.2+; cross-site write refusal; 8-hour session timeout; append-only security log; weekly posture check. Full list: [itso-requirement-register.md](itso-requirement-register.md). |
+| Safeguards | HKUST SSO with tenant and signature pinning; every route authenticates and scopes queries to the signed-in user (tested); client database roles hold no privilege; per-user rate limits; strict content security policy; TLS 1.2+; cross-site write refusal; 8-hour session timeout; a security event log the service key can only append to; weekly posture check. Full list: [itso-requirement-register.md](itso-requirement-register.md). |
 | Processor controls | See Part 2 and [csp-checklists.md](csp-checklists.md). |
 
 ### DPP5: Openness

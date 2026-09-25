@@ -34,6 +34,7 @@ Roles used below:
 | OA-13 | Processor contracts and assurance reports | Responsible unit | 2026-10-16 | csp-checklists.md |
 | OA-14 | Name the data user; approve retention; legacy accounts | Responsible unit + DPO | 2026-10-09 | PIA Part 1 |
 | OA-15 | Remove the unused GraphQL API schema | Supabase org owner | 2026-10-02 | Register WASG-3.3 |
+| OA-16 | Give the auth pool a least-privilege database role | Supabase org owner + Vercel XYQ member | 2026-10-09 | Register MSS-SAAS-6 |
 
 ---
 
@@ -265,3 +266,39 @@ checklist and a SOC 2 Type 2 report before deployment.
 PostgREST exposes `graphql_public` in addition to `public`. The app does not
 use GraphQL. Supabase dashboard: Project Settings, Data API, Exposed schemas:
 keep `public` only.
+
+## OA-16: Give the auth pool a least-privilege database role
+
+**Why.** The Better Auth pool (`src/lib/auth.ts`) connects as `postgres`, the
+database owner. On 2026-09-25 it was the only login role available to the
+project. Anyone who obtains `BETTER_AUTH_DATABASE_URL` from the Vercel
+environment therefore controls the whole database, including the security event
+log, which is append-only only for the service key. The pre-merge security
+review found this on 2026-09-25.
+
+**What the pool needs.** Read from the code:
+
+- all five tables in schema `better_auth` (`user`, `session`, `account`,
+  `verification`, `jwks`): read, insert, update and delete;
+- `public.profiles`: insert only, for the sign-up hook, which uses
+  `ON CONFLICT DO NOTHING`.
+
+**Steps.**
+
+1. Supabase SQL editor: create a login role for the pool. The owner generates
+   its long random password and never stores it in the repository. Grant it:
+   - `USAGE` on schema `better_auth`;
+   - `SELECT, INSERT, UPDATE, DELETE` on the five tables;
+   - `USAGE` on schema `public` and `INSERT` on `public.profiles`.
+
+   Row-level security is on for `profiles` and the role must not bypass it, so
+   also add an insert policy for that role.
+2. Vercel, Production and Preview: set `BETTER_AUTH_DATABASE_URL` to the
+   transaction pooler URL for the new role (user name
+   `<role>.yfoifmqjhavxidomgids`, port 6543), then redeploy.
+3. Verify:
+   - sign in as a new user and as an existing user;
+   - run a data export and a test account deletion;
+   - run the posture check, which must still pass.
+4. Reset the `postgres` database password (Project Settings, Database), because
+   the old one has been in the Vercel environment.

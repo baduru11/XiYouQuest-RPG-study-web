@@ -101,7 +101,7 @@ const CATALOG = [
   ["DB-6", "No plaintext OAuth tokens stored", `select count(*)::int n from better_auth.account a,
       unnest(array[a."accessToken", a."refreshToken", a."idToken"]) t
     where t is not null and t !~ '^[$]ba[$]' and not (length(t) % 2 = 0 and t ~* '^[0-9a-f]+$')`],
-  ["DB-7", "Security event log is append-only for the app (service_role holds no table privilege)", `select (case
+  ["DB-7", "Security event log is append-only for the service key (service_role holds no table privilege)", `select (case
       when to_regclass('public.security_events') is null then -1
       when has_table_privilege('service_role', 'public.security_events', 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') then 1
       else 0 end)::int n`, OA.migrations],
