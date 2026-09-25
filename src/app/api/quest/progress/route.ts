@@ -1,6 +1,7 @@
 // src/app/api/quest/progress/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { STAGE_CONFIGS } from "@/lib/quest/stage-config";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 import { questProgressSchema } from "@/lib/validations";
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "write");
+  if (limited) return limited;
 
   const body = await request.json();
   const parsed = questProgressSchema.safeParse(body);

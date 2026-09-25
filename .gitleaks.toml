@@ -1,0 +1,16 @@
+# Extends gitleaks' built-in default rule set (https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml)
+# rather than replacing it, so every default detector still applies.
+[extend]
+useDefault = true
+
+# .env.example documents the shape of required env vars with placeholder
+# values only (e.g. "your_anon_key", "your_openrouter_api_key") — no real
+# secret ever belongs there. Those placeholders still match several of the
+# default generic-secret heuristics (KEY/SECRET/TOKEN assigned a non-empty
+# value), so this allowlist scopes the exemption to that one file rather than
+# weakening detection anywhere else in the repo.
+[allowlist]
+description = "Placeholder values in .env.example are not real secrets"
+paths = [
+  '''(^|/)\.env\.example$''',
+]

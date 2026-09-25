@@ -8,6 +8,7 @@ const { getSessionUser, quickCompletion } = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/server", () => ({ getSessionUser }));
 vi.mock("@/lib/gemini/client", () => ({ quickCompletion }));
+vi.mock("@/lib/rate-limit", () => ({ enforceRateLimit: vi.fn().mockResolvedValue(null) }));
 
 import { POST } from "./route";
 

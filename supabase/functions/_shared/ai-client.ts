@@ -1,6 +1,21 @@
 import { OPENROUTER_API_KEY } from "./env.ts";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// Student data (speech transcripts, scores, chat) must not be retained for
+// training or processed by providers in mainland China (HKUST ITSO cloud-provider
+// guideline: identify processing locations, restrict secondary use). OpenRouter
+// then routes only among the remaining providers; if none qualify the request
+// fails and the caller's fallback model is used.
+const OPENROUTER_PROVIDER_POLICY = {
+  data_collection: "deny",
+  // Zero-data-retention endpoints only: prompts are not stored by the host.
+  // Verified 2026-09-25 against openrouter.ai/api/v1/endpoints/zdr: nine
+  // non-PRC ZDR hosts serve deepseek-v4-flash and Google Vertex serves both
+  // Gemini fallbacks, so the policy never leaves a model without a host.
+  zdr: true,
+  ignore: ["streamlake", "siliconflow", "alibaba", "baidu"],
+} as const;
 const MODEL = "deepseek/deepseek-v4-flash";
 
 const MAX_RETRIES = 3;
@@ -58,6 +73,7 @@ async function chatCompletion(
     },
     body: JSON.stringify({
       model,
+      provider: OPENROUTER_PROVIDER_POLICY,
       max_tokens: 4096,
       temperature: options?.temperature ?? 0.7,
       messages: [
@@ -101,6 +117,7 @@ async function fetchCompletion(
     },
     body: JSON.stringify({
       model,
+      provider: OPENROUTER_PROVIDER_POLICY,
       max_tokens: maxTokens,
       temperature: 0.5,
       messages: [
@@ -380,6 +397,7 @@ export async function chatConversation(
         },
         body: JSON.stringify({
           model,
+          provider: OPENROUTER_PROVIDER_POLICY,
           max_tokens: opts?.maxTokens ?? 4096,
           messages,
         }),

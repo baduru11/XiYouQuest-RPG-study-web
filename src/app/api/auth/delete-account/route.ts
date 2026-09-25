@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { deleteAuthUser } from "@/lib/auth";
+import { logSecurityEvent, requestContext } from "@/lib/security-events";
+import { listAllEntries, removePaths } from "@/lib/storage-list";
 
-export async function DELETE() {
+export async function DELETE(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
@@ -115,6 +117,19 @@ export async function DELETE() {
         .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
     );
     failIfError(
+      "delete mock_exam_results",
+      await supabase.from("mock_exam_results").delete().eq("user_id", userId),
+    );
+    // Rate-limit counters record when and how often each feature was used and
+    // have no foreign key, so delete them here. A call made afterwards with an
+    // edge token that is still valid (up to 15 minutes) can re-create a few;
+    // consume_rate_limit() purges those once they are a day past their window
+    // (20260925100000_rate_limit_global_purge.sql).
+    failIfError(
+      "delete rate_limit_counters",
+      await supabase.from("rate_limit_counters").delete().eq("user_id", userId),
+    );
+    failIfError(
       "delete profiles",
       await supabase.from("profiles").delete().eq("id", userId),
     );
@@ -123,29 +138,23 @@ export async function DELETE() {
     // storage leak, not a data-integrity problem, and must not block deleting
     // the identity once the relational rows are gone.
     try {
-      const { data: avatarFiles } = await supabase.storage
-        .from("avatars")
-        .list(userId);
-      if (avatarFiles && avatarFiles.length > 0) {
-        await supabase.storage
-          .from("avatars")
-          .remove(avatarFiles.map((f) => `${userId}/${f.name}`));
-      }
+      const avatarFiles = await listAllEntries(supabase, "avatars", userId);
+      await removePaths(
+        supabase,
+        "avatars",
+        avatarFiles.map((f) => `${userId}/${f.name}`),
+      );
 
-      const { data: chatImageFolders } = await supabase.storage
-        .from("chat-images")
-        .list(userId);
-      if (chatImageFolders && chatImageFolders.length > 0) {
-        for (const folder of chatImageFolders) {
-          const { data: files } = await supabase.storage
-            .from("chat-images")
-            .list(`${userId}/${folder.name}`);
-          if (files && files.length > 0) {
-            await supabase.storage
-              .from("chat-images")
-              .remove(files.map((f) => `${userId}/${folder.name}/${f.name}`));
-          }
-        }
+      // List every folder before removing anything, so removals cannot shift
+      // the pages still to be read.
+      const chatImageFolders = await listAllEntries(supabase, "chat-images", userId);
+      for (const folder of chatImageFolders) {
+        const files = await listAllEntries(supabase, "chat-images", `${userId}/${folder.name}`);
+        await removePaths(
+          supabase,
+          "chat-images",
+          files.map((f) => `${userId}/${folder.name}/${f.name}`),
+        );
       }
     } catch (storageError) {
       console.error(
@@ -158,6 +167,11 @@ export async function DELETE() {
     // Better Auth identity (cascades sessions + OAuth accounts).
     await deleteAuthUser(userId);
 
+    await logSecurityEvent({
+      type: "account.delete",
+      userId,
+      ...requestContext(request.headers),
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     // Abort with the auth identity intact so the user can retry a full delete.

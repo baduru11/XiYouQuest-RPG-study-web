@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -7,6 +8,8 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "social-search");
+  if (limited) return limited;
 
   const code = request.nextUrl.searchParams.get("code");
   if (!code || code.trim().length === 0) {

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { logSecurityEvent, requestContext } from "@/lib/security-events";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
@@ -43,6 +45,8 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "upload");
+  if (limited) return limited;
 
   let formData: FormData;
   try {
@@ -127,6 +131,13 @@ export async function POST(request: Request) {
   if (cleanupError) {
     console.error("Stale avatar cleanup failed:", cleanupError);
   }
+
+  await logSecurityEvent({
+    type: "profile.avatar_upload",
+    userId: user.id,
+    ...requestContext(request.headers),
+    detail: { contentType: file.type, bytes: bytes.byteLength },
+  });
 
   return NextResponse.json({ avatarUrl });
 }

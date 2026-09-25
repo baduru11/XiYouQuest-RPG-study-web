@@ -145,8 +145,12 @@ async function getAccuracyRankings(
   const userAccuracies: { user_id: string; accuracy: number }[] = [];
   for (const [user_id, agg] of userAggregates) {
     if (agg.attempted > 0) {
-      const accuracy =
-        Math.round((agg.correct / agg.attempted) * 100 * 10) / 10;
+      // Clamped: rows written before the progress schema bounded questionsCorrect
+      // can still hold correct > attempted.
+      const accuracy = Math.min(
+        100,
+        Math.round((agg.correct / agg.attempted) * 100 * 10) / 10,
+      );
       userAccuracies.push({ user_id, accuracy });
     }
   }

@@ -70,3 +70,6 @@ doc/
 supabase/.temp/
 .gstack/
 docs/sources/psc2021-wordtable-source-sdwm.pdf
+
+# Security material that must stay out of the public repository
+docs/security/private/

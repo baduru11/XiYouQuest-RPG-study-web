@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { isValidUUID } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +10,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const q = request.nextUrl.searchParams.get("q");
+  const limited = await enforceRateLimit(user.id, "social-search");
+  if (limited) return limited;
+
+  // PostgREST treats `*` as an alias of `%` in like/ilike patterns, so a query
+  // of "**" would match every name. Remove it before the LIKE escaping below.
+  const q = request.nextUrl.searchParams.get("q")?.replace(/\*/g, "") ?? null;
   if (!q || q.trim().length < 2) {
     return NextResponse.json(
       { error: "Query must be at least 2 characters" },

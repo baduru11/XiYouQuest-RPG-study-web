@@ -5,6 +5,7 @@ import {
 } from "../_shared/cors.ts";
 import { createRequestClient } from "../_shared/supabase.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { transcribeAudio } from "../_shared/iflytek-asr.ts";
 import {
   COMPANION_MAX_PCM_BYTES,
@@ -18,42 +19,18 @@ import {
 } from "../_shared/ai-client.ts";
 import { buildChatSystemPrompt } from "../_shared/chat-prompt.ts";
 import { isValidUUID } from "../_shared/validations.ts";
+import { getAffectionLevel } from "../_shared/affection-levels.ts";
 
 const AFFECTION_PER_TURN = 3;
-
-// Inline getAffectionLevel to avoid importing from src/
-const AFFECTION_LEVELS: Record<
-  number,
-  { name: string; xpRequired: number }
-> = {
-  1: { name: "Acquaintance", xpRequired: 0 },
-  2: { name: "Friend", xpRequired: 200 },
-  3: { name: "Close Friend", xpRequired: 500 },
-  4: { name: "Best Friend", xpRequired: 1000 },
-  5: { name: "Soulmate", xpRequired: 2000 },
-};
-
-function getAffectionLevel(
-  affectionXP: number,
-): { level: number; name: string } {
-  let currentLevel = 1;
-  let currentName = AFFECTION_LEVELS[1].name;
-
-  for (const [level, config] of Object.entries(AFFECTION_LEVELS)) {
-    if (affectionXP >= config.xpRequired) {
-      currentLevel = Number(level);
-      currentName = config.name;
-    }
-  }
-
-  return { level: currentLevel, name: currentName };
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return corsResponse();
 
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
   const supabase = createRequestClient(user);
 
   try {

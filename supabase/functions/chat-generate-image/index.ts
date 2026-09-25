@@ -8,6 +8,7 @@ import {
   createAdminClient,
 } from "../_shared/supabase.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { generateSceneImage } from "../_shared/image-gen.ts";
 import { chatGenerateImageSchema } from "../_shared/validations.ts";
 
@@ -23,6 +24,9 @@ Deno.serve(async (req: Request) => {
 
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
+
+  const limited = await enforceRateLimit(user.id, "ai-image");
+  if (limited) return limited;
   const supabase = createRequestClient(user);
 
   try {

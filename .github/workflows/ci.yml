@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Build-time placeholders only — never real credentials. next build runs
+  # with NODE_ENV=production, and two modules read process.env directly
+  # (outside src/lib/env.ts's lazy accessors) at module scope in production:
+  #   - src/lib/env.ts's SUPABASE_URL()/SUPABASE_ANON_KEY() accessors are
+  #     lazy, but several client components read the NEXT_PUBLIC_* vars
+  #     directly and Next.js inlines them at build time.
+  #   - src/lib/auth.ts throws at import time in production if
+  #     BETTER_AUTH_DATABASE_URL or BETTER_AUTH_SECRET is missing (it is
+  #     imported by src/proxy.ts and the auth API routes, which build-time
+  #     page-data collection loads).
+  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+  BETTER_AUTH_DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+  BETTER_AUTH_SECRET: "placeholder-build-time-secret-not-a-real-credential"
+
+jobs:
+  build-and-test:
+    name: Type check, lint, test, build, audit
+    runs-on: ubuntu-latest
+    steps:
+      # Pinned to the current major (v7), not v4: actions/checkout@v4 and
+      # actions/setup-node@v4 both declare `runs.using: node20` (verified via
+      # the GitHub API against this pinned SHA), and GitHub-hosted runners
+      # removed Node 20 support on 2026-09-16 — a v4 pin would fail outright
+      # on today's runners. v7 declares `runs.using: node24` and is confirmed
+      # current as of 2026-09-24.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Audit dependencies (high severity, production only)
+        run: npm audit --omit=dev --audit-level=high

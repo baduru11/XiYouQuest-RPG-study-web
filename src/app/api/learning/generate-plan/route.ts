@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchQuestionIdSample, fetchQuestionCount } from "@/lib/question-bank";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { generatePhase, calculateTotalCheckpoints } from "@/lib/gemini/client";
 import type { PhaseGenerationInput } from "@/lib/gemini/client";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
 
   try {
     const body = await request.json();

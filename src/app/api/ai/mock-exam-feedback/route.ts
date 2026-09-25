@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { quickCompletion } from "@/lib/gemini/client";
 import {
   hasConsistentMockExamTotal,
@@ -14,22 +15,22 @@ const schema = z.object({
     score: z.number().min(0).max(100),
     scoreVersion: z.enum(["psc-2021-v2", "psc-2021-v1", "legacy-five-component-v1"]),
     wordScores: z.array(z.object({
-      word: z.string(),
+      word: z.string().max(32),
       score: z.number().nullable(),
     })).optional(),
     quizResults: z.array(z.object({
-      question: z.string(),
+      question: z.string().max(500),
       isCorrect: z.boolean(),
     })).optional(),
     sentenceScores: z.array(z.object({
-      sentence: z.string(),
+      sentence: z.string().max(2000),
       score: z.number(),
     })).optional(),
     c5Detail: z.object({
       totalScore: z.number(),
-      pronunciation: z.object({ score: z.number(), notes: z.string() }),
-      vocabGrammar: z.object({ score: z.number(), notes: z.string() }),
-      fluency: z.object({ score: z.number(), notes: z.string() }),
+      pronunciation: z.object({ score: z.number(), notes: z.string().max(2000) }),
+      vocabGrammar: z.object({ score: z.number(), notes: z.string().max(2000) }),
+      fluency: z.object({ score: z.number(), notes: z.string().max(2000) }),
     }).strict().optional(),
   })).min(1).max(5),
   totalScore: z.number().min(0).max(100),
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
 
   try {
     const body = await request.json();

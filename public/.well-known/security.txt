@@ -1,0 +1,8 @@
+# Security contact for XiYouQuest (RFC 9116).
+# Report suspected vulnerabilities or incidents to HKUST ITSO, which handles
+# cybersecurity incidents for HKUST systems (Cybersecurity Incident Handling Policy).
+Contact: mailto:security@ust.hk
+Expires: 2027-09-25T00:00:00.000Z
+Preferred-Languages: en, zh
+Canonical: https://cle-xyq.hkust.edu.hk/.well-known/security.txt
+Policy: https://github.com/baduru11/XiYouQuest-RPG-study-web/blob/main/SECURITY.md

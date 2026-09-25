@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { listAllEntries, removePaths } from "@/lib/storage-list";
 import { chatEndSchema } from "@/lib/validations";
 
 export async function POST(request: NextRequest) {
@@ -8,6 +10,8 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "write");
+  if (limited) return limited;
 
   try {
     const body = await request.json();
@@ -40,6 +44,21 @@ export async function POST(request: NextRequest) {
       .from("chat_sessions")
       .delete()
       .eq("id", sessionId);
+
+    // The session's scene images live in a public bucket; remove them too so a
+    // deleted chat leaves no publicly served content. Log and continue on
+    // failure, as account deletion does.
+    try {
+      const folder = `${user.id}/${sessionId}`;
+      const images = await listAllEntries(supabase, "chat-images", folder);
+      await removePaths(
+        supabase,
+        "chat-images",
+        images.map((image) => `${folder}/${image.name}`),
+      );
+    } catch (storageError) {
+      console.error("[Chat] Delete: image cleanup failed:", storageError);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

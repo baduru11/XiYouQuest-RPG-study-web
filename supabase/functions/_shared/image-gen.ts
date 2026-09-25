@@ -1,6 +1,21 @@
 import { OPENROUTER_API_KEY } from "./env.ts";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+// Student data (speech transcripts, scores, chat) must not be retained for
+// training or processed by providers in mainland China (HKUST ITSO cloud-provider
+// guideline: identify processing locations, restrict secondary use). OpenRouter
+// then routes only among the remaining providers; if none qualify the request
+// fails and the caller's fallback model is used.
+const OPENROUTER_PROVIDER_POLICY = {
+  data_collection: "deny",
+  // Zero-data-retention endpoints only: prompts are not stored by the host.
+  // Verified 2026-09-25 against openrouter.ai/api/v1/endpoints/zdr: nine
+  // non-PRC ZDR hosts serve deepseek-v4-flash and Google Vertex serves both
+  // Gemini fallbacks, so the policy never leaves a model without a host.
+  zdr: true,
+  ignore: ["streamlake", "siliconflow", "alibaba", "baidu"],
+} as const;
 const IMAGE_MODEL = "google/gemini-2.5-flash-image:nitro";
 
 /**
@@ -33,6 +48,7 @@ Requirements: No text or words in the image. Landscape orientation. Atmospheric 
       },
       body: JSON.stringify({
         model: IMAGE_MODEL,
+        provider: OPENROUTER_PROVIDER_POLICY,
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
         image_config: {

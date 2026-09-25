@@ -1,13 +1,15 @@
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.76";
 import {
   corsResponse,
   errorResponse,
 } from "../_shared/cors.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { synthesizeAcademic } from "../_shared/iflytek-tts.ts";
 
 const schema = z.object({
-  voiceId: z.string().min(1),
+  // Same bound as src/lib/validations.ts ttsCompanionSchema (parity-tested).
+  voiceId: z.string().min(1).max(50).regex(/^[a-z0-9_]+$/i),
   text: z.string().min(1).max(500),
 });
 
@@ -16,6 +18,9 @@ Deno.serve(async (req: Request) => {
 
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
+
+  const limited = await enforceRateLimit(user.id, "tts");
+  if (limited) return limited;
 
   try {
     const body = await req.json();

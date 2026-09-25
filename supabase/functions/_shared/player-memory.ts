@@ -1,13 +1,5 @@
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-
-const AFFECTION_LEVEL_NAMES: Record<number, string> = {
-  1: "Stranger",
-  2: "Acquaintance",
-  3: "Companion",
-  4: "Friend",
-  5: "Close Friend",
-  6: "Kindred Spirit",
-};
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2.95.3";
+import { AFFECTION_LEVELS } from "./affection-levels.ts";
 
 const COMPONENT_NAMES: Record<number, string> = {
   1: "C1 (Monosyllabic)",
@@ -64,7 +56,7 @@ export async function buildPlayerMemory(
 
   if (relationship) {
     const level = relationship.affection_level ?? 0;
-    const label = AFFECTION_LEVEL_NAMES[level] ?? "Stranger";
+    const label = AFFECTION_LEVELS[level]?.name ?? "Stranger";
     const xp = relationship.affection_xp ?? 0;
     const charName =
       (relationship.characters as unknown as { name: string } | null)?.name ??

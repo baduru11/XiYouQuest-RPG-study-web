@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { chatStartSchema } from "@/lib/validations";
 import { chatConversation } from "@/lib/gemini/client";
 import { buildChatSystemPrompt } from "@/lib/chat/build-system-prompt";
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
 
   try {
     const body = await request.json();

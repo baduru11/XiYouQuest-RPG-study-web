@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { synthesizeAcademic } from "@/lib/voice/client";
 import { ttsCompanionSchema } from "@/lib/validations";
 
@@ -10,6 +11,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = await enforceRateLimit(user.id, "tts");
+  if (limited) return limited;
 
   try {
     const body = await request.json();

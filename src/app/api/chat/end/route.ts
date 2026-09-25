@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { chatEndSchema } from "@/lib/validations";
 import { checkAndUnlockAchievements } from "@/lib/achievements/check";
 import { XP_VALUES } from "@/types/gamification";
@@ -17,6 +18,8 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const limited = await enforceRateLimit(user.id, "write");
+  if (limited) return limited;
 
   try {
     const body = await request.json();

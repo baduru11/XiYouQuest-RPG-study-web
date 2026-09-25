@@ -1,10 +1,11 @@
-import { z } from "npm:zod";
+import { z } from "npm:zod@3.25.76";
 import {
   corsResponse,
   jsonResponse,
   errorResponse,
 } from "../_shared/cors.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
+import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { quickCompletion } from "../_shared/ai-client.ts";
 import {
   hasConsistentMockExamTotal,
@@ -21,7 +22,7 @@ const schema = z.object({
         wordScores: z
           .array(
             z.object({
-              word: z.string(),
+              word: z.string().max(32),
               score: z.number().nullable(),
             }),
           )
@@ -29,7 +30,7 @@ const schema = z.object({
         quizResults: z
           .array(
             z.object({
-              question: z.string(),
+              question: z.string().max(500),
               isCorrect: z.boolean(),
             }),
           )
@@ -37,7 +38,7 @@ const schema = z.object({
         sentenceScores: z
           .array(
             z.object({
-              sentence: z.string(),
+              sentence: z.string().max(2000),
               score: z.number(),
             }),
           )
@@ -47,13 +48,13 @@ const schema = z.object({
             totalScore: z.number(),
             pronunciation: z.object({
               score: z.number(),
-              notes: z.string(),
+              notes: z.string().max(2000),
             }),
             vocabGrammar: z.object({
               score: z.number(),
-              notes: z.string(),
+              notes: z.string().max(2000),
             }),
-            fluency: z.object({ score: z.number(), notes: z.string() }),
+            fluency: z.object({ score: z.number(), notes: z.string().max(2000) }),
           })
           .strict()
           .optional(),
@@ -71,6 +72,9 @@ Deno.serve(async (req: Request) => {
 
   const user = await verifyUser(req);
   if (!user) return errorResponse("Unauthorized", 401);
+
+  const limited = await enforceRateLimit(user.id, "ai-text");
+  if (limited) return limited;
 
   try {
     const body = await req.json();

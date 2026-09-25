@@ -1,0 +1,56 @@
+name: Security
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Weekly, independent of any push activity.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      # See ci.yml for why this is pinned to v7 (node24) rather than v4
+      # (node20, removed from GitHub-hosted runners on 2026-09-16).
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+        with:
+          category: "/language:javascript-typescript"
+
+  gitleaks:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # See ci.yml for why this is pinned to v3 (node24) rather than v2
+      # (node20, removed from GitHub-hosted runners on 2026-09-16).
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only required for organization-owned repos; harmless if unset
+          # (empty) on a personal account, per gitleaks-action's own docs.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

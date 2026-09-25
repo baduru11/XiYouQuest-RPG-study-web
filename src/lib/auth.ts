@@ -22,6 +22,10 @@ import { createClient } from "@supabase/supabase-js";
 import { Pool } from "pg";
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
+import { buildAuthPoolConnection } from "@/lib/db-tls";
+import { logSecurityEvent } from "@/lib/security-events";
+import { withoutProviderTokens } from "@/lib/oauth-token-hygiene";
+import { COOKIE_ATTRIBUTES, SESSION_POLICY } from "@/lib/session-policy";
 import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/env";
 
 // The localhost fallback is a convenience for local dev ONLY. In production a
@@ -36,23 +40,22 @@ if (
   );
 }
 
-// Force the Supabase TRANSACTION pooler port (6543). The session pooler
-// (5432) caps at 15 clients and gets exhausted under serverless concurrency
-// ("EMAXCONNSESSION"). Normalizing here means the fix holds regardless of
-// which port the env var carries. No-op for non-Supabase / already-6543 URLs.
-const databaseUrl = (
+// buildAuthPoolConnection forces the Supabase TRANSACTION pooler port (6543;
+// the session pooler caps at 15 clients and is exhausted under serverless
+// concurrency) and pins TLS: the chain must verify against Supabase's root CA
+// with hostname checking on. Identity, session and OAuth rows cross the public
+// internet between Vercel and the database, so plaintext or unverified TLS is
+// not acceptable for this High-risk data (HKUST ITSO MSS, secure transport).
+// The transaction pooler still honors the `search_path` startup option, so the
+// better_auth schema resolves. Keep `max` small so each Vercel instance holds
+// few connections.
+const { connectionString, ssl } = buildAuthPoolConnection(
   process.env.BETTER_AUTH_DATABASE_URL ??
-  "postgresql://postgres:postgres@localhost:54322/postgres"
-).replace(/:5432\/(?=[^/]*$)/, ":6543/");
-
-// Use the Supabase TRANSACTION pooler (port 6543). The session pooler
-// (5432) caps at 15 clients and gets exhausted under serverless concurrency
-// ("EMAXCONNSESSION: max clients reached in session mode"); the transaction
-// pooler multiplexes and scales for serverless. Verified empirically that it
-// still honors the `search_path` startup option, so the better_auth schema
-// resolves. Keep `max` small so each Vercel instance holds few connections.
+    "postgresql://postgres:postgres@localhost:54322/postgres",
+);
 const pool = new Pool({
-  connectionString: databaseUrl,
+  connectionString,
+  ssl,
   options: "-c search_path=better_auth,public",
   max: 3,
   idleTimeoutMillis: 20_000,
@@ -79,6 +82,37 @@ if (process.env.NODE_ENV === "production" && !process.env.BETTER_AUTH_SECRET) {
  */
 export async function deleteAuthUser(userId: string): Promise<void> {
   await pool.query('DELETE FROM better_auth."user" WHERE id = $1', [userId]);
+}
+
+/**
+ * Identity records for the self-service data export (PDPO DPP6). Session
+ * tokens and provider tokens are never selected.
+ */
+export async function exportAuthRecords(userId: string) {
+  const [user, sessions, accounts] = await Promise.all([
+    pool.query(
+      `SELECT id, name, email, "emailVerified", image, "createdAt", "updatedAt"
+       FROM better_auth."user" WHERE id = $1`,
+      [userId],
+    ),
+    pool.query(
+      `SELECT "createdAt", "updatedAt", "expiresAt", "ipAddress", "userAgent"
+       FROM better_auth.session WHERE "userId" = $1 ORDER BY "createdAt"`,
+      [userId],
+    ),
+    pool.query(
+      `SELECT "providerId", "accountId", scope, "createdAt", "updatedAt"
+       FROM better_auth.account WHERE "userId" = $1`,
+      [userId],
+    ),
+  ]);
+  return { user: user.rows[0] ?? null, sessions: sessions.rows, accounts: accounts.rows };
+}
+
+/** Records why a sign-in was refused, then refuses it (getUserInfo -> null). */
+async function denySignIn(reason: string, detail: Record<string, string> = {}): Promise<null> {
+  await logSecurityEvent({ type: "auth.sign_in_denied", detail: { reason, ...detail } });
+  return null;
 }
 
 const ALLOWED_EMAIL_DOMAINS = ["ust.hk", "connect.ust.hk"];
@@ -172,7 +206,7 @@ const hkustProviders = [
     // and domain gate below are enforced on every authentication, not just at
     // account creation.
     getUserInfo: async (tokens: { idToken?: string }) => {
-      if (!tokens.idToken) return null;
+      if (!tokens.idToken) return denySignIn("no_id_token");
 
       // Step 1: peek the (still-unverified) `tid` ONLY to select which tenant's
       // JWKS to verify against. decodeJwt throws (JWTInvalid) on a malformed
@@ -182,12 +216,13 @@ const hkustProviders = [
       try {
         unverifiedTid = decodeJwt(tokens.idToken).tid as string | undefined;
       } catch {
-        return null;
+        return denySignIn("malformed_id_token");
       }
       // Reject any token not minted by an HKUST tenant. This is the tenant pin
       // that replaces the disabled RFC 9207 issuer check.
-      if (!unverifiedTid || !(unverifiedTid in HKUST_TENANT_ISSUERS)) {
-        return null;
+      // Own keys only: `in` would also accept prototype keys such as "constructor".
+      if (!unverifiedTid || !Object.hasOwn(HKUST_TENANT_ISSUERS, unverifiedTid)) {
+        return denySignIn("tenant_not_allowed", { tid: String(unverifiedTid ?? "missing").slice(0, 64) });
       }
 
       // Step 2: verify the id_token signature against that tenant's published
@@ -208,12 +243,15 @@ const hkustProviders = [
           },
         );
         claims = payload;
-      } catch {
+      } catch (error) {
         // Bad signature / issuer / audience / expiry — reject.
-        return null;
+        const code = (error as { code?: unknown })?.code;
+        return denySignIn("id_token_verification_failed", {
+          error: typeof code === "string" ? code.slice(0, 64) : "unknown",
+        });
       }
 
-      if (!claims.sub) return null;
+      if (!claims.sub) return denySignIn("missing_subject");
       // With the tenant verified, `preferred_username` is an HKUST-issued UPN,
       // so gating the domain on it (when `email` is absent) is safe.
       const email = String(
@@ -223,18 +261,23 @@ const hkustProviders = [
       ).toLowerCase();
       // Per-sign-in domain enforcement: blocks any account whose verified
       // address is outside the allow-list, for new AND returning users.
-      if (!isAllowedEmail(email)) return null;
+      if (!isAllowedEmail(email)) {
+        return denySignIn("email_domain_not_allowed", {
+          domain: (email.split("@")[1] ?? "none").slice(0, 100),
+        });
+      }
 
       return {
         id: String(claims.sub),
         email,
         // Institutional SSO account — treated as verified.
         emailVerified: true,
-        name: String(
-          (claims.name as string) ??
-            (claims.preferred_username as string) ??
-            "Learner",
-        ),
+        // Never fall back to preferred_username: it is the UPN (an email
+        // address), and this name becomes the leaderboard / search display name.
+        name:
+          typeof claims.name === "string" && claims.name.trim()
+            ? claims.name.trim().slice(0, 50)
+            : "Learner",
         image:
           typeof claims.picture === "string"
             ? (claims.picture as string)
@@ -254,7 +297,11 @@ export const auth = betterAuth({
 
   emailAndPassword: { enabled: false },
 
+  // 8-hour inactivity timeout; see src/lib/session-policy.ts.
+  session: SESSION_POLICY,
+
   advanced: {
+    defaultCookieAttributes: COOKIE_ATTRIBUTES,
     database: {
       // UUIDs keep `profiles.id uuid` and all `auth.uid() = user_id` RLS
       // policies valid — auth.uid() casts the JWT `sub` to uuid.
@@ -263,9 +310,20 @@ export const auth = betterAuth({
   },
 
   user: {
-    // Used by the delete-account route: removes the better_auth user row and
-    // cascades sessions/accounts after the route has cleaned up app tables.
-    deleteUser: { enabled: true },
+    // Off: Better Auth's own POST /api/auth/delete-user would drop only the
+    // identity and orphan every app row (profiles has no FK to it). Account
+    // erasure goes through /api/auth/delete-account, which removes app data
+    // first and then calls deleteAuthUser() directly.
+    deleteUser: { enabled: false },
+  },
+
+  account: {
+    // Entra tokens are only needed during the sign-in exchange (getUserInfo
+    // reads the fresh id_token, never the stored one). The account hooks below
+    // store no provider token at all; encryption stays on as a second layer in
+    // case a future plugin writes tokens outside those hooks. Note that Better
+    // Auth 1.6 encrypts access/refresh tokens only, never the id_token.
+    encryptOAuthTokens: true,
   },
 
   plugins: [
@@ -288,6 +346,26 @@ export const auth = betterAuth({
   ],
 
   databaseHooks: {
+    account: {
+      // See src/lib/oauth-token-hygiene.ts: no provider token is persisted.
+      create: { before: async (account) => ({ data: withoutProviderTokens(account) }) },
+      update: { before: async (account) => ({ data: withoutProviderTokens(account) }) },
+    },
+    session: {
+      create: {
+        // Every successful sign-in, with the address and agent Better Auth
+        // captured for the session (forensic record; see security-events.ts).
+        after: async (session) => {
+          await logSecurityEvent({
+            type: "auth.sign_in",
+            userId: session.userId,
+            ip: session.ipAddress ?? null,
+            userAgent: session.userAgent ?? null,
+            detail: { provider: "hkust" },
+          });
+        },
+      },
+    },
     user: {
       create: {
         // Domain gate — throwing here aborts the user row create in the same
@@ -312,7 +390,7 @@ export const auth = betterAuth({
               `INSERT INTO public.profiles (id, display_name)
                VALUES ($1, $2)
                ON CONFLICT (id) DO NOTHING`,
-              [user.id, user.name ?? user.email.split("@")[0]],
+              [user.id, (user.name || "Learner").slice(0, 50)],
             );
           } catch (error) {
             try {
