@@ -87,6 +87,38 @@ describe("buildAuthPoolConnection", () => {
     expect(
       buildAuthPoolConnection("postgresql://postgres:postgres@127.0.0.1:54322/postgres").ssl,
     ).toBe(false);
+    expect(
+      buildAuthPoolConnection("postgresql://postgres:postgres@[::1]:54322/postgres").ssl,
+    ).toBe(false);
+  });
+
+  // The local-host decision must follow the host pg will actually dial, which
+  // pg-connection-string takes from a `host` query parameter when present.
+  it("keeps TLS pinned when a host parameter sends a localhost URL to a remote server", () => {
+    const { connectionString, ssl } = buildAuthPoolConnection(
+      "postgresql://postgres.ref:secret@localhost:6543/postgres?host=aws-1-ap-south-1.pooler.supabase.com",
+    );
+    const client = new Client({ connectionString, ssl }) as unknown as {
+      connectionParameters: { host: string; ssl: unknown };
+    };
+    expect(client.connectionParameters.host).toBe("aws-1-ap-south-1.pooler.supabase.com");
+    expect(client.connectionParameters.ssl).toEqual({
+      ca: SUPABASE_ROOT_CA_2021,
+      rejectUnauthorized: true,
+    });
+  });
+
+  it("keeps TLS pinned when '@localhost/' appears outside the host", () => {
+    expect(buildAuthPoolConnection(`${POOLER}?application_name=x@localhost/`).ssl).toEqual({
+      ca: SUPABASE_ROOT_CA_2021,
+      rejectUnauthorized: true,
+    });
+  });
+
+  it("treats a local host named by the host parameter as local", () => {
+    expect(
+      buildAuthPoolConnection("postgresql://postgres:postgres@/postgres?host=localhost").ssl,
+    ).toBe(false);
   });
 });
 

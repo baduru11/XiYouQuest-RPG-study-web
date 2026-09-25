@@ -15,6 +15,8 @@
  * (TLS 1.3, psql sslmode=verify-full reached password authentication).
  */
 
+import { parse } from "pg-connection-string";
+
 export const SUPABASE_ROOT_CA_2021 = `-----BEGIN CERTIFICATE-----
 MIIDxDCCAqygAwIBAgIUbLxMod62P2ktCiAkxnKJwtE9VPYwDQYJKoZIhvcNAQEL
 BQAwazELMAkGA1UEBhMCVVMxEDAOBgNVBAgMB0RlbHdhcmUxEzARBgNVBAcMCk5l
@@ -56,9 +58,24 @@ const TLS_URL_PARAMS = [
   "uselibpqcompat",
 ];
 
-// Local development hosts (local Supabase has no TLS). Matched on the raw
-// string so no URL parser is involved.
-const LOCAL_HOST = /@(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i;
+// Local development hosts (local Supabase has no TLS).
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * Whether node-postgres will dial a local host. Uses pg's own parser, because
+ * it takes the host from a `host` query parameter when one is present, so a
+ * match on the raw string could mistake a remote server for a local one.
+ * A string pg cannot parse is not local: pg would reject it too, and TLS stays
+ * pinned.
+ */
+function isLocalHost(connectionString: string): boolean {
+  try {
+    const { host } = parse(connectionString);
+    return typeof host === "string" && LOCAL_HOSTS.has(host.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 export type AuthPoolTls =
   | false
@@ -109,7 +126,7 @@ function withoutTlsParams(url: string): string {
  */
 export function buildAuthPoolConnection(rawUrl: string): AuthPoolConnection {
   const connectionString = withoutTlsParams(rawUrl.replace(/:5432\/(?=[^/]*$)/, ":6543/"));
-  const ssl: AuthPoolTls = LOCAL_HOST.test(connectionString)
+  const ssl: AuthPoolTls = isLocalHost(connectionString)
     ? false
     : { ca: SUPABASE_ROOT_CA_2021, rejectUnauthorized: true };
   return { connectionString, ssl };
