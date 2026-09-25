@@ -1,7 +1,11 @@
 # Patterns are root-anchored (leading /): unanchored names also match nested
 # folders such as src/lib/supabase and public/img.
-# Keep CLI deployments to the minimum needed to build the app (HKUST ITSO:
+# Keep deployments to the minimum needed to build the app (HKUST ITSO:
 # no credentials or High-Risk evidence outside controlled storage).
+# Vercel applies this file to Git deployments too, and `next build`
+# type-checks the tests under src, so a directory that src imports
+# (supabase/functions/_shared, scripts/security) must stay in the upload;
+# src/vercelignore.test.ts enforces that.
 .env*
 !.env.example
 /.omo
@@ -12,8 +16,6 @@
 /doc
 /prompt
 /img
-/scripts
-/supabase
 /coverage
 *.pem
 *.log
