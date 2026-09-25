@@ -33,10 +33,11 @@ to the diary if it is not already there, report that, and stop.
    directory without touching the working tree:
    `git -C <repo> archive <ref> scripts/security src/lib/db-tls.ts | tar -x -C <tmp>`.
 2. Credentials, never printed:
-   `TOKEN=$(security find-generic-password -s "Supabase CLI" -w)`; the anon key
-   from `https://api.supabase.com/v1/projects/yfoifmqjhavxidomgids/api-keys?reveal=true`
-   (entry named `anon`, or `default` of type `publishable` once legacy keys are
-   disabled), sent with header `User-Agent: curl/8.7.1`. Print only whether
+   `TOKEN=$(security find-generic-password -s "Supabase CLI" -w)`; the probe key
+   is the publishable key from `https://api.supabase.com/v1/projects/yfoifmqjhavxidomgids/api-keys?reveal=true`
+   (the entry with `type` `publishable` and `name` `default`; never the legacy
+   `anon` entry, which has been disabled since 2026-09-26), sent with header
+   `User-Agent: curl/8.7.1`. Pass it as `SUPABASE_ANON_KEY`. Print only whether
    each value is non-empty.
 3. Run `SUPABASE_ACCESS_TOKEN=$TOKEN SUPABASE_ANON_KEY=$ANON node <tmp>/scripts/security/posture-check.mjs --json`
    and keep the JSON. Retry once if the process fails to start.

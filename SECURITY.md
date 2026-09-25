@@ -34,8 +34,13 @@ This file is the summary. The evidence lives in `docs/security/`:
   restriction and the rate-limit purge were applied 2026-09-25 (OA-5); SSL
   is enforced on incoming connections (OA-4); Supabase Auth sign-up and its
   providers are closed (OA-2).
-- **Latest posture check (2026-09-25 06:30 UTC):** 29 PASS, 0 FAIL, 2 WARN
-  (OA-1 and OA-3), 1 SKIP (TLS-3 needs an external scanner).
+- **Credentials (2026-09-26):** the app and edge functions use Supabase's new
+  secret and publishable keys; the legacy `anon` and `service_role` keys are
+  disabled and the legacy HS256 signing secret is revoked (OA-1). The auth pool
+  connects as the least-privilege role `better_auth_app`, not the database
+  owner (OA-16). The unused GraphQL schema is no longer exposed (OA-15).
+- **Latest posture check (2026-09-26 06:38 HKT):** 30 PASS, 0 FAIL, 1 WARN
+  (backups, OA-3), 1 SKIP (TLS-3 needs an external scanner).
 
 ## Trust boundaries
 
@@ -74,7 +79,7 @@ This file is the summary. The evidence lives in `docs/security/`:
 | Abuse and cost | Per-user limits on all 28 handlers that write data or call a paid provider, shared by both runtimes | `src/lib/rate-limit.ts`, `supabase/functions/_shared/rate-limit.ts`, `src/app/api/rate-limit-coverage.test.ts` |
 | AI data handling | Zero-data-retention, no-collection routing; hosts in mainland China excluded; student ids stripped from prompts; prompt inputs bounded | `src/lib/gemini/client.ts` and twins; `src/lib/validations.ts` |
 | CSRF | Cross-site API writes refused | `src/proxy.ts` |
-| Logging | Security event log (sign-ins, refusals, exports, deletions, uploads, rate limits), 180 days; append-only for the service key, not yet for the auth pool's owner credential (OA-16) | `supabase/migrations/20260925090000_security_events.sql` |
+| Logging | Security event log (sign-ins, refusals, exports, deletions, uploads, rate limits), 180 days; append-only for every credential the app holds (the service key and the auth pool's `better_auth_app` role hold no table privilege) | `supabase/migrations/20260925090000_security_events.sql` |
 | Data subject rights | Self-service export and complete erasure | `src/app/api/profile/export`, `src/app/api/auth/delete-account` |
 | Transparency | Draft privacy notice at `/privacy`; `/.well-known/security.txt` | `src/app/(auth)/privacy/page.tsx` |
 | Monitoring | Weekly read-only posture check with evidence-based verdicts | `scripts/security/posture-check.mjs` |
@@ -84,16 +89,15 @@ This file is the summary. The evidence lives in `docs/security/`:
 
 The most important open items, all in [owner-actions.md](docs/security/owner-actions.md):
 
-1. **OA-1.** The legacy database JWT signing secret is still accepted and must be
-   retired (details held privately for the owner).
-2. **OA-16.** The web app's auth pool connects as the database owner, so its
-   connection string in the Vercel environment grants full database control.
-3. **OA-3.** No database backups exist (Supabase Free plan).
-4. **OA-8.** The PIA, cloud provider checklists and CITARS registration have not
+1. **OA-3.** No database backups exist (Supabase Free plan).
+2. **OA-8.** The PIA, cloud provider checklists and CITARS registration have not
    been submitted to ITSO, although the application is in use.
-5. **OA-10.** Other students can see names, levels, the top-20 accuracy ranking,
+3. **OA-10.** Other students can see names, levels, the top-20 accuracy ranking,
    and (friends) per-component average scores.
-6. **OA-13.** The speech provider (iFLYTEK) has no data processing agreement.
+4. **OA-13.** The speech provider (iFLYTEK) has no data processing agreement.
+5. **OA-9.** Confirm multi-factor authentication on every administrator
+   account, and rotate the database owner password, which the app no longer
+   uses but which sat in the Vercel environment.
 
 ## Corrections to earlier versions of this file
 

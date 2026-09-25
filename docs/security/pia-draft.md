@@ -94,7 +94,7 @@ disclosed in the privacy notice.
 | Question | Answer |
 |---|---|
 | Who has access, and why? | Students: their own data. Other students: the fields listed under DPP3. Maintainers: database and platform consoles for operation (inventory OA-9). |
-| Safeguards | HKUST SSO with tenant and signature pinning; every route authenticates and scopes queries to the signed-in user (tested); client database roles hold no privilege; per-user rate limits; strict content security policy; TLS 1.2+; cross-site write refusal; 8-hour session timeout; a security event log the service key can only append to; weekly posture check. Full list: [itso-requirement-register.md](itso-requirement-register.md). |
+| Safeguards | HKUST SSO with tenant and signature pinning; every route authenticates and scopes queries to the signed-in user (tested); client database roles hold no privilege; per-user rate limits; strict content security policy; TLS 1.2+; cross-site write refusal; 8-hour session timeout; a security event log that no credential held by the app can read or alter; least-privilege database role for the sign-in system; legacy signing secret revoked; weekly posture check. Full list: [itso-requirement-register.md](itso-requirement-register.md). |
 | Processor controls | See Part 2 and [csp-checklists.md](csp-checklists.md). |
 
 ### DPP5: Openness
@@ -120,7 +120,7 @@ Not used for direct marketing.
 | Risk | Mitigation | Residual |
 |---|---|---|
 | Unauthorised access to another student's records | Session-scoped queries (tested per route); client roles hold no privilege; posture check weekly | Low |
-| A full-access database credential misused | The legacy JWT signing secret is being retired (OA-1); new keys supported in code | High until OA-1 is done |
+| A full-access database credential misused | The legacy JWT signing secret was revoked and the legacy API keys disabled on 2026-09-26 (OA-1); the app holds only the new secret key and a least-privilege database role (OA-16) | Low; the database owner password should still be rotated (OA-9) |
 | Other students see names and performance | Disclosed in the notice | Open: visibility decision (OA-10) |
 | Voice data processed by a provider without a DPA | Transient processing in Singapore; disclosed | Open: OA-13 |
 | Chat and transcripts reach a language model | Zero data retention, no training, no mainland-China hosts; ids stripped | Accepted pending DPO view |

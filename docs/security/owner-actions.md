@@ -19,7 +19,7 @@ Roles used below:
 
 | ID | Action | Owner | Due | Verified by |
 |---|---|---|---|---|
-| OA-1 | Retire the legacy JWT secret and legacy API keys | Supabase org owner + Vercel XYQ member | 2026-09-26 | AUTH-2 |
+| OA-1 | Retire the legacy JWT secret and legacy API keys | Supabase org owner + Vercel XYQ member | Done 2026-09-26 | AUTH-2 |
 | OA-2 | Close Supabase Auth sign-up and providers | Supabase org owner | Done 2026-09-25 | AUTH-1 |
 | OA-3 | Arrange database backups (plan decision) | Responsible unit + Supabase org owner | 2026-10-09 | PLAT-2 |
 | OA-4 | Enforce TLS on database connections | Supabase org owner | Done 2026-09-25 | PLAT-1 |
@@ -33,52 +33,39 @@ Roles used below:
 | OA-12 | Secure every maintainer computer | Each maintainer | 2026-09-26 | Register END rows |
 | OA-13 | Processor contracts and assurance reports | Responsible unit | 2026-10-16 | csp-checklists.md |
 | OA-14 | Name the data user; approve retention; legacy accounts | Responsible unit + DPO | 2026-10-09 | PIA Part 1 |
-| OA-15 | Remove the unused GraphQL API schema | Supabase org owner | 2026-10-02 | Register WASG-3.3 |
-| OA-16 | Give the auth pool a least-privilege database role | Supabase org owner + Vercel XYQ member | 2026-10-09 | Register MSS-SAAS-6 |
+| OA-15 | Remove the unused GraphQL API schema | Supabase org owner | Done 2026-09-26 | Register ADG-5 |
+| OA-16 | Give the auth pool a least-privilege database role | Supabase org owner + Vercel XYQ member | Done 2026-09-26 | Register MSS-SAAS-6 |
 
 ---
 
 ## OA-1: Retire the legacy JWT secret and legacy API keys
 
-**Why.** The project already signs tokens with an ES256 key, but the legacy
-HS256 secret is still in "previously used" state, so tokens it signs keep
-verifying, and anyone holding it could mint a `service_role` token with full
-database access. Retiring it removes a standing high-value credential. The
-background is recorded privately; the maintainer gives it to the owner directly.
+**Done 2026-09-26**, in this order, each step verified before the next:
 
-The app's legacy `anon` and `service_role` API keys are themselves HS256 JWTs,
-so revoking the secret without switching keys first would break every database
-call. The code on the hardening branch accepts the new keys when they are set
-(`src/lib/env.ts`, `supabase/functions/_shared/env.ts`).
+1. An owner ran `scripts/security/rotate-app-credentials.sh`, which copied the
+   project's `default` secret and publishable keys into Vercel
+   (`SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, Production and
+   Preview) without printing them. The maintainer never handled a key value.
+2. The web app was redeployed. The edge functions were redeployed with a helper
+   that reads the keys Supabase injects into every function
+   (`SUPABASE_SECRET_KEYS`, `SUPABASE_PUBLISHABLE_KEYS`), so no edge secret had
+   to be copied. Minimum versions are in `scripts/security/edge-manifest.json`.
+3. The legacy `anon` and `service_role` keys were disabled (reversible). About
+   a minute later the gateway refused the legacy anon key ("Legacy API keys are
+   disabled") while the publishable key still reached the database.
+4. The owner signed in and used practice, companion chat and the profile page;
+   production logs showed no error or 5xx for that session.
+5. The legacy HS256 signing key was revoked (irreversible), after checking that
+   the ES256 key was in use. Posture AUTH-2 reports PASS ("no HS256 key
+   accepted").
 
-**Steps.**
+Why it mattered: anyone holding the legacy secret could mint a `service_role`
+token with full database access. The background is recorded privately; the
+maintainer gives it to the owner directly.
 
-1. Supabase dashboard, project XiyouQuest: Project Settings, API Keys. Confirm
-   the publishable and secret keys named `default` exist. Optionally create a
-   dedicated secret key for the app and use it below.
-2. Vercel, team `xyq`, project `xi-you-quest-rpg-study-web`: Settings,
-   Environment Variables. For Production and Preview add:
-   - `SUPABASE_SECRET_KEY` = the secret key
-   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = the publishable key
-   This takes effect with the release that contains the hardening branch (OA-6).
-3. Edge function secrets. Put the two values in a local file, set them, and
-   delete the file so the values stay out of shell history:
-
-   ```bash
-   supabase secrets set --env-file ./xyq-new-keys.env --project-ref yfoifmqjhavxidomgids
-   ```
-
-   The file contains two lines, `XYQ_SUPABASE_SECRET_KEY=...` and
-   `XYQ_SUPABASE_PUBLISHABLE_KEY=...`. Edge secrets cannot start with
-   `SUPABASE_`, which is why these names differ from Vercel's.
-4. Verify with a real sign-in: open a practice session, a companion chat and
-   the profile page. Then run the posture check; every ANON, EDGE and DB row
-   must still pass.
-5. Supabase dashboard: Project Settings, JWT Keys. Revoke the legacy HS256 key
-   (status "previously used"). Then Project Settings, API Keys, and disable
-   the legacy API keys.
-6. Replace the CI secret `SUPABASE_ANON_KEY` with the publishable key (OA-7).
-7. Run the posture check. AUTH-2 must report PASS.
+The weekly CI posture job should use the publishable key as its
+`SUPABASE_ANON_KEY` secret when OA-7 creates it. The legacy anon key is now
+refused, and the posture check reports that as WARN, not PASS.
 
 **Report.** A draft incident report for ITSO is held privately by the
 maintainer for the owner. Sending it is the responsible unit's decision.
@@ -220,6 +207,11 @@ person needs the access. Remove accounts that are not needed. ITSO's
 privileged-account practice requires 90-day password changes where MFA is
 not available.
 
+Also rotate the database owner (`postgres`) password in Supabase, Project
+Settings, Database. The app stopped using it on 2026-09-26 (OA-16), but it sat
+in the Vercel environment for months and is still valid. Tell other maintainers
+first, in case a local tool of theirs uses it.
+
 ## OA-10: Decide what other students may see
 
 Any signed-in student can find others by name and see level, avatar and
@@ -280,42 +272,38 @@ checklist and a SOC 2 Type 2 report before deployment.
 
 ## OA-15: Remove the unused GraphQL API schema
 
-PostgREST exposes `graphql_public` in addition to `public`. The app does not
-use GraphQL. Supabase dashboard: Project Settings, Data API, Exposed schemas:
+**Done 2026-09-26.** The exposed schemas went from `public,graphql_public` to
+`public`. GraphQL had already been inert: the `pg_graphql` extension was not
+enabled. After the change, `POST /graphql/v1` answers `406 PGRST106 Invalid
+schema: graphql_public`, and public REST behaves as before. For another
+environment: Supabase dashboard, Project Settings, Data API, Exposed schemas:
 keep `public` only.
 
 ## OA-16: Give the auth pool a least-privilege database role
 
-**Why.** The Better Auth pool (`src/lib/auth.ts`) connects as `postgres`, the
-database owner. On 2026-09-25 it was the only login role available to the
-project. Anyone who obtains `BETTER_AUTH_DATABASE_URL` from the Vercel
-environment therefore controls the whole database, including the security event
-log, which is append-only only for the service key. The pre-merge security
-review found this on 2026-09-25.
+**Done 2026-09-26.** The Better Auth pool (`src/lib/auth.ts`) connected as
+`postgres`, the database owner, so `BETTER_AUTH_DATABASE_URL` in the Vercel
+environment gave full control of the database. The pre-merge security review
+found this on 2026-09-25.
 
-**What the pool needs.** Read from the code:
+1. `supabase/migrations/20260925110000_better_auth_app_role.sql` created the
+   role `better_auth_app` without LOGIN. It holds:
+   - read, insert, update and delete on the five `better_auth` tables;
+   - insert of `(id, display_name)` on `public.profiles`, plus SELECT on `id`
+     alone, because the sign-up hook's `ON CONFLICT (id)` needs it, and
+     because with ON CONFLICT Postgres also checks SELECT policies.
 
-- all five tables in schema `better_auth` (`user`, `session`, `account`,
-  `verification`, `jwks`): read, insert, update and delete;
-- `public.profiles`: insert only, for the sign-up hook, which uses
-  `ON CONFLICT DO NOTHING`.
+   Two rolled-back tests on production proved it:
+   - it can run every statement shape the pool issues;
+   - it cannot read or change the security log, profile names or progress,
+     chats or mock exams, and cannot create tables.
+2. An owner ran `scripts/security/rotate-app-credentials.sh`. It set a random
+   password, sent to the database only as a SCRAM verifier (derivation checked
+   against RFC 7677). It then logged in with verified TLS through the pooler,
+   and only after that wrote the new `BETTER_AUTH_DATABASE_URL` to Vercel.
+3. After the redeploy, the database showed the app's connection as
+   `better_auth_app` over TLS. `/api/auth/jwks` answered from the database, and
+   the owner's real sign-in succeeded.
 
-**Steps.**
-
-1. Supabase SQL editor: create a login role for the pool. The owner generates
-   its long random password and never stores it in the repository. Grant it:
-   - `USAGE` on schema `better_auth`;
-   - `SELECT, INSERT, UPDATE, DELETE` on the five tables;
-   - `USAGE` on schema `public` and `INSERT` on `public.profiles`.
-
-   Row-level security is on for `profiles` and the role must not bypass it, so
-   also add an insert policy for that role.
-2. Vercel, Production and Preview: set `BETTER_AUTH_DATABASE_URL` to the
-   transaction pooler URL for the new role (user name
-   `<role>.yfoifmqjhavxidomgids`, port 6543), then redeploy.
-3. Verify:
-   - sign in as a new user and as an existing user;
-   - run a data export and a test account deletion;
-   - run the posture check, which must still pass.
-4. Reset the `postgres` database password (Project Settings, Database), because
-   the old one has been in the Vercel environment.
+To rotate this password later, an owner runs the same script again. The
+remaining step, rotating the `postgres` password itself, is under OA-9.

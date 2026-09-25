@@ -9,13 +9,14 @@ paraphrased and anchored to the row identifiers of the source documents
 - **Code:** upstream `main` 6ba5ef7 (pull request #9 from branch
   `security/hkust-hardening`, merged 2026-09-25). "Branch" in the Evidence
   column marks a control that arrived with that release.
-- **Production:** web app = `main` 6ba5ef7, deployed 2026-09-25 06:08Z. Edge
-  functions = the hardened release, deployed 2026-09-25 (versions in
-  `scripts/security/edge-manifest.json`). Database: the release's three
-  migrations applied (OA-5), SSL enforced (OA-4) and Supabase Auth sign-up
-  closed (OA-2), all on 2026-09-25.
-- **Live posture (2026-09-25 06:30Z):** 29 PASS, 0 FAIL, 2 WARN, 1 SKIP; the
-  WARNs are OA-1 and OA-3. Details: [posture-diary.md](posture-diary.md).
+- **Production:** web app = `main` `f132aaf`, deployed 2026-09-25 22:17Z. Edge
+  functions redeployed the same hour (minimum versions in
+  `scripts/security/edge-manifest.json`). Database: all four migrations of the
+  release applied (OA-5, OA-16), SSL enforced (OA-4), Supabase Auth sign-up
+  closed (OA-2), legacy API keys disabled and the legacy HS256 secret revoked
+  (OA-1), GraphQL schema unexposed (OA-15).
+- **Live posture (2026-09-25 22:38Z):** 30 PASS, 0 FAIL, 1 WARN, 1 SKIP; the
+  WARN is backups (OA-3). Details: [posture-diary.md](posture-diary.md).
 
 ## 1. Classification
 
@@ -97,7 +98,7 @@ processors (iFLYTEK, OpenRouter and its model hosts). Per-provider detail is in
 | MSS-SAAS-3 | Integrate with ITSO SSO; review admin accounts regularly; ITSO password rules otherwise | Partial | Users sign in only through HKUST Microsoft Entra ID (OIDC), tenant-pinned and signature-verified (`src/lib/auth.ts`); email/password disabled; Supabase Auth's unused sign-up and providers closed 2026-09-25 | Admin account review OA-9 |
 | MSS-SAAS-4 | TLS transport encryption | Met | Browser to Vercel and Supabase: TLS 1.2+ (TLS-1, TLS-2). Vercel to database: pinned-CA verification in `src/lib/db-tls.ts`, verified live (DBTLS-1); the database refuses plaintext connections since 2026-09-25 (PLAT-1) | |
 | MSS-SAAS-5 | Enable MFA where the vendor provides it | Partial | Student and staff sign-in inherits HKUST Entra MFA policy | Administrator consoles unverified, OA-9 |
-| MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Partial | `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention; the service key can only append and cannot read or alter it, but the auth pool's database-owner credential can until OA-16 (`supabase/migrations/20260925090000_security_events.sql`, PGlite tests) | Table live in production since 2026-09-25 (OA-5 done); web-app events start with the release (OA-6); least-privilege auth pool role (OA-16); platform logs keep only 1 hour to 1 day (OA-3) |
+| MSS-SAAS-6 | Enable application logging that would support a forensic investigation | Met | `security_events` (sign-ins with IP and agent, refused sign-ins, exports, deletions, avatar uploads, rate-limit refusals), 180-day retention; no credential the app holds can read or alter it: the service key can only append, and since 2026-09-26 the auth pool connects as `better_auth_app`, which holds no privilege on it (verified with a rolled-back negative test) (`supabase/migrations/20260925090000_security_events.sql`, `20260925110000_better_auth_app_role.sql`, PGlite tests) | Platform logs keep only 1 hour to 1 day (OA-3) |
 | MSS-SAAS-7 | Contract that HKUST data is purged when the agreement ends | Partial | Supabase DPA: deletion within 30 days of termination | Vercel DPA covers Enterprise terms only; OpenRouter DPA not reviewed; iFLYTEK has none. OA-13 |
 | MSS-SAAS-8 | Submit the CSP checklist and the provider's SOC 2 Type 2 report to ITSO before deployment | Gap | Deployed without it; checklists drafted | OA-8, OA-13; Supabase's report needs the Team plan (OA-3) |
 
@@ -159,7 +160,7 @@ firewall re-checked on 2026-09-25.
 | ADG-2 | Encrypt sensitive data on public networks | Met | See MSS-SAAS-4; database leg enforced 2026-09-25 | |
 | ADG-3 | Validate input: type, syntax, length, characters, range | Met | zod schemas for every body and query (`src/lib/validations.ts` and the edge twin, parity-tested); bounds added for AI prompt inputs, progress counters, paging and report ids | |
 | ADG-4 | Fix critical flaws found by security testing | Met | All confirmed review findings fixed or dispositioned (section 15) | Health-check findings once run, OA-8 |
-| ADG-5 | Remove unused services and functions | Partial | Unreferenced content files removed from the web root; Supabase Auth providers off since 2026-09-25 | Unused GraphQL schema OA-15 |
+| ADG-5 | Remove unused services and functions | Met | Unreferenced content files removed from the web root; Supabase Auth providers off since 2026-09-25; GraphQL schema no longer exposed and two unused credentials removed from Vercel since 2026-09-26 | |
 | ADG-6 | Remove test data and accounts before production | Partial | All 28 application accounts are HKUST-domain users; the preview project holds no learner rows | Two dormant Supabase Auth accounts, OA-14 |
 | ADG-7 | Design against the OWASP Top 10 | Partial | Section 10, Appendix A mapping | |
 | ADG-8 | TLS; SSLv2/v3 disabled | Met | TLS-1 | |
@@ -182,7 +183,7 @@ Grouped by section; every bullet of the guideline is covered by a row.
 | WASG-2.2d | No data, temporary or backup files in web directories | Met | Campaign source documents moved out of `public/` | |
 | WASG-2.2e | Use Java or .NET server-side | Deviation | TypeScript on Next.js and Deno | ITSO acceptance, OA-8 |
 | WASG-3.1 | Secure design; secure the weakest link | Partial | This register and two adversarial reviews | Retroactive (MSS-APP-9) |
-| WASG-3.2 | Least-privilege processes and accounts; unused services off; SSL for all client-server data | Partial | Client database roles hold nothing; only the server holds the service key; Supabase Auth sign-up closed; the database refuses plaintext connections (PLAT-1) | OA-15 |
+| WASG-3.2 | Least-privilege processes and accounts; unused services off; SSL for all client-server data | Partial | Client database roles hold nothing; only the server holds the secret key; the auth pool uses the least-privilege role `better_auth_app` (OA-16); Supabase Auth sign-up closed; GraphQL not exposed (OA-15); the database refuses plaintext connections (PLAT-1) | The database owner password is still valid; rotate it (OA-9) |
 | WASG-3.3 | Encrypt sensitive data in storage and transit; mask in display and testing | Partial | At rest: AES-256 by Supabase (provider). In transit: TLS everywhere, database leg pinned (DBTLS-1) and enforced by the database since 2026-09-25 (PLAT-1). Tests use synthetic data | No application-level encryption of chat transcripts: accepted risk, recorded in the PIA |
 | WASG-3.4 | Web services: authorise clients, validate, encode output, encrypt, virus-scan attachments, limit message size | Partial | Edge functions verify a signed JWT (ES256, issuer and audience pinned) before any work; request and audio size caps | Uploaded avatars are not antivirus-scanned (see WASG-4.8) |
 | WASG-3.5 | Secure deployment review | Met | This register; posture check | |
@@ -204,7 +205,7 @@ Grouped by section; every bullet of the guideline is covered by a row.
 **Appendix A (OWASP Top 10 2021).** A01 Broken access control: Met (ADG-1).
 A02 Cryptographic failures: Partial (WASG-3.3). A03 Injection: Met (WASG-4.1).
 A04 Insecure design: Partial (MSS-APP-9). A05 Security misconfiguration: Partial
-(OA-15; OA-2 and OA-4 closed 2026-09-25). A06 Vulnerable components: Met (MSS-APP-2). A07
+(OA-2 and OA-4 closed 2026-09-25, OA-15 on 2026-09-26; backups remain, OA-3). A06 Vulnerable components: Met (MSS-APP-2). A07
 Identification and authentication failures: Met (WASG-4.4). A08 Software and
 data integrity: Partial (actions pinned to commit SHAs, edge imports pinned; no
 Deno lockfile). A09 Logging and monitoring: Partial (MSS-SAAS-6). A10 SSRF: Met
@@ -254,8 +255,8 @@ Counted from the tables in sections 4 to 12 (101 rows):
 
 | Status | Rows |
 |---|---|
-| Met | 37 |
-| Partial | 29 |
+| Met | 39 |
+| Partial | 27 |
 | Gap | 17 |
 | Deviation | 3 |
 | Unverified | 2 |
@@ -294,7 +295,7 @@ it was acted on.
 | Posture token in CI can run SQL | Protected environment added; OA-7 |
 | Evidence note overstated an anonymous write path (the function's own guard refused it) | Corrected in the evidence record |
 | SECURITY.md claimed Supabase verifies Better Auth tokens | Corrected |
-| Security log called append-only for the app, but the auth pool connects as the database owner (`postgres`, the only customer login role) | Claim corrected in every document; least-privilege pool role is OA-16 |
+| Security log called append-only for the app, but the auth pool connects as the database owner (`postgres`, the only customer login role) | Claim corrected in every document; fixed 2026-09-26: the pool connects as `better_auth_app` (OA-16) |
 | Data export (a GET) could be started by another site's navigation | Fixed: fetch-metadata guard in the proxy, tested |
 | Storage listings stopped at 100 entries (export, chat deletion, account erasure) | Fixed: paged listing and batched removal, tested |
 | Counters re-created by a still-valid edge token after erasure were never purged | Fixed: every call purges any user's windows a day after they end (migration applied 2026-09-25); the token's 15-minute lifetime remains |

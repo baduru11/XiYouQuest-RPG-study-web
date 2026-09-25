@@ -157,3 +157,32 @@ Three changes since 04:42:51Z, in order:
 Remaining: AUTH-2 WARN (legacy HS256 secret, OA-1), PLAT-2 WARN (no backups,
 OA-3), TLS-3 SKIP (external scanner). CI and Security workflows ran on the
 merge commit upstream and passed.
+
+## 2026-09-25T22:38:15Z posture check v2, after OA-1, OA-15 and OA-16
+
+Target: https://cle-xyq.hkust.edu.hk, project yfoifmqjhavxidomgids. Probe key:
+the publishable key.
+PASS 30 · FAIL 0 · WARN 1 · SKIP 1
+
+Changes since 06:30:45Z on 2026-09-25, in order:
+
+1. **OA-16.** Role `better_auth_app` created and tested (rolled-back positive and
+   negative tests); an owner ran `scripts/security/rotate-app-credentials.sh`;
+   production redeployed from `main` `f132aaf`. The database shows the app's
+   connection as `better_auth_app` over TLS.
+2. **OA-1.**
+   - New keys in Vercel; edge functions redeployed to read the injected new
+     keys.
+   - Legacy API keys disabled: after about 60 s the gateway answered the legacy
+     anon key with "Legacy API keys are disabled", while the publishable key
+     reached the database (42501).
+   - The owner's sign-in, practice, chat and profile check: production logs
+     showed 100 requests and 0 errors.
+   - Legacy HS256 key revoked. AUTH-2 changed from WARN to PASS ("no HS256 key
+     accepted").
+3. **OA-15.** Exposed schemas set to `public`; `POST /graphql/v1` now answers
+   406 PGRST106.
+
+ANON-1 to ANON-4 pass on database evidence (42501), under the tightened
+classifier that no longer accepts a gateway refusal. Remaining: PLAT-2 WARN (no
+backups, OA-3) and TLS-3 SKIP (external scanner).

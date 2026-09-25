@@ -39,7 +39,7 @@ signature did not match); v2 returns SKIP or WARN when a probe proves nothing.
 | DB-4 | SECURITY DEFINER functions pin `search_path` | Catalog count 0 |
 | DB-5 | No client-role storage policies | Catalog count 0 |
 | DB-6 | No plaintext OAuth tokens stored | Catalog count 0 |
-| DB-7 | Security log append-only for the service key | `service_role` holds no table privilege (WARN until OA-5) |
+| DB-7 | Security log append-only for the app's credentials | `service_role` holds no table privilege (WARN until OA-5); `better_auth_app` holds none either |
 | DB-8 | chat-images bucket limited to raster types | Bucket MIME allowlist set (WARN until OA-5) |
 | DB-9 | No non-image objects in public buckets | Catalog count 0 |
 | AUTH-1 | Supabase Auth sign-up closed | Auth config (WARN until OA-2) |

@@ -47,9 +47,13 @@ the exploitable state found on 2026-09-24.
 
 ### 3.2 Credential exposure (database keys, signing secrets, API keys)
 
-1. Identify the credential's blast radius. The legacy HS256 JWT secret and the
-   service key grant full database access; iFLYTEK and OpenRouter keys grant
-   paid API use; `BETTER_AUTH_SECRET` signs sessions.
+1. Identify the credential's blast radius. The Supabase secret key and the
+   database owner password grant full database access (the legacy HS256
+   secret was revoked on 2026-09-26); the `better_auth_app` password grants
+   only the sign-in tables; iFLYTEK and OpenRouter keys grant paid API use;
+   `BETTER_AUTH_SECRET` signs sessions. To rotate the Supabase keys in Vercel
+   or the `better_auth_app` password, an owner runs
+   `scripts/security/rotate-app-credentials.sh`.
 2. Rotate or revoke at the provider. For Supabase, move to the new API keys and
    revoke the legacy secret as in [owner-actions.md](owner-actions.md), OA-1.
    For `BETTER_AUTH_SECRET`, generate a new value in Vercel and redeploy; every
