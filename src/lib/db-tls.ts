@@ -56,7 +56,9 @@ const TLS_URL_PARAMS = [
   "uselibpqcompat",
 ];
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+// Local development hosts (local Supabase has no TLS). Matched on the raw
+// string so no URL parser is involved.
+const LOCAL_HOST = /@(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i;
 
 export type AuthPoolTls =
   | false
@@ -68,22 +70,47 @@ export interface AuthPoolConnection {
 }
 
 /**
+ * Removes TLS query parameters without parsing or re-serialising the URL, so
+ * the credentials stay byte-identical to what the operator configured.
+ */
+function withoutTlsParams(url: string): string {
+  const queryStart = url.indexOf("?");
+  if (queryStart === -1) return url;
+  const kept = url
+    .slice(queryStart + 1)
+    .split("&")
+    .filter((pair) => {
+      if (pair === "") return false;
+      const rawKey = pair.split("=")[0];
+      let key = rawKey;
+      try {
+        key = decodeURIComponent(rawKey);
+      } catch {
+        // Undecodable key: compare it as written.
+      }
+      return !TLS_URL_PARAMS.includes(key.toLowerCase());
+    });
+  const base = url.slice(0, queryStart);
+  return kept.length > 0 ? `${base}?${kept.join("&")}` : base;
+}
+
+/**
  * Normalises the Better Auth database URL and decides its TLS settings.
  *
  * - Forces the Supabase transaction pooler port (6543): the session pooler
  *   (5432) caps at 15 clients and is exhausted under serverless concurrency.
  * - Removes every TLS query parameter so it cannot override `ssl`.
- * - Local development hosts get plain TCP (local Supabase has no TLS);
- *   every other host must present a chain that verifies against the pinned
- *   Supabase root, with hostname verification left on.
+ * - Local development hosts get plain TCP; every other value, including one
+ *   that is not a parseable URL, gets TLS pinned to the Supabase root with
+ *   hostname verification on.
+ *
+ * Never throws: this runs when src/lib/auth.ts is imported, and node-postgres
+ * accepts strings (spaces, stray % escapes) that a strict URL parser rejects.
  */
 export function buildAuthPoolConnection(rawUrl: string): AuthPoolConnection {
-  const url = new URL(rawUrl.replace(/:5432\/(?=[^/]*$)/, ":6543/"));
-  for (const param of TLS_URL_PARAMS) url.searchParams.delete(param);
-
-  const ssl: AuthPoolTls = LOCAL_HOSTS.has(url.hostname)
+  const connectionString = withoutTlsParams(rawUrl.replace(/:5432\/(?=[^/]*$)/, ":6543/"));
+  const ssl: AuthPoolTls = LOCAL_HOST.test(connectionString)
     ? false
     : { ca: SUPABASE_ROOT_CA_2021, rejectUnauthorized: true };
-
-  return { connectionString: url.toString(), ssl };
+  return { connectionString, ssl };
 }

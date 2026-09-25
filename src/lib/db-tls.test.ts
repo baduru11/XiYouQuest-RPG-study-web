@@ -56,6 +56,30 @@ describe("buildAuthPoolConnection", () => {
     expect(new URL(connectionString).port).toBe("6543");
   });
 
+  // node-postgres pre-encodes spaces and malformed % escapes and tolerates odd
+  // strings; this helper must never be stricter than pg, because it runs at
+  // import time and a throw there takes every request down.
+  it.each([
+    ["a space", "pa ss"],
+    ["a stray percent", "pa%zzss"],
+    ["reserved characters", "p^a|s{s}"],
+  ])("never throws and keeps credentials byte-identical for a password with %s", (_label, password) => {
+    const raw = `postgresql://postgres.ref:${password}@aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require`;
+    const { connectionString, ssl } = buildAuthPoolConnection(raw);
+    expect(connectionString).toBe(
+      `postgresql://postgres.ref:${password}@aws-1-ap-south-1.pooler.supabase.com:6543/postgres`,
+    );
+    expect(ssl).toEqual({ ca: SUPABASE_ROOT_CA_2021, rejectUnauthorized: true });
+  });
+
+  it("fails closed (pinned TLS) instead of throwing on a value that is not a URL", () => {
+    expect(() => buildAuthPoolConnection("[SENSITIVE]")).not.toThrow();
+    expect(buildAuthPoolConnection("[SENSITIVE]").ssl).toEqual({
+      ca: SUPABASE_ROOT_CA_2021,
+      rejectUnauthorized: true,
+    });
+  });
+
   it("uses plain TCP only for local development hosts", () => {
     expect(
       buildAuthPoolConnection("postgresql://postgres:postgres@localhost:54322/postgres").ssl,
