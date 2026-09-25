@@ -1,16 +1,16 @@
 {
-  "$comment": "Minimum deployed version per edge function. A lower version means a rollback to code without the hardened controls. Raise after every edge deploy.",
+  "$comment": "Minimum deployed version per edge function. A lower version means a rollback to code without the hardened controls. Raised to the hardened release deployed 2026-09-25 from security/hkust-hardening; raise again after every edge deploy.",
   "minimumVersions": {
-    "ai-feedback": 14,
-    "ai-insights": 16,
-    "ai-mock-exam-feedback": 16,
-    "chat-generate-image": 14,
-    "chat-respond": 16,
-    "chat-start": 14,
-    "learning-generate-plan": 14,
-    "speech-assess": 15,
-    "speech-c5-assess": 18,
-    "tts-companion": 15,
-    "tts-speak": 15
+    "ai-feedback": 16,
+    "ai-insights": 18,
+    "ai-mock-exam-feedback": 18,
+    "chat-generate-image": 16,
+    "chat-respond": 18,
+    "chat-start": 16,
+    "learning-generate-plan": 16,
+    "speech-assess": 17,
+    "speech-c5-assess": 20,
+    "tts-companion": 17,
+    "tts-speak": 18
   }
 }
