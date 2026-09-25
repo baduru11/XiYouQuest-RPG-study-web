@@ -1,180 +1,123 @@
 # Security incident runbook
 
-This runbook is specific to XiYouQuest's stack: Next.js on Vercel, Supabase
-Postgres/Storage/Edge Functions, Better Auth (HKUST Entra ID), iFlytek, and
-OpenRouter. It is invoked whenever `docs/security/README.md`'s posture check
-reports a `FAIL`, or any other detection source below indicates a real or
-suspected security incident.
+For XiYouQuest's stack: Next.js on Vercel, Supabase Postgres, Storage and Edge
+Functions, Better Auth with HKUST Microsoft Entra ID, iFLYTEK, and OpenRouter.
+It follows HKUST ITSO's Cybersecurity Incident Handling Policy (report,
+initial containment, impact assessment and recovery, review) and its
+Escalation Procedure for Extensive / Widespread incidents.
+
+ITSO defines an incident as a violation or imminent threat of violation of
+security policies or standard practices, including leaks of high-risk data. A
+personal data incident must also be reported to the University Data Privacy
+Officer.
 
 ## 1. Detection sources
 
-| Source | What it catches | Where to look |
+| Source | Catches | Where |
 |---|---|---|
-| `scripts/security/posture-check.mjs` (weekly + ad hoc) | RLS/GRANT regression, storage policy regression, plaintext token reappearance, sign-up reopened, missing security headers, weak TLS | `docs/security/posture-diary.md` |
-| CodeQL (`.github/workflows/security.yml`) | New code-level vulnerability (injection, unsafe deserialization, etc.) | GitHub Security tab, on every push/PR and weekly |
-| Gitleaks (`.github/workflows/security.yml`) | Committed secret | GitHub Actions run log, on every push/PR |
-| `npm audit --omit=dev --audit-level=high` (`.github/workflows/ci.yml`) | High/critical dependency CVE in production dependencies | CI run log, on every push/PR |
-| `src/app/api/authz-matrix.test.ts`, `src/app/api/authz-cross-user.test.ts`, `src/proxy.headers.test.ts`, `src/lib/rate-limit.test.ts` (CI `npm test`) | Regression in per-route auth, ownership scoping, security headers, or rate-limit wiring, caught before merge | CI run log |
-| Supabase platform logs (Dashboard → Logs) | Anomalous query volume, repeated 401/403, auth config changes | Supabase Dashboard (not automated in this repo) |
-| Vercel deployment/runtime logs | 5xx spikes, unexpected env var changes | Vercel Dashboard |
-| A report from a user, HKUST ITSO, or a third party | Anything not caught above | `security@ust.hk`, repository maintainer |
+| Posture check v2 (weekly in CI, daily session Loop, ad hoc) | Privilege or RLS regressions (DB-1 to DB-5), stored plaintext tokens (DB-6), security-log tampering rights (DB-7), non-image objects in public buckets (DB-9), Auth settings (AUTH-1, AUTH-2), SSL enforcement and backups (PLAT-1, PLAT-2), edge rollbacks and boot failures (PLAT-3, EDGE-1), anonymous access (ANON-1 to ANON-4), headers, CSRF guard, TLS and database TLS | [posture-diary.md](posture-diary.md); CI job summary |
+| Security event log (`public.security_events`, after OA-5) | Bursts of refused sign-ins, rate-limit refusals, unexpected exports or deletions | SQL editor as the database owner |
+| CodeQL, Gitleaks, `npm audit` | Code vulnerabilities, committed secrets, vulnerable dependencies | GitHub Actions |
+| Tests in CI | Regressions in route authentication, ownership scoping, rate-limit coverage, headers, CSRF guard | GitHub Actions |
+| Supabase and Vercel dashboards | Traffic anomalies, error spikes, configuration changes | Provider consoles (logs kept 1 hour to 1 day on current plans) |
+| Reports from users, ITSO or third parties | Anything else | `security@ust.hk`, `/.well-known/security.txt` |
 
-## 2. Severity
+## 2. Impact levels (ITSO)
 
-| Severity | Definition | Example |
+| Level | ITSO description | Examples here |
 |---|---|---|
-| **Critical** | Confirmed unauthorized access to personal data, or a live path for it | A posture-check DB-2/DB-3 `FAIL` while Supabase Auth sign-up is open (AUTH-1 `WARN` or worse) — a self-registered principal can now read data |
-| **High** | A control is broken but exploitation is not confirmed, or exposure is bounded | A single posture-check `FAIL` (e.g., HDR-1 CSP regression) with no evidence of active exploitation |
-| **Medium** | A gap that increases risk but requires another failure to be exploitable | AUTH-1 `WARN` alone (sign-up open, but zero privileges — current accepted state per `SECURITY.md` §7.1) |
-| **Low** | Hygiene/process gap, no direct exposure | Missing SOC2 report on file for a processor (`docs/security/data-register.md` §4) |
+| Extensive / Widespread | Unscheduled interruption of a critical service, or a severe breach with data loss, financial loss or reputational damage | Confirmed unauthorised read of student records; database compromise |
+| Significant / Large | Disruption of teaching-related systems or compromise without student or staff records | XiYouQuest unavailable during a course's PSC practice period; an edge function compromised without data access |
+| Moderate / Limited | A system found vulnerable or suspected compromised, with no confirmed damage | A posture FAIL on DB-2, DB-3 or ANON-*; an exposed credential with no evidence of use |
+| Minor / Localised | Non-critical, localised, remote chance of harm | A single header regression; a failing CI scan on an unmerged branch |
 
-Escalate to Critical immediately if **any** database-privilege control (DB-2,
-DB-3, DB-5) fails *at the same time* Supabase Auth sign-up is open (AUTH-1 is
-`WARN` or `FAIL`) — that combination is exactly the 2026-09-24 pre-lockdown state
-documented in `docs/security/evidence/2026-09-24-prod-lockdown.md`, and it is
-known to be exploitable.
+Treat any privilege regression (DB-2, DB-3, ANON-*) that coincides with open
+Supabase Auth sign-up (AUTH-1 WARN) as at least Moderate: that combination was
+the exploitable state found on 2026-09-24.
 
-## 3. Containment steps, by control class
+## 3. Containment by class
 
-### 3.1 Database privilege / RLS regression (DB-1..DB-6 FAIL)
+### 3.1 Database privilege or RLS regression (DB-1 to DB-5, ANON-*)
 
-1. Re-run `node scripts/security/posture-check.mjs --json` to get the exact
-   violating tables/functions.
-2. If `anon` or `authenticated` regained table/function privileges: re-apply
-   `supabase/migrations/20260924090000_lockdown_client_roles.sql` (or the
-   equivalent `REVOKE`) directly via the Supabase SQL editor or Management API —
-   do not wait for a full migration deploy cycle during active containment.
-3. If a storage policy reappeared: re-apply
-   `supabase/migrations/20260924091000_storage_server_only_writes.sql`'s `DROP
-   POLICY` statements.
-4. If a plaintext OAuth token reappeared (DB-6): confirm
-   `encryptOAuthTokens: true` is actually deployed (`src/lib/auth.ts`), then
-   re-run the purge (`supabase/migrations/20260924103000_purge_stored_oauth_tokens.sql`
-   pattern) against current rows.
-5. Rotate the **Supabase service-role key** (Dashboard → Project Settings → API)
-   if there is any indication the exposure was actually used, not merely
-   present — a regressed GRANT with no matching traffic anomaly in Supabase logs
-   does not by itself require a key rotation, but err toward rotating if in
-   doubt.
-6. Update every Vercel environment (`SUPABASE_SERVICE_ROLE_KEY`) with the
-   rotated key and redeploy.
+1. Re-run `node scripts/security/posture-check.mjs --json` for the exact rows.
+2. Re-apply `supabase/migrations/20260924090000_lockdown_client_roles.sql`
+   (client roles) or `20260924091000_storage_server_only_writes.sql` (storage
+   policies) in the SQL editor. Do not wait for a deployment.
+3. If there is any sign the gap was used, rotate the service key (section 3.2).
 
-### 3.2 Auth / identity compromise
+### 3.2 Credential exposure (database keys, signing secrets, API keys)
 
-1. If `BETTER_AUTH_SECRET` may be exposed (leaked in a log, a Gitleaks hit, a
-   compromised CI runner): generate a new one (`openssl rand -base64 32`), set it
-   in Vercel, and redeploy. This invalidates **all** existing sessions and
-   encrypted OAuth tokens (`account.encryptOAuthTokens` is keyed on this secret)
-   — treat it as a full session reset, not a silent rotation.
-2. If the HKUST Entra app registration (`HKUST_XYQ_CLIENT_ID` /
-   `HKUST_XYQ_CLIENT_SECRET`) may be compromised: rotate the client secret in the
-   Entra app registration (coordinate with HKUST ITSO/IT, since this is an
-   institutional Entra app, not one this repository's maintainer solely owns),
-   then update the Vercel env vars.
-3. If Supabase Auth (the legacy, dormant system) shows sign-in activity from the
-   2 legacy accounts or any new self-registered account with any data access:
-   treat as Critical per §2, disable Supabase Auth sign-up and all providers
-   immediately (requires organization Owner/Admin — see `SECURITY.md` §7.1), and
-   escalate to a data-privacy incident per §5 if any personal data was read.
+1. Identify the credential's blast radius. The legacy HS256 JWT secret and the
+   service key grant full database access; iFLYTEK and OpenRouter keys grant
+   paid API use; `BETTER_AUTH_SECRET` signs sessions.
+2. Rotate or revoke at the provider. For Supabase, move to the new API keys and
+   revoke the legacy secret as in [owner-actions.md](owner-actions.md), OA-1.
+   For `BETTER_AUTH_SECRET`, generate a new value in Vercel and redeploy; every
+   session ends.
+3. Update Vercel environment variables and edge secrets
+   (`supabase secrets set --env-file ... --project-ref yfoifmqjhavxidomgids`),
+   then redeploy.
+4. A committed secret stays in git history: rotation is mandatory, history
+   rewriting is optional and never a substitute.
+5. Prefer the action that makes the exposure moot (rotation) over removing
+   traces (deleting logs or transcripts).
 
-### 3.3 Environment / secret exposure (Vercel, Gitleaks hit)
+### 3.3 Identity (Entra app, sign-in abuse)
 
-1. Identify the exposed secret's blast radius from `src/lib/env.ts`'s accessor
-   list (`IFLYTEK_*`, `OPENROUTER_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `NEXT_PUBLIC_SUPABASE_*` — the `NEXT_PUBLIC_*` values are not secrets by
-   design and do not need rotation).
-2. Rotate the specific credential at its provider (Supabase, iFlytek console,
-   OpenRouter dashboard) — never rotate broadly "just in case" beyond the
-   identified scope, since an unrelated rotation can itself cause an outage.
-3. Update the corresponding Vercel environment variable(s) and redeploy.
-4. If the exposure was a **committed** secret (Gitleaks hit), treat the value as
-   permanently compromised even after removal from the working tree (it remains
-   in git history) — rotation is mandatory, history-scrubbing is optional and
-   does not substitute for rotation.
+1. A spike of `auth.sign_in_denied` events with `reason = tenant_not_allowed`
+   or `id_token_verification_failed` indicates probing: record it; no action
+   is needed unless a success follows.
+2. If the Entra app registration may be compromised, ITSO owns it: report
+   immediately and ask ITSO to rotate the client secret or restrict assignment.
 
-### 3.4 Edge function / rate-limit abuse
+### 3.4 Edge function abuse or failure (EDGE-1, PLAT-3, rate-limit bursts)
 
-1. Confirm via `src/lib/rate-limit.test.ts`'s coverage list which edge functions
-   enforce `enforceRateLimit` and which bucket.
-2. If a specific bucket is being abused (cost exhaustion on iFlytek/OpenRouter):
-   tighten the relevant limit in `src/lib/rate-limit.ts` **and** its edge twin
-   `supabase/functions/_shared/rate-limit.ts` — they must stay identical
-   (enforced by `src/lib/rate-limit.test.ts`) or the Next.js and edge paths for
-   the same feature diverge.
-3. As an immediate stopgap while a code fix deploys, an edge function can be
-   disabled directly in the Supabase Dashboard (Edge Functions → the specific
-   function → disable), which stops that attack surface without a full
-   deployment.
-4. Re-enable only after the rate-limit fix is deployed and verified.
+1. Check `rate_limit.exceeded` events for the bucket and user.
+2. To stop a function at once: Supabase dashboard, Edge Functions, select the
+   function, disable it. Or deploy a lower limit in both
+   `src/lib/rate-limit.ts` and `supabase/functions/_shared/rate-limit.ts` (they
+   must stay identical).
+3. A PLAT-3 failure means a function was rolled back below the hardened
+   release; redeploy from the branch or tag and re-run the posture check.
 
-### 3.5 Header / TLS regression (HDR-\*, TLS-\* FAIL)
+### 3.5 Header, TLS or CSRF-guard regression (HDR-*, TLS-*, CSRF-1)
 
-1. Confirm the regression is in the app's own config (`next.config.ts`,
-   `src/proxy.ts`) rather than a Vercel platform incident — check Vercel's status
-   page first.
-2. If app-side: the change is almost certainly in the last deploy; roll back to
-   the previous Vercel deployment while a fix is prepared, rather than leaving a
-   degraded security header set live.
+Check Vercel's status page first. If the regression came with the last deploy,
+use Vercel's instant rollback to the previous deployment, then fix forward.
 
 ## 4. Reporting
 
-- **HKUST ITSO Service Desk:** `security@ust.hk`, +852 2358 6200. Report any
-  confirmed or suspected security incident affecting this application.
-- **University Data Privacy Officer:** required **in addition to** ITSO for any
-  incident involving actual or suspected unauthorized access to, or disclosure
-  of, personal data (any row in `docs/security/data-register.md` §2) —
-  contact through the HKUST Data Privacy Officer's designated channel per HKUST
-  policy (not independently re-verified as part of this repository; consult the
-  ITSO/university privacy office contact page directly rather than relying on a
-  contact address cached here).
-- **Repository maintainer:** notify in parallel so the containment steps in §3
-  can be executed against the actual deployment (`admin@meliedu.com` /
-  EricEremos).
-- **Contain first, report as soon as containment is underway** — do not delay
-  the `security@ust.hk` report to finish a full investigation; ITSO's own
-  guidance is to report promptly and contain in parallel.
+- **HKUST ITSO:** `security@ust.hk`, ITSO help line +852 2358 6200, or the
+  Service Desk. Report promptly; contain in parallel. Do not wait for the
+  investigation to finish.
+- **University Data Privacy Officer:** for any actual or suspected
+  unauthorised access to personal data (any store in
+  [data-register.md](data-register.md)), in addition to ITSO: `ispdpo@ust.hk`
+  and the Data Privacy Office's incident reporting page on `dataprivacy.ust.hk`.
+- **Repository owner and maintainer:** in parallel, so containment can run.
+- **Extensive / Widespread:** ITSO escalates to university management within
+  24 hours of confirmation. Preserve all logs and hand evidence to ITSO as
+  requested; do not alter affected systems beyond containment.
+
+A draft report for the credential issue tracked as OA-1 has been shared
+privately with the owner.
 
 ## 5. Evidence preservation
 
-- Before applying any containment step that changes state (revoking a grant,
-  rotating a key, disabling a function), capture a snapshot the way
-  `docs/security/evidence/2026-09-24-prod-lockdown.md` did: the exact
-  table/function ACLs, auth config, or header values *before* the change, via
-  read-only Management API / SQL queries. Write it to
-  `docs/security/evidence/<date>-<short-description>.md` following that file's
-  format (findings verified live, changes applied, verification after the
-  change, rollback snapshot).
-- Never read student row content as part of evidence capture — catalog metadata
-  and aggregate counts are sufficient (`docs/security/evidence/2026-09-24-prod-lockdown.md`
-  explicitly notes "No student rows were read"); preserve that constraint for
-  every future incident, both for privacy and to keep the evidence itself out of
-  PDPO scope.
-- Preserve the relevant Supabase/Vercel log window (export or screenshot) before
-  it rotates out of the platform's retention window, if the incident involves
-  suspected active exploitation.
+- Before changing state, snapshot the relevant catalog metadata (ACLs,
+  policies, settings) with read-only queries, as in
+  `evidence/2026-09-24-prod-lockdown.md`.
+- Export the provider log window at once: Supabase keeps logs for 1 day and
+  Vercel for 1 hour to 1 day on the current plans.
+- Export the relevant `security_events` rows (database owner).
+- Never read student row content to build evidence; metadata and counts are
+  enough, and keep the evidence itself out of personal-data scope.
+- Record everything in `evidence/<date>-<short-name>.md`.
 
-## 6. Post-incident diary entry
+## 6. Review and closure
 
-After containment and before closing the incident, append an entry to
-`docs/security/posture-diary.md` (or a new dated file under
-`docs/security/evidence/` for anything beyond a routine posture-check run)
-recording:
-
-- What regressed or was exploited, and since when (if determinable).
-- The containment action taken and when.
-- The `posture-check.mjs` run confirming the control is restored (PASS).
-- Any owner action now required as a result (add to `SECURITY.md` §7 if new).
-- Whether `security@ust.hk` / the Data Privacy Officer were notified, and when.
-
-## 7. Stop / escalation
-
-- **Stop condition:** the incident is closed when the relevant posture-check
-  control(s) show `PASS` in a fresh run, evidence is preserved per §5, and (for
-  any personal-data-involving incident) the required external reports in §4 have
-  been sent.
-- **Escalate to HKUST ITSO immediately, do not attempt to resolve alone,** if the
-  incident involves: suspected compromise of the Entra app registration itself
-  (not just this app's secrets), a legal/regulatory notification obligation under
-  the PDPO, or any uncertainty about whether personal data was actually accessed
-  by an unauthorized party — that judgment belongs to ITSO and the Data Privacy
-  Officer, not to this repository's maintainer alone.
+For Significant or Extensive incidents, write a review with ITSO: what
+happened, remedial actions, impact, and longer-term actions. Append a dated
+entry to [posture-diary.md](posture-diary.md) with the posture run that shows
+the control restored. An incident is closed when the posture rows PASS again,
+evidence is preserved, and the required reports (section 4) have been sent.

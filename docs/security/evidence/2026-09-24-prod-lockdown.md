@@ -96,3 +96,14 @@ disable "Allow new users to sign up", and disable Email, Google and Discord.
 | sample_question_bank(p_component integer, p_n integer) | `{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}` |
 | update_profile_with_streak(p_user_id uuid, p_today date, p_xp_to_add integer, p_daily_bonus_base integer) | `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` |
 | upsert_user_progress(p_user_id uuid, p_component integer, p_questions_attempted integer, p_questions_correct integer, p_best_streak integer, p_duration_seconds integer) | `{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}` |
+
+## Correction (2026-09-25)
+
+Finding C2 above overstated the exposure. The `anon` EXECUTE grant on
+`record_practice_progress` was a defence-in-depth gap, not a write path: the
+function itself refuses callers that are neither `service_role` nor the user
+named in `p_user_id` (`supabase/migrations/20260822150000_record_practice_progress_atomically.sql`,
+lines 42-47). The "POST /rpc/record_practice_progress -> 404 (not exposed)"
+check above was a signature miss (the probe sent one of twelve arguments), not
+evidence about the grant; the full-signature call returns 401 with SQLSTATE
+42501. See [2026-09-25-deep-pass.md](2026-09-25-deep-pass.md).

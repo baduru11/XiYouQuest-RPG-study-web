@@ -1,141 +1,111 @@
-# Security posture: operating procedure
+# Security posture: Goal, Loop, Diary, Verify
 
-This is the Goal → Loop → Diary → Verify procedure for XiYouQuest's security
-posture. It exists so the control matrix in [../../SECURITY.md](../../SECURITY.md)
-stays a statement of *checked* fact, not a statement of intent.
+This procedure keeps the controls in [../../SECURITY.md](../../SECURITY.md) and
+the [requirement register](itso-requirement-register.md) true in production,
+and records every check so an ITSO or audit request can be answered from
+evidence rather than memory.
 
-## Goal
+- **Goal:** every row of the posture check is PASS, except rows waiting on a
+  named owner action ([owner-actions.md](owner-actions.md)), which are WARN
+  until that action is done.
+- **Loop:** the read-only posture check below, run weekly in CI and daily by a
+  local scheduled session during the hardening period.
+- **Diary:** each run appends a dated entry: the CI job summary and artifact,
+  the local Loop diary, and, for runs worth keeping, this repository's
+  [posture-diary.md](posture-diary.md) (append-only; corrections are new
+  entries).
+- **Verify:** a FAIL is treated as an incident
+  ([incident-runbook.md](incident-runbook.md)); a WARN that clears is checked
+  off in owner-actions.md.
 
-Keep the controls in `SECURITY.md` §3–§6 true in the live Supabase project and
-the live Vercel deployment, continuously, not only at the moment they were first
-implemented. A control that regresses (a re-granted table privilege, a dropped
-security header, an expired TLS config) must be caught within one week and shown
-in `docs/security/posture-diary.md`.
+## The posture check (v2)
 
-## Loop: `scripts/security/posture-check.mjs`
+`scripts/security/posture-check.mjs` gathers evidence;
+`scripts/security/posture-lib.mjs` decides what it proves (unit tests with
+negative controls in `src/security/posture-lib.test.ts`);
+`scripts/security/posture-probes.mjs` holds the network probes. It never writes
+to the database, never reads a student row (catalog metadata, aggregate counts,
+headers, TLS handshakes and anonymous requests only) and never prints a secret.
 
-The posture check is a **read-only** probe. It never writes to the database, never
-reads a student row (only catalog metadata, aggregate counts, and HTTP response
-headers), and never prints a secret. Every check either fails closed (`FAIL`
-blocks a false PASS) or degrades to `SKIP` when its required input is absent — it
-never silently reports PASS for a check it could not actually run.
+A PASS requires positive evidence. v1 reported PASS for two probes that could
+not fail (a TLS 1.1 offer refused by Node's own OpenSSL, and an RPC call whose
+signature did not match); v2 returns SKIP or WARN when a probe proves nothing.
 
-### What it checks
-
-| ID | Control | Source |
+| ID | Control | Evidence required for PASS |
 |---|---|---|
-| DB-1 | RLS enabled on every `public` table | Supabase Management API `database/query` |
-| DB-2 | No `anon`/`authenticated` table privilege | same |
-| DB-3 | No `anon`/`authenticated` function EXECUTE | same |
-| DB-4 | `SECURITY DEFINER` functions pin `search_path` | same |
-| DB-5 | No client-role storage policies | same |
-| DB-6 | No plaintext OAuth tokens in `better_auth.account` | same |
-| AUTH-1 | Supabase Auth sign-up / social providers disabled | Management API `config/auth` |
-| ANON-1..3 | Anonymous PostgREST reads/RPC calls are refused | live PostgREST requests with the public anon key |
-| HDR-0..6 | App reachable; CSP nonce, framing, HSTS, MIME-sniff, referrer, permissions headers | live HTTP request to `${APP_URL}/login` |
-| TLS-1/2 | Legacy TLS (1.0/1.1) refused; modern TLS succeeds | raw TLS handshake against the app host |
+| DB-1 | RLS enabled on every public table | Catalog count 0 |
+| DB-2 | No anon/authenticated privilege on any table, view, partition, foreign table or column (public, better_auth) | Catalog count 0 |
+| DB-3 | No anon/authenticated EXECUTE on public functions | Catalog count 0 |
+| DB-4 | SECURITY DEFINER functions pin `search_path` | Catalog count 0 |
+| DB-5 | No client-role storage policies | Catalog count 0 |
+| DB-6 | No plaintext OAuth tokens stored | Catalog count 0 |
+| DB-7 | Security log append-only for the app | `service_role` holds no table privilege (WARN until OA-5) |
+| DB-8 | chat-images bucket limited to raster types | Bucket MIME allowlist set (WARN until OA-5) |
+| DB-9 | No non-image objects in public buckets | Catalog count 0 |
+| AUTH-1 | Supabase Auth sign-up closed | Auth config (WARN until OA-2) |
+| AUTH-2 | Legacy HS256 secret no longer accepted | Signing-key status (WARN until OA-1) |
+| PLAT-1 | Database SSL enforcement on | Platform setting (WARN until OA-4) |
+| PLAT-2 | Backups exist | Backups list or PITR (WARN until OA-3) |
+| PLAT-3 | No edge function below the hardened release | Versions >= `edge-manifest.json` |
+| ANON-1, ANON-2 | Anonymous table reads refused | HTTP 401/403, not an empty 200 |
+| ANON-3 | Anonymous RPC refused by privilege | Full 12-argument call answered 401/403 with SQLSTATE 42501 |
+| ANON-4 | Anonymous bucket listing empty | No objects returned |
+| EDGE-1 | Every edge function boots and refuses anonymous calls | HTTP 401 from all functions |
+| WEB-0, HDR-1 to HDR-6 | App reachable; CSP nonce, framing, HSTS, nosniff, referrer, permissions headers | Headers present on `/login` |
+| DEPLOY-1 | Hardened release live | `/.well-known/security.txt` served (WARN until OA-6) |
+| CSRF-1 | Cross-site API write refused | HTTP 403 before authentication |
+| TLS-1 | TLS 1.0/1.1 refused | The server's protocol-version alert to a real TLS 1.1 offer |
+| TLS-2 | Modern TLS with a valid certificate | Completed TLS 1.2+ handshake |
+| TLS-3 | 3DES refused | Server refusal (SKIP when the runtime cannot offer 3DES) |
+| DBTLS-1 | Database pooler certificate chain verifies against the pinned CA | Postgres SSLRequest, then a verified TLS handshake |
 
-### Running it locally
+### Running it
 
 ```bash
 node scripts/security/posture-check.mjs
 ```
 
-Env vars (all optional — a missing one turns its checks into `SKIP`, not a false
-`PASS`):
-
-| Var | Purpose | Default |
+| Variable | Purpose | Default |
 |---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | Management API token for the DB-\* and AUTH-1 checks | none (those checks `SKIP`) |
-| `SUPABASE_PROJECT_REF` | Supabase project ref | `yfoifmqjhavxidomgids` |
-| `SUPABASE_ANON_KEY` | Public anon key, for the ANON-\* refusal probes | none (those checks `SKIP`) |
-| `APP_URL` | App origin for the HDR-\* and TLS-\* checks | `https://cle-xyq.hkust.edu.hk` |
+| `SUPABASE_ACCESS_TOKEN` | Management API token for DB, AUTH and PLAT rows | none: those rows SKIP |
+| `SUPABASE_ANON_KEY` | Anon or publishable key for ANON rows | none: ANON rows SKIP |
+| `SUPABASE_PROJECT_REF` | Project | `yfoifmqjhavxidomgids` |
+| `APP_URL` | App origin | `https://cle-xyq.hkust.edu.hk` |
+| `POSTURE_DB_HOST` | Pooler host for DBTLS-1 | `aws-1-ap-south-1.pooler.supabase.com` |
 
-`SUPABASE_ACCESS_TOKEN` only needs read access to the target project's Management
-API (catalog queries and the auth config read); it does not need to be an
-organization-owide token. Scope it to the minimum the Management API allows.
+Flags: `--json`; `--diary <file>` appends the Markdown entry; `--strict` also
+fails on WARN (use it once every owner action is closed). Exit code 1 on any
+FAIL.
 
-Flags:
+The Management API token can execute SQL on production. Keep it out of
+repository secrets that any branch can use: CI reads it from the protected
+GitHub Environment `security-posture` (OA-7).
 
-- `--json` — machine-readable output instead of the Markdown table.
-- `--diary <file>` — append a dated Markdown entry to `<file>` (this is how
-  `docs/security/posture-diary.md` is written; see below).
+## Weekly CI Loop
 
-Exit code: **1** if any check reports `FAIL`, else **0**. A `WARN` or `SKIP` does
-not fail the run — `WARN` is a known, accepted residual (for example AUTH-1: sign-up
-is open but the signed-up principal holds zero privileges, per
-`SECURITY.md` §7.1); `SKIP` means the check could not run, which is itself worth
-noticing but is not treated as a regression.
+`.github/workflows/posture.yml` runs every Monday 01:17 UTC (09:17 HKT) and on
+demand, in the `security-posture` environment, fails on any FAIL, writes the
+entry to the job summary and keeps it as a 90-day artifact. Without the
+environment's secrets it still covers the anonymous, edge, web and TLS rows.
+CodeQL and Gitleaks run on every push and PR (`.github/workflows/security.yml`).
 
-### Diary
+## Local session Loop (hardening period)
 
-Every run that supplies `--diary docs/security/posture-diary.md` appends one
-dated section (stamp, target, PASS/FAIL/WARN/SKIP counts, and the full per-check
-table) to that file. The diary is **append-only** — never edit or delete a past
-entry; a correction is a new entry. This gives a chronological record of when a
-control regressed and when it was fixed, which is what an ITSO or auditor request
-for evidence actually needs.
-
-## Weekly CI schedule
-
-`.github/workflows/security.yml` runs CodeQL and Gitleaks on every push, PR, and
-weekly. The Loop itself is `.github/workflows/posture.yml`: every Monday 01:17 UTC
-(09:17 HKT) and on manual dispatch it runs `scripts/security/posture-check.mjs`
-read-only, fails the job on any FAIL (exit code 1), writes the diary entry to the
-job summary, and keeps it as a 90-day artifact (`posture-diary-<run id>`). CI does
-not push to the repository; entries worth keeping in the canonical
-`docs/security/posture-diary.md` are appended by the operator after review, which
-keeps the workflow at `contents: read`.
-
-Before this workflow can run with full coverage (not `SKIP` on DB-\* and AUTH-1),
-two repository secrets must be set (owner action, tracked in `SECURITY.md` §7.7):
-
-- `SUPABASE_ACCESS_TOKEN` — scoped as narrowly as the Supabase Management API
-  permits for this project.
-- `SUPABASE_ANON_KEY` — the public anon key (not a secret by design, but kept as
-  a CI secret so it is not hardcoded in the workflow file).
-
-Until those secrets exist, a scheduled run will still execute and still catch
-HDR-\*/TLS-\*/ANON-\* regressions (which need no Supabase Management API access),
-just not the DB-\*/AUTH-1 rows.
-
-## What a FAIL triggers
-
-A `FAIL` in the posture check means a previously-verified control has regressed
-in production — treat it as a security incident, not a housekeeping item:
-
-1. Read the failing row's `Detail` column and the diary entry.
-2. Open [docs/security/incident-runbook.md](docs/security/incident-runbook.md) and
-   follow the containment steps for the affected control class (DB-\* → database
-   role/RLS regression; AUTH-1 escalating from `WARN` to something worse →
-   Supabase Auth config; HDR-\*/TLS-\* → deployment/edge config).
-2. Do not wait for the next scheduled run to confirm a fix — re-run
-   `posture-check.mjs` locally (or via `workflow_dispatch`) immediately after
-   applying the fix, and append that run to the diary too, so the diary shows
-   both the regression and the resolution.
-3. File the incident per `docs/security/incident-runbook.md`'s reporting section
-   if the FAIL indicates actual (not merely potential) unauthorized access —
-   report to `security@ust.hk` and, for any personal-data exposure, the
-   University Data Privacy Officer.
-
-A `WARN` (currently only AUTH-1) does not trigger the incident runbook by itself;
-it is a tracked, accepted residual until the corresponding owner action in
-`SECURITY.md` §7 is completed. If a `WARN` control's context changes (for example,
-DB-2/DB-3 ever go from `PASS` back to `FAIL` while AUTH-1 is still `WARN`), the
-combination is now a real exposure and must be treated as a `FAIL`-level incident,
-not two independent warnings.
+A local scheduled task (`xyq-security-posture-loop`) runs daily at 09:17 HKT
+while the Claude desktop app is open, from 2026-09-25 to 2026-10-09. Its full,
+self-contained prompt is in [loop-prompt.md](loop-prompt.md). Each run is
+read-only apart from its diary file: it runs the posture check, compares it with
+the previous run, checks the hardening PR and the production deployment, and
+records evidence, the change since the last run, remaining uncertainty and one
+next action. It stops when the check passes in strict mode or the expiry date
+passes.
 
 ## Cadence and stop rules
 
-- **Cadence:** weekly, via the CI schedule above, plus an ad hoc run after any
-  change to RLS policies, table/function GRANTs, storage policies, the Supabase
-  Auth config, `src/proxy.ts`, `next.config.ts`, or `src/lib/auth.ts`.
-- **Stop rule for the Loop itself:** the posture check is unconditionally
-  read-only and bounded (each HTTP/TLS probe has a fixed timeout); it does not
-  need a run-count or expiry stop condition the way an open-ended agentic loop
-  would. The thing that *does* need a stop condition is incident response
-  triggered by a FAIL — see the runbook's own stop/escalation criteria.
-- **Do not loop on a WARN.** Re-running the posture check repeatedly to "clear" a
-  known, owner-action-pending WARN produces no new evidence; the diary already
-  shows it. Only re-run after an actual change (a fix landed, a schedule tick, or
-  a suspected regression).
+- Weekly in CI, daily locally until 2026-10-09, and after any change to grants,
+  RLS, storage policies, Auth settings, `src/proxy.ts`, `next.config.ts`,
+  `src/lib/auth.ts`, `src/lib/db-tls.ts` or the edge functions.
+- Do not re-run to "clear" a known WARN; the diary already shows it. Re-run
+  after a change.
+- Incident response triggered by a FAIL has its own stop criteria in the
+  runbook.
