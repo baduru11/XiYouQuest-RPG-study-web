@@ -43,7 +43,7 @@ Roles used below:
 HS256 secret is still in "previously used" state, so tokens it signs keep
 verifying, and anyone holding it could mint a `service_role` token with full
 database access. Retiring it removes a standing high-value credential. The
-background is recorded privately and has been shared with the owner.
+background is recorded privately; the maintainer gives it to the owner directly.
 
 The app's legacy `anon` and `service_role` API keys are themselves HS256 JWTs,
 so revoking the secret without switching keys first would break every database
@@ -79,8 +79,8 @@ call. The code on the hardening branch accepts the new keys when they are set
 6. Replace the CI secret `SUPABASE_ANON_KEY` with the publishable key (OA-7).
 7. Run the posture check. AUTH-2 must report PASS.
 
-**Report.** A draft incident report for ITSO has been shared privately with the
-owner. Sending it is the responsible unit's decision.
+**Report.** A draft incident report for ITSO is held privately by the
+maintainer for the owner. Sending it is the responsible unit's decision.
 
 ## OA-2: Close Supabase Auth sign-up and providers
 

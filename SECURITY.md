@@ -84,7 +84,7 @@ This file is the summary. The evidence lives in `docs/security/`:
 The most important open items, all in [owner-actions.md](docs/security/owner-actions.md):
 
 1. **OA-1.** The legacy database JWT signing secret is still accepted and must be
-   retired (details shared privately with the owner).
+   retired (details held privately for the owner).
 2. **OA-3.** No database backups exist (Supabase Free plan).
 3. **OA-8.** The PIA, cloud provider checklists and CITARS registration have not
    been submitted to ITSO, although the application is in use.

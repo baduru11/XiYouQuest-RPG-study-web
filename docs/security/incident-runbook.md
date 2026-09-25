@@ -99,8 +99,8 @@ use Vercel's instant rollback to the previous deployment, then fix forward.
   24 hours of confirmation. Preserve all logs and hand evidence to ITSO as
   requested; do not alter affected systems beyond containment.
 
-A draft report for the credential issue tracked as OA-1 has been shared
-privately with the owner.
+A draft report for the credential issue tracked as OA-1 is held privately
+by the maintainer for the owner.
 
 ## 5. Evidence preservation
 
