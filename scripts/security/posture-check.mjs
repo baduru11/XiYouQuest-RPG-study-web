@@ -211,7 +211,13 @@ async function checkAnonymous() {
     try {
       const res = await fetchRetry(`${rest}${pathname}`, {
         method,
-        headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, "Content-Type": "application/json" },
+        // New-format keys (sb_publishable_...) go in apikey only; legacy anon
+        // keys are JWTs and are also sent as the bearer token.
+        headers: {
+          apikey: ANON,
+          ...(ANON.startsWith("sb_") ? {} : { Authorization: `Bearer ${ANON}` }),
+          "Content-Type": "application/json",
+        },
         body: body ? JSON.stringify(body) : undefined,
       });
       record(id, control, classify({ status: res.status, body: await jsonBody(res) }));
