@@ -1,24 +1,46 @@
 version: 2
 
+# One grouped pull request per ecosystem per month, and only for updates that
+# can merge without planned work. Security fixes still arrive as their own
+# pull requests (Dependabot security updates) and through `npm audit` in CI.
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 3
     groups:
       npm-minor-and-patch:
         update-types:
           - "minor"
           - "patch"
-    open-pull-requests-limit: 10
+        exclude-patterns:
+          - "better-auth"
+    ignore:
+      # Major versions are planned upgrades, not monthly pull requests: several
+      # need framework-wide changes first (Vite 8, ESLint 10 plugin support).
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # The sign-in library: patch releases only. 1.7 removed the
+      # genericOAuthClient export the HKUST sign-in uses.
+      - dependency-name: "better-auth"
+        update-types: ["version-update:semver-minor"]
+      # Pinned to exact versions in the edge functions' npm: imports and
+      # enforced by src/lib/rate-limit.test.ts: upgrade by hand with the pins,
+      # then redeploy the edge functions.
+      - dependency-name: "zod"
+      - dependency-name: "jose"
+      - dependency-name: "@supabase/supabase-js"
+      # Needs Vite 8, which the test runner does not support yet.
+      - dependency-name: "@vitejs/plugin-react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    open-pull-requests-limit: 2
     groups:
-      github-actions-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-    open-pull-requests-limit: 10
+      github-actions:
+        patterns:
+          - "*"
