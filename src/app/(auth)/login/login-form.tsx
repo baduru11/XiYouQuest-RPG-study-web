@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 
@@ -86,6 +87,14 @@ export function LoginForm() {
 
       <p className="text-center text-xs text-muted-foreground">
         Use your @ust.hk or @connect.ust.hk account.
+        <br />
+        {/* Reachable before sign-in, at the point of collection (PDPO DPP1(3)). */}
+        <Link
+          href="/privacy"
+          className="underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          Privacy notice
+        </Link>
       </p>
     </div>
   );

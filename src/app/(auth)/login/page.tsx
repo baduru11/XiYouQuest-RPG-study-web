@@ -1,6 +1,5 @@
 import { LoginForm } from "./login-form";
 import Image from "next/image";
-import Link from "next/link";
 
 // Rendered per request so the proxy's CSP nonce reaches the page's inline
 // scripts; a statically cached copy would carry stale, mismatched nonces and
@@ -23,17 +22,8 @@ export default function LoginPage() {
           sizes="(max-width: 480px) calc(100vw - 2rem), 448px"
           className="w-full h-auto drop-shadow-lg"
         />
+        {/* The privacy notice link sits inside the card (LoginForm). */}
         <LoginForm />
-        {/* Solid backing: the page background is a photograph, so text
-            directly on it cannot guarantee WCAG AA contrast. */}
-        <p className="mt-4 text-center text-sm">
-          <Link
-            href="/privacy"
-            className="inline-block bg-card/95 px-2 py-1 text-foreground underline underline-offset-2 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            Privacy notice
-          </Link>
-        </p>
       </div>
     </main>
   );
