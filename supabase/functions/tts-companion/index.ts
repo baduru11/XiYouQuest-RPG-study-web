@@ -1,5 +1,6 @@
 import { z } from "npm:zod@3.25.76";
 import {
+  corsHeaders,
   corsResponse,
   errorResponse,
 } from "../_shared/cors.ts";
@@ -36,7 +37,7 @@ Deno.serve(async (req: Request) => {
       headers: {
         "Content-Type": "audio/wav",
         "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
+        ...corsHeaders,
       },
     });
   } catch (error) {
@@ -47,7 +48,7 @@ Deno.serve(async (req: Request) => {
         status: 503,
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
+          ...corsHeaders,
         },
       },
     );

@@ -1,5 +1,5 @@
 import { z } from "npm:zod@3.25.76";
-import { corsResponse, errorResponse } from "../_shared/cors.ts";
+import { corsHeaders, corsResponse, errorResponse } from "../_shared/cors.ts";
 import { verifyUser } from "../_shared/verify-jwt.ts";
 import { enforceRateLimit } from "../_shared/rate-limit.ts";
 import { synthesizeAcademic } from "../_shared/iflytek-tts.ts";
@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
       headers: {
         "Content-Type": "audio/wav",
         "Cache-Control": "private, max-age=3600",
-        "Access-Control-Allow-Origin": "*",
+        ...corsHeaders,
       },
     });
   } catch (error) {

@@ -3,17 +3,23 @@
 // but it let any site that obtained a token read the results, and ITSO's
 // scanner reports it. The app origin is the origin of BETTER_AUTH_JWKS_URL,
 // the same value verify-jwt.ts pins as the token issuer. A missing or invalid
-// URL yields "null", which no browser origin matches; never a wildcard.
-function appOrigin(): string {
+// URL sends no Allow-Origin at all, so no browser page can read responses. Not
+// "null": sandboxed iframes and file:// pages send `Origin: null` and would
+// match it. Never a wildcard.
+function appOrigin(): string | null {
   try {
-    return new URL(Deno.env.get("BETTER_AUTH_JWKS_URL") ?? "").origin;
+    const origin = new URL(Deno.env.get("BETTER_AUTH_JWKS_URL") ?? "").origin;
+    // Non-web schemes such as file: have the opaque origin "null".
+    return origin === "null" ? null : origin;
   } catch {
-    return "null";
+    return null;
   }
 }
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": appOrigin(),
+const allowedOrigin = appOrigin();
+
+export const corsHeaders: Record<string, string> = {
+  ...(allowedOrigin ? { "Access-Control-Allow-Origin": allowedOrigin } : {}),
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",

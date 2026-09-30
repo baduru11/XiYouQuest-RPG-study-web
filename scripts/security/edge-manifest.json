@@ -1,16 +1,16 @@
 {
-  "$comment": "Minimum deployed version per edge function. A lower version means a rollback to code without the hardened controls. Raised on 2026-09-26 to the release that reads the platform-injected new API keys (the legacy keys are disabled, so an older version would fail); raise again after every edge deploy. Raised on 2026-09-28 to the release that pins CORS to the app origin.",
+  "$comment": "Minimum deployed version per edge function. A lower version means a rollback to code without the hardened controls. Raised on 2026-09-26 to the release that reads the platform-injected new API keys (the legacy keys are disabled, so an older version would fail); raise again after every edge deploy. Raised on 2026-09-28 to the release that pins CORS to the app origin. Raised on 2026-09-30 to the release that removes the TTS wildcard and the null fallback.",
   "minimumVersions": {
-    "ai-feedback": 19,
-    "ai-insights": 21,
-    "ai-mock-exam-feedback": 21,
-    "chat-generate-image": 19,
-    "chat-respond": 21,
-    "chat-start": 19,
-    "learning-generate-plan": 19,
-    "speech-assess": 20,
-    "speech-c5-assess": 23,
-    "tts-companion": 20,
-    "tts-speak": 21
+    "ai-feedback": 20,
+    "ai-insights": 22,
+    "ai-mock-exam-feedback": 22,
+    "chat-generate-image": 20,
+    "chat-respond": 22,
+    "chat-start": 20,
+    "learning-generate-plan": 20,
+    "speech-assess": 21,
+    "speech-c5-assess": 24,
+    "tts-companion": 21,
+    "tts-speak": 22
   }
 }
