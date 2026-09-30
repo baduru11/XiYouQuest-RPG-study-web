@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { logSecurityEvent, requestContext } from "@/lib/security-events";
+import { ImageReencodeError, reencodeAvatar } from "@/lib/image-reencode";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
-// Extension derived from the validated MIME type, never from the filename.
+// Accepted upload types. Stored avatars are always re-encoded to WebP; the
+// other extensions are kept so avatars saved before re-encoding get cleaned up.
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -82,12 +84,28 @@ export async function POST(request: Request) {
     );
   }
 
+  // Decode and re-encode so only freshly generated pixels are stored: this
+  // drops metadata (EXIF/ICC/comments) and any payload appended after the
+  // image, and rejects anything that does not decode as a real image.
+  let reencoded: Awaited<ReturnType<typeof reencodeAvatar>>;
+  try {
+    reencoded = await reencodeAvatar(bytes);
+  } catch (error) {
+    if (!(error instanceof ImageReencodeError)) throw error;
+    console.warn("Avatar rejected by re-encode:", error.message);
+    return NextResponse.json(
+      { error: "Image could not be processed. Please upload a valid image." },
+      { status: 400 },
+    );
+  }
+
   const supabase = await createClient();
-  const path = `${user.id}/avatar.${ext}`;
+  const storedExt = reencoded.extension;
+  const path = `${user.id}/avatar.${storedExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from("avatars")
-    .upload(path, bytes, { upsert: true, contentType: file.type });
+    .upload(path, reencoded.bytes, { upsert: true, contentType: reencoded.contentType });
 
   if (uploadError) {
     console.error("Avatar upload error:", uploadError);
@@ -123,7 +141,7 @@ export async function POST(request: Request) {
   // one per user. Doing this earlier could delete the still-referenced old
   // avatar when the upload fails. Cleanup failure is non-fatal, so just log.
   const staleAvatarPaths = Object.values(EXTENSION_BY_TYPE)
-    .filter((other) => other !== ext)
+    .filter((other) => other !== storedExt)
     .map((other) => `${user.id}/avatar.${other}`);
   const { error: cleanupError } = await supabase.storage
     .from("avatars")
@@ -136,7 +154,12 @@ export async function POST(request: Request) {
     type: "profile.avatar_upload",
     userId: user.id,
     ...requestContext(request.headers),
-    detail: { contentType: file.type, bytes: bytes.byteLength },
+    detail: {
+      contentType: file.type,
+      bytes: bytes.byteLength,
+      storedContentType: reencoded.contentType,
+      storedBytes: reencoded.bytes.byteLength,
+    },
   });
 
   return NextResponse.json({ avatarUrl });
