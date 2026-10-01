@@ -27,10 +27,10 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "recharts": "^2.15.4",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
-    "ws": "^8.19.0",
+    "ws": "^8.22.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
