@@ -23,6 +23,7 @@ import { Pool } from "pg";
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
 import { buildAuthPoolConnection } from "@/lib/db-tls";
+import { isScanSignInEnabled } from "@/lib/scan-sign-in";
 import { logSecurityEvent } from "@/lib/security-events";
 import { withoutProviderTokens } from "@/lib/oauth-token-hygiene";
 import { COOKIE_ATTRIBUTES, SESSION_POLICY } from "@/lib/session-policy";
@@ -295,7 +296,10 @@ export const auth = betterAuth({
   baseURL,
   trustedOrigins: [baseURL],
 
-  emailAndPassword: { enabled: false },
+  // Off everywhere except the ITSO scan sandbox; see src/lib/scan-sign-in.ts.
+  // Sign-up stays disabled even there, so only the pre-created scan account
+  // can use it.
+  emailAndPassword: { enabled: isScanSignInEnabled(), disableSignUp: true },
 
   // 8-hour inactivity timeout; see src/lib/session-policy.ts.
   session: SESSION_POLICY,

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Loader2, AlertCircle } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -11,9 +13,17 @@ import { authClient } from "@/lib/auth-client";
 // redirect URI registered on the Entra app (see docs/oidc-redirect-uris.md).
 const HKUST_PROVIDER_ID = "hkust";
 
-export function LoginForm() {
+interface LoginFormProps {
+  /** ITSO scan sandbox only: show the password form for the scan account. */
+  readonly scanSignIn?: boolean;
+}
+
+export function LoginForm({ scanSignIn = false }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const router = useRouter();
 
   async function handleHkustSignIn() {
     setLoading(true);
@@ -30,6 +40,28 @@ export function LoginForm() {
       // On success the browser is navigating to Microsoft — keep the spinner.
     } catch {
       setError("Couldn't reach the HKUST sign-in service. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordSignIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: signInError } = await authClient.signIn.email({
+        email,
+        password,
+        callbackURL: "/dashboard",
+      });
+      if (signInError) {
+        setError("Invalid email or password.");
+        setLoading(false);
+        return;
+      }
+      router.push("/dashboard");
+    } catch {
+      setError("Couldn't reach the sign-in service. Please try again.");
       setLoading(false);
     }
   }
@@ -84,6 +116,38 @@ export function LoginForm() {
           "Sign in with HKUST"
         )}
       </Button>
+
+      {scanSignIn ? (
+        // ITSO scan sandbox only (see src/lib/scan-sign-in.ts).
+        <form onSubmit={handlePasswordSignIn} className="space-y-3">
+          <p className="text-center text-xs text-muted-foreground">
+            Security scan account
+          </p>
+          <Input
+            name="email"
+            type="email"
+            autoComplete="username"
+            aria-label="Email"
+            placeholder="Email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            aria-label="Password"
+            placeholder="Password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Button type="submit" variant="outline" className="w-full" disabled={loading}>
+            Sign in with password
+          </Button>
+        </form>
+      ) : null}
 
       <p className="text-center text-xs text-muted-foreground">
         Use your @ust.hk or @connect.ust.hk account.

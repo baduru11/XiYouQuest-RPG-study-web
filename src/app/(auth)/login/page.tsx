@@ -1,5 +1,6 @@
 import { LoginForm } from "./login-form";
 import Image from "next/image";
+import { isScanSignInEnabled } from "@/lib/scan-sign-in";
 
 // Rendered per request so the proxy's CSP nonce reaches the page's inline
 // scripts; a statically cached copy would carry stale, mismatched nonces and
@@ -23,7 +24,7 @@ export default function LoginPage() {
           className="w-full h-auto drop-shadow-lg"
         />
         {/* The privacy notice link sits inside the card (LoginForm). */}
-        <LoginForm />
+        <LoginForm scanSignIn={isScanSignInEnabled()} />
       </div>
     </main>
   );
