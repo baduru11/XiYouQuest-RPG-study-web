@@ -119,7 +119,14 @@ export function LoginForm({ scanSignIn = false }: LoginFormProps) {
 
       {scanSignIn ? (
         // ITSO scan sandbox only (see src/lib/scan-sign-in.ts).
-        <form onSubmit={handlePasswordSignIn} className="space-y-3">
+        // method/action let a scanner that submits the HTML form without
+        // JavaScript sign in too; with JavaScript, the handler takes over.
+        <form
+          onSubmit={handlePasswordSignIn}
+          method="post"
+          action="/api/auth/sign-in/email"
+          className="space-y-3"
+        >
           <p className="text-center text-xs text-muted-foreground">
             Security scan account
           </p>

@@ -29,5 +29,9 @@ describe("LoginForm scan sign-in", () => {
     expect(screen.getByLabelText("Email")).toBeTruthy();
     expect(screen.getByLabelText("Password")).toBeTruthy();
     expect(screen.getByRole("button", { name: /sign in with password/i })).toBeTruthy();
+    // Without JavaScript the form still posts to the sign-in endpoint.
+    const form = screen.getByLabelText("Password").closest("form");
+    expect(form?.getAttribute("method")).toBe("post");
+    expect(form?.getAttribute("action")).toBe("/api/auth/sign-in/email");
   });
 });
