@@ -20,6 +20,16 @@ export const SESSION_POLICY = {
  * carry the state cookie. `secure` is left to Better Auth, which sets it (and
  * the __Secure- prefix) whenever the base URL is https.
  */
+/**
+ * ITSO scan sandbox only (SCAN_PASSWORD_SIGN_IN=1, see scan-sign-in.ts): an
+ * automated scan runs for days, so the scan account's session lasts 3 days
+ * without use. Production never selects this policy.
+ */
+export const SCAN_SANDBOX_SESSION_POLICY = {
+  expiresIn: 60 * 60 * 24 * 3,
+  updateAge: 60 * 30,
+} as const;
+
 export const COOKIE_ATTRIBUTES = {
   httpOnly: true,
   sameSite: "lax",

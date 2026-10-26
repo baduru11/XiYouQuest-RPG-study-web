@@ -35,6 +35,7 @@ describe("scan sign-in switch (server)", () => {
   it("production (flag unset): password sign-in is not available", async () => {
     const auth = await loadAuth(undefined);
     expect(auth.options.emailAndPassword?.enabled).toBe(false);
+    expect(auth.options.session?.expiresIn).toBe(8 * 60 * 60);
     const res = await auth.handler(post("/sign-in/email", CREDS));
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("EMAIL_PASSWORD_DISABLED");
@@ -43,6 +44,7 @@ describe("scan sign-in switch (server)", () => {
   it("scan sandbox: sign-up is refused", async () => {
     const auth = await loadAuth("1");
     expect(auth.options.emailAndPassword?.enabled).toBe(true);
+    expect(auth.options.session?.expiresIn).toBe(3 * 24 * 60 * 60);
     const res = await auth.handler(post("/sign-up/email", { name: "X", ...CREDS }));
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("EMAIL_PASSWORD_SIGN_UP_DISABLED");

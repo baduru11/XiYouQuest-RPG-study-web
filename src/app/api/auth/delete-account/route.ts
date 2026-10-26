@@ -3,12 +3,21 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { deleteAuthUser } from "@/lib/auth";
 import { logSecurityEvent, requestContext } from "@/lib/security-events";
 import { listAllEntries, removePaths } from "@/lib/storage-list";
+import { isProtectedScanAccount } from "@/lib/scan-sign-in";
 
 export async function DELETE(request: Request) {
   const user = await getSessionUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // ITSO scan sandbox: the scan account cannot delete itself mid-scan.
+  if (isProtectedScanAccount(user.email)) {
+    return NextResponse.json(
+      { error: "This account is reserved for the security scan and cannot be deleted." },
+      { status: 403 },
+    );
   }
 
   const userId = user.id;

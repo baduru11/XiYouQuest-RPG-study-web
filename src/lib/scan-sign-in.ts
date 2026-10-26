@@ -15,3 +15,22 @@ export function isScanSignInEnabled(
 ): boolean {
   return env.SCAN_PASSWORD_SIGN_IN === "1";
 }
+
+/** The one account password sign-in exists for on the scan sandbox. */
+export const SCAN_ACCOUNT_EMAIL = "xyq-itso-scan@ust.hk";
+
+/**
+ * True for the scan account on the scan sandbox. Its self-service deletion is
+ * refused there: the scanner exercises every endpoint, including account
+ * deletion, and deleting the account ends the scan. Everywhere else, and for
+ * every other account, deletion works as normal.
+ */
+export function isProtectedScanAccount(
+  email: string | null | undefined,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  return (
+    isScanSignInEnabled(env) &&
+    (email ?? "").trim().toLowerCase() === SCAN_ACCOUNT_EMAIL
+  );
+}

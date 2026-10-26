@@ -1,12 +1,21 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { COOKIE_ATTRIBUTES, SESSION_POLICY } from "@/lib/session-policy";
+import {
+  COOKIE_ATTRIBUTES,
+  SCAN_SANDBOX_SESSION_POLICY,
+  SESSION_POLICY,
+} from "@/lib/session-policy";
 
 describe("session policy", () => {
   it("expires an idle session within a working day", () => {
     expect(SESSION_POLICY.expiresIn).toBeLessThanOrEqual(8 * 60 * 60);
     expect(SESSION_POLICY.updateAge).toBeLessThan(SESSION_POLICY.expiresIn);
+  });
+
+  it("gives only the scan sandbox a 3-day session", () => {
+    expect(SCAN_SANDBOX_SESSION_POLICY.expiresIn).toBe(3 * 24 * 60 * 60);
+    expect(SCAN_SANDBOX_SESSION_POLICY.updateAge).toBe(SESSION_POLICY.updateAge);
   });
 
   it("keeps cookies HttpOnly and SameSite=Lax", () => {
@@ -15,7 +24,9 @@ describe("session policy", () => {
 
   it("is wired into the Better Auth config", () => {
     const source = readFileSync("src/lib/auth.ts", "utf8");
-    expect(source).toMatch(/\bsession: SESSION_POLICY\b/);
+    expect(source).toMatch(
+      /\bsession: isScanSignInEnabled\(\) \? SCAN_SANDBOX_SESSION_POLICY : SESSION_POLICY\b/,
+    );
     expect(source).toMatch(/defaultCookieAttributes: COOKIE_ATTRIBUTES/);
   });
 });

@@ -26,7 +26,11 @@ import { buildAuthPoolConnection } from "@/lib/db-tls";
 import { isScanSignInEnabled } from "@/lib/scan-sign-in";
 import { logSecurityEvent } from "@/lib/security-events";
 import { withoutProviderTokens } from "@/lib/oauth-token-hygiene";
-import { COOKIE_ATTRIBUTES, SESSION_POLICY } from "@/lib/session-policy";
+import {
+  COOKIE_ATTRIBUTES,
+  SCAN_SANDBOX_SESSION_POLICY,
+  SESSION_POLICY,
+} from "@/lib/session-policy";
 import { SUPABASE_SERVICE_ROLE_KEY } from "@/lib/env";
 
 // The localhost fallback is a convenience for local dev ONLY. In production a
@@ -302,7 +306,8 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: isScanSignInEnabled(), disableSignUp: true },
 
   // 8-hour inactivity timeout; see src/lib/session-policy.ts.
-  session: SESSION_POLICY,
+  // The ITSO scan sandbox keeps sessions for 3 days; see SCAN_SANDBOX_SESSION_POLICY.
+  session: isScanSignInEnabled() ? SCAN_SANDBOX_SESSION_POLICY : SESSION_POLICY,
 
   advanced: {
     defaultCookieAttributes: COOKIE_ATTRIBUTES,
