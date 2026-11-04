@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          // Sign-in is a full-page redirect, never a popup, so nothing needs an opener.
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           // Content-Security-Policy is set per-request in src/proxy.ts so
           // scripts can use a nonce + 'strict-dynamic' instead of
           // unsafe-inline/unsafe-eval. Microphone is intentionally NOT in the

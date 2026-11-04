@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const parsed = checkpointBodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid input", details: parsed.error.flatten().fieldErrors },
+        { error: "Invalid input" },
         { status: 400 }
       );
     }

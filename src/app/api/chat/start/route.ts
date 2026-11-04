@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = chatStartSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
     const { characterId, scenarioId } = parsed.data;
 

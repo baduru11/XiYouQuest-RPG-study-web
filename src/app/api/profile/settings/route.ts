@@ -26,7 +26,7 @@ export async function PATCH(request: Request) {
   const parsed = profileSettingsSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid settings", details: parsed.error.flatten() },
+      { error: "Invalid settings" },
       { status: 400 },
     );
   }
